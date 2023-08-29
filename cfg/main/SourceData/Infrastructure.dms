@@ -1,0 +1,157 @@
+container Infrastructure : using = "geometries;units"
+{  
+	#include<TomTom.dms>
+	container Railroads
+	{
+		unit<uint32> Read_Railroads_gpkg 
+		:	StorageName     = "%NetworkModelDataDir%/Infrastructure/FullEurope_Railroads.gpkg"
+		,	StorageType     = "gdal.vect"
+		,	StorageReadOnly = "True"
+		,	SyncMode        = "AllTables"
+		,	DialogType      = "Map"
+		,	DialogData      = "LambertEA"	
+		{
+			attribute<BaseProjection>              geometry    (arc);
+		}
+		
+		unit<uint32> Make_Railroads_fss := Read_Railroads_gpkg
+		,   StorageName = "%LocalDataDir%/NetworkModel_EU/Infrastructure/RailRoads.fss"
+		{
+			attribute<BaseProjection>              geometry (arc) := Read_Railroads_gpkg/geometry;
+			attribute<km_hr>                       maxspeed       := const(ModelParameters/Advanced/CarDefaultSpeed, Read_Railroads_gpkg);
+		}
+		
+		unit<uint32> Read_Railroads_fss 
+		:   StorageName = "%LocalDataDir%/NetworkModel_EU/Infrastructure/RailRoads.fss"
+		,	StorageReadOnly = "True"
+		{
+			attribute<BaseProjection>              geometry (arc);
+			attribute<km_hr>                       maxspeed;
+		}
+	}
+
+	container OSM
+	{	
+		parameter<string> file_date := '20211004';
+		parameter<string> dir       := '%NetworkModelDataDir%/Infrastructure/OSM/'+file_date;
+		parameter<string> date      := 'latest';
+		unit<uint32>      Regios    := ModelParameters/Advanced/OSM_Regios;
+	
+		container Per_CountryRegion :=
+			for_each_ne(
+				Regios/name
+				, 'Per_CountryRegion_T('+quote(Regios/label)+','+quote(Regios/country)+')'
+			)
+		{
+			//parameter<string> Generate_Roads   := 'Ready', ExplicitSuppliers = "=AsList(Regios/name+'/Make_Roads_fss', ';')";  
+		}
+		
+		Template Per_CountryRegion_T
+		{
+			parameter<string> Regio;
+			parameter<string> Country;
+			///
+
+			unit<uint32> Read_Roads_shp 
+			:	StorageName     = "= dir + '/'+Regio+'-'+date+'-free.shp/gis_osm_roads_free_1.shp'"
+			,	StorageType     = "gdal.vect"
+			,	StorageReadOnly = "True"
+			,	DialogType = "Map"
+			,	DialogData = "geometry_bp"	
+			{
+				attribute<wgs84_base>        geometry    (arc);
+				attribute<BaseProjection>    geometry_bp (arc)   := arcs_geodms_ordered;
+
+				attribute<string>            fclass;
+				attribute<int32>             maxspeed;
+				
+				attribute<BaseProjection> reproject           (arc) := convert(points2sequence(dms_order_to_epsg_order/point_xy, dms_order_to_epsg_order/Sequence_rel), BaseProjection);
+				attribute<BaseProjection> arcs_geodms_ordered (arc) := points2sequence(epsg_order_to_dms_order/point_yx, epsg_order_to_dms_order/Sequence_rel);
+			}
+			
+			unit<uint32> dms_order_to_epsg_order := sequence2points(Read_Roads_shp/geometry)
+			{
+				attribute<wgs84_base> point_xy := point(PointRow(point), PointCol(point))[wgs84_base];
+			}
+
+			unit<uint32> epsg_order_to_dms_order := sequence2points(Read_Roads_shp/reproject)
+			{
+				attribute<BaseProjection> point_yx := point(PointRow(point), PointCol(point))[BaseProjection];
+			}		
+			
+			unit<uint32> Make_Roads_fss := Read_Roads_shp
+			,   StorageName = "='%LocalDataDir%/NetworkModel_EU/RegionFiles/'+Regio+'/Roads_'+file_date+'.fss'"
+			{
+				attribute<BaseProjection>              geometry (arc) := Read_Roads_shp/geometry_bp;
+				attribute<string>                      fclass         := Read_Roads_shp/fclass;
+				attribute<km_hr>                       maxspeed       := Read_Roads_shp/maxspeed[km_hr];
+			}
+			
+			unit<uint32> Read_Roads_fss 
+			:   StorageName = "='%LocalDataDir%/NetworkModel_EU/RegionFiles/'+Regio+'/Roads_'+file_date+'.fss'"
+			,	StorageReadOnly = "True"
+			{
+				attribute<BaseProjection>              geometry (arc);
+				attribute<string>                      fclass;
+				attribute<km_hr>                       maxspeed;
+				attribute<classifications/OSM/wegtype> wegtype                   := rlookup(fclass, classifications/OSM/wegtype/name);  
+				
+				attribute<km_hr>                       maxspeed_edit00                                                := maxspeed != 0[km_hr] && IsDefined(maxspeed) && maxspeed < 140[km_hr]  ? maxspeed : rjoin(wegtype, id(classifications/OSM/wegtype), rth_maxspeed_per_wegtype_Defined);
+				attribute<km_hr>                       maxspeed_edit0                                                 := wegtype == classifications/OSM/wegtype/v/motorway && maxspeed_edit00 < 80[km_hr] ? rjoin(wegtype, id(classifications/OSM/wegtype), rth_maxspeed_per_wegtype_Defined) : maxspeed_edit00;
+				attribute<km_hr>                       maxspeed_edit                                                  := switch(case(maxspeed_edit0 == 0[km_hr], ModelParameters/Advanced/CarDefaultSpeed), case(maxspeed_edit0 < 15[km_hr], 15[km_hr]), maxspeed_edit0);
+				attribute<km_hr>                       rth_maxspeed_per_wegtype (classifications/OSM/wegtype)         := rth_element(maxspeed, 0.9f, wegtype);
+				attribute<km_hr>                       rth_maxspeed_per_wegtype_Defined (classifications/OSM/wegtype) := MakeDefined(rth_maxspeed_per_wegtype, ModelParameters/Advanced/CarDefaultSpeed_low) == 0[km_hr] ? ModelParameters/Advanced/CarDefaultSpeed_low : MakeDefined(rth_maxspeed_per_wegtype, ModelParameters/Advanced/CarDefaultSpeed_low);
+			}
+		}
+
+		container Merge_Roads_perCountry :=
+			for_each_ne(
+				Regios/Countries/name
+				, 'Merge_Roads_perCountry_T('+quote(Regios/Countries/name)+')'
+			);
+
+		
+		Template Merge_Roads_perCountry_T
+		{
+			parameter<string> country_name;
+			//
+			unit<uint32> Country_regios := ='Regios/'+country_name;
+
+			unit<uint32>  Merge_CountryRegion_Roads := ='union_unit('+AsList('Per_CountryRegion/'+Country_regios/name+'/Read_Roads_fss', ',')+')'
+			{
+				attribute<BaseProjection>                  geometry (arc)                   := ='union_data(., '+AsList('Per_CountryRegion/'+Country_regios/name+'/Read_Roads_fss/geometry', ',')+')';
+				attribute<km_hr>                           maxspeed                         := ='union_data(., '+AsList('Per_CountryRegion/'+Country_regios/name+'/Read_Roads_fss/maxspeed', ',')+')';
+				attribute<classifications/OSM/wegtype>     wegtype                          := ='union_data(., '+AsList('Per_CountryRegion/'+Country_regios/name+'/Read_Roads_fss/wegtype', ',')+')';
+				
+			}
+		}
+
+		unit<uint32>  Merge_Countries := ='union_unit('+AsList('Merge_Roads_perCountry/'+Regios/Countries/name+'/Merge_CountryRegion_Roads', ',')+')'
+		{
+			attribute<BaseProjection>               geometry (arc)     := ='union_data(., '+AsList('Merge_Roads_perCountry/'+Regios/Countries/name+'/Merge_CountryRegion_Roads/geometry', ',')+')';
+			attribute<km_hr>                        maxspeed           := ='union_data(., '+AsList('Merge_Roads_perCountry/'+Regios/Countries/name+'/Merge_CountryRegion_Roads/maxspeed', ',')+')'; //maxspeed_edit
+			attribute<classifications/OSM/wegtype>  wegtype            := ='union_data(., '+AsList('Merge_Roads_perCountry/'+Regios/Countries/name+'/Merge_CountryRegion_Roads/wegtype', ',')+')';
+		}
+	}
+		
+	
+	
+	
+	
+ 	// unit<uint32> Infra_Unchecked := Prepare_Roads/Merge_Countries
+ 	// unit<uint32> Infra_Unchecked := Prepare_Railroads/Read_Railroads_fss
+/*  	unit<uint32> Infra_Unchecked := TomTom/Streets_fss
+	{
+		// attribute<BaseProjection>      geometry (arc) := Prepare_Roads/Merge_Countries/geometry;
+		// attribute<km_hr>               MaxSpeed       := Prepare_Roads/Merge_Countries/MaxSpeed;
+		// attribute<BaseProjection>      geometry (arc) := Prepare_Railroads/Read_Railroads_fss/geometry;
+		// attribute<km_hr>               MaxSpeed       := Prepare_Railroads/Read_Railroads_fss/MaxSpeed;
+		attribute<BaseProjection>      geometry (arc) := TomTom/Streets_fss/geometry;
+		attribute<km_hr>               MaxSpeed       := const(ModelParameters/Advanced/CarDefaultSpeed,.);
+		parameter<int16>               PenWidth       := 3s, DialogType = "PenWidth";
+		
+		container Connectiveness := Templates/Check_Connectiveness_T(Infra_Unchecked, nodeset, f1, f2);
+	}
+ */	
+	// unit<uint32> Infra := TomTom/Streets_fss;
+}

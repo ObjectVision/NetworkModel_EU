@@ -1,0 +1,77 @@
+﻿container ModelParameters : using = "units"
+{   
+	parameter<uint32>   Org_Gridsize                   := 10; // 1 5 10 50
+	parameter<uint32>   Dest_Gridsize                  := 10; // 1 5 10 50
+	parameter<string>   OrgGridsize                    := string(Org_Gridsize)+'km'; // '1km' 5km 10km 50km
+	parameter<string>   DestGridsize                   := string(Dest_Gridsize)+'km'; // '1km'5km 10km 50km
+	parameter<min_f>    MaxTravelTime                  := 240[min_f];
+	// parameter<float32>  MaxConnectDistSqr_Org          := (Org_Gridsize[float32]*100f)^2f;
+	// parameter<float32>  MaxConnectDistSqr_Dist         := (Dest_Gridsize[float32]*100f)^2f;
+	parameter<bool>     UseStreetTypeSubset            := TRUE; // TRUE FALSE
+	parameter<string>   Street_OD_ConnectabletSelectie := 'FuncRoadClass/V/Motorway_Freeway_or_Other_Major_Road';
+	parameter<string>   StreetTypeSubsetSelectie       := 'FuncRoadClass/V/Local_Road_of_Minor_Importance';    //7 FuncRoadClass/V/Local_Road   8 FuncRoadClass/V/Secondary_Road Local_Road_of_Minor_Importance  Local_Road_of_High_Importance 
+	parameter<uint8>    NumberOfItersForNetworkCleanUp := 10b;
+	
+	// parameter<bool>     Use_Country_OD_selection       := TRUE; // TRUE FALSE  //Country is currently defined as Finland
+	parameter<bool>     Use_Country_OD_selection       := FALSE; // TRUE FALSE  //Country is currently defined as Finland
+	
+	parameter<string>   Roads_path                     := '%NetworkModelDataDir%/Infrastructure/TomTom/'+CountryFolder+'/NW2021_SP_streets_subset.fss';
+	parameter<string>   CountryFolder                  := Use_Country_OD_selection ?  'Finland' : 'EU';
+
+	container Advanced
+	{
+		parameter<string>   fileNamePrefix          :=  '%LocalDataDir%/NetworkModel_EU/Output/';  //Locatie waar output files moeten worden opgeslagen.
+		
+		parameter<km_hr>    MaxCarSpeed             := 130[km_hr];
+		parameter<km_hr>    MaxCarSpeed_limit       := 100[km_hr];
+		parameter<km_hr>    CarDefaultSpeed         := 50[km_hr];
+		parameter<km_hr>    CarDefaultSpeed_low     := 30[km_hr];
+		parameter<km_hr>    ConnectorLinkSpeed      := 15[km_hr];
+		parameter<km_hr>    Ferry_Speed             := 10[km_hr];
+		
+		unit<uint32> OSM_Regios : nrofrows = 4
+		{
+			unit<uint32> Elements  := Range(uint32, 0, nrAttr*#.)
+			{
+				attribute<String> Text:
+				// Regio             , OrgSet , OrgPath, Land, Type, 
+				[
+				'Netherlands'             ,'NL', 'OD',
+
+				'Belgium'                 ,'BE', 'OD',
+
+				'Niedersachsen'           ,'DE', 'OD',
+				'Nordrhein-Westfalen'     ,'DE', 'OD'
+				]; 
+			}
+			
+			attribute<string>        label          := Elements/Text[value(UInt32(ID(.))* nrAttr + 0, Elements)], DialogType = "LabelText";
+			attribute<string>        name           := replace(label, '-', '_');
+			attribute<string>        Country        := Elements/Text[value(UInt32(ID(.))* nrAttr + 1, Elements)];
+			attribute<string>        Type_src       := Elements/Text[value(UInt32(ID(.))* nrAttr + 2, Elements)];
+			
+			parameter<uint32> nrAttr := 3;
+			
+			unit<uint32> Countries : nrofrows = 3
+			{
+				attribute<string> name : ['Germany', 'Netherlands', 'Belgium'];
+			}
+			
+			unit<uint32> Germany := subset(country == 'DE')
+			{
+				attribute<string> name  := ../name[nr_OrgEntity];
+				attribute<string> label := ../label[nr_OrgEntity];
+			}
+			unit<uint32> Netherlands := subset(country == 'NL')
+			{
+				attribute<string> name  := ../name[nr_OrgEntity];
+				attribute<string> label := ../label[nr_OrgEntity];
+			}
+			unit<uint32> Belgium := subset(country == 'BE')
+			{
+				attribute<string> name  := ../name[nr_OrgEntity];
+				attribute<string> label := ../label[nr_OrgEntity];
+			}
+		}
+	}
+}

@@ -1,0 +1,80 @@
+////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                    //
+//                                                                                    //
+//        Configuratie voor WMS lagen, gedefineerd vanuit een opgevraagd              //
+//        GetCapabilities Request in xml format.                                      //
+//                                                                                    //
+//                              Object Vision 2018                                    //
+//                                                                                    //
+////////////////////////////////////////////////////////////////////////////////////////
+
+container ngr_layer_lea {
+
+	parameter<uint32> nr_att := 8;
+	parameter<uint32> nr_row := 13;
+	
+	unit<uint32> TileMatrixElems := range(uint32, 0, nr_att * nr_row)
+	{
+		attribute<string> values:
+		//name          , ScaleDen , Left        , Top     ,Width ,Height, MatrixWidth,MatrixHeight
+		[
+		 'EU:3035:0' , '62779017','2000000.0','5500000.0', '256' ,'256' ,    '1'     ,    '1'
+		,'EU:3035:1' , '31389508','2000000.0','5500000.0',  '256' ,'256' ,    '2'     ,    '2'
+		,'EU:3035:2' , '15694754','2000000.0', '5500000.0',  '256' ,'256' ,    '4'     ,    '4'
+		,'EU:3035:3' ,  '7847377','2000000.0', '5500000.0',  '256' ,'256' ,    '8'     ,    '8'
+		,'EU:3035:4' ,  '3923688','2000000.0', '5500000.0',  '256' ,'256' ,   '16'     ,   '16'
+		,'EU:3035:5' ,  '1961844','2000000.0', '5500000.0',  '256' ,'256' ,   '32'     ,   '32'
+		,'EU:3035:6' ,   '980922','2000000.0', '5500000.0',  '256' ,'256' ,   '64'     ,   '64'
+		,'EU:3035:7' ,   '490461', '2000000.0','5500000.0',  '256' ,'256' ,  '128'     ,  '128'
+		,'EU:3035:8' ,   '245230', '2000000.0','5500000.0',  '256' ,'256' ,  '256'     ,  '256'
+		,'EU:3035:9' ,   '122615', '2000000.0','5500000.0',  '256' ,'256' ,  '512'     ,  '512'
+		,'EU:3035:10',    '61307.6', '2000000.0','5500000.0', '256' ,'256' , '1024'     , '1024'
+		,'EU:3035:11',    '30653.8', '2000000.0','5500000.0',  '256' ,'256' , '2048'     , '2048'
+		,'EU:3035:12',    '15326.9', '2000000.0','5500000.0',  '256' ,'256' , '4096'     , '4096'
+		// ,'EU:3035:13',     '7663.45', '2000000.0','5500000.0',  '256' ,'256' , '8192'     , '8192'
+		// ,'EU:3035:14',     '3831.73', '2000000.0','5500000.0',  '256' ,'256' ,'16384'     ,'16384'
+		// ,'EU:3035:15',     '1915.86', '2000000.0','5500000.0',  '256' ,'256' ,'32768'     ,'32768'
+		];
+	}
+
+	unit<uint32> TileMatrix := range(uint32, 0, nr_row)
+	{
+		attribute<.>       id                := id(.);
+
+		attribute<string>  name              :=         TileMatrixElems/values[value(id * nr_att + 0, TileMatrixElems)];
+		attribute<float64> ScaleDenominator  := float64(TileMatrixElems/values[value(id * nr_att + 1, TileMatrixElems)]);
+		attribute<float64> LeftCoord         := float64(TileMatrixElems/values[value(id * nr_att + 2, TileMatrixElems)]);
+		attribute<float64> TopCoord          := float64(TileMatrixElems/values[value(id * nr_att + 3, TileMatrixElems)]);
+		attribute<uint16>  TileWidth         :=  uint16(TileMatrixElems/values[value(id * nr_att + 4, TileMatrixElems)]);
+		attribute<uint16>  TileHeight        :=  uint16(TileMatrixElems/values[value(id * nr_att + 5, TileMatrixElems)]);
+		attribute<uint32>  MatrixWidth       :=  uint32(TileMatrixElems/values[value(id * nr_att + 6, TileMatrixElems)]);
+		attribute<uint32>  MatrixHeight      :=  uint32(TileMatrixElems/values[value(id * nr_att + 7, TileMatrixElems)]);
+	}
+
+    // wmts request params
+    parameter<string> layer         := 'eoc:LambertEA'; parameter<string> layer_src         := 'eoc:basemap';
+    parameter<string> TileMatrixSet := 'EU:3035';
+    parameter<string> VERSION       := '1.0.0';
+    parameter<string> REQUEST       := 'GetTile';
+    parameter<string> STYLE         := '_empty';
+    parameter<string> FORMAT        := 'image/png';
+	parameter<string> host          := 'tiles.geoservice.dlr.de';
+    parameter<string> url           := 'https://' + host;
+    parameter<string> unit          := "metre";                     
+
+	//parameter<string> target := 
+	//	'/service/wmts/?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&LAYER=' + layer + //'eoc%3Abasemap' +
+    //    '&STYLE=_empty&TileMatrixSet=EU%3A3035&TILEMATRIX=EU%3A3035%3A@TM@'+
+	//	'&TILEROW=@TR@&TILECOL=@TC@&FORMAT=image%2Fpng';
+    
+    parameter<string> target := 
+        '/service/wmts?SERVICE=WMTS&VERSION=' + VERSION + '&REQUEST=' + REQUEST + '&LAYER=' + layer_src + 
+        '&STYLE=' + STYLE + '&TileMatrixSet=' + TileMatrixSet + '&TILEMATRIX=' + TileMatrixSet + ':@TM@'+
+        '&TILEROW=@TR@&TILECOL=@TC@&FORMAT=' + FORMAT;
+
+    
+}
+
+
+// Werkende: https://tiles.geoservice.dlr.de/service/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&FORMAT=image%2Fpng&LAYER=eoc%3Abasemap&TILECOL=1&TILEROW=2&STYLE=_empty&TileMatrixSet=EU%3A3035&TileMatrix=EU%3A3035%3A3
+//https:             //tiles.geoservice.dlr.de/service/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&LAYER=eoc:basemap&STYLE=_empty&TileMatrixSet=EU:3035&TILEMATRIX=EU:3035:4&TILEROW=8&TILECOL=7&FORMAT=image/png

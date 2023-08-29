@@ -1,0 +1,20 @@
+container SourceData: Using = "Units;Classifications;geometries"
+{
+	#include<RegionalUnits.dms>
+	#include<Infrastructure.dms>
+	
+	container Locations
+	{
+		unit<ipoint> Population : StorageName = "%NetworkModelDataDir%/Population/JRC_1K_POP_2018.tif", StorageType = "gdal.grid", StorageReadOnly = "True", DialogData = "BaseProjection", DialogType = "map"
+		{
+			attribute<uint16> GridData;
+			attribute<uint16> ReadData (Base_Grid_1km);
+		}
+		
+		unit<uint64> wPopulation := select_with_org_rel(Population/ReadData > 0[uint16])
+		{
+			attribute<BaseProjection> geometry    := org_rel[BaseProjection];
+			attribute<uint16>         Population  := select_data(., Locations/Population/ReadData > 0[uint16], Locations/Population/ReadData);
+		}
+	}
+}

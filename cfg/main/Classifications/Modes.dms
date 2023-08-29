@@ -1,0 +1,126 @@
+Container ModesList 
+{ 
+	unit<uint32> List: NrOfRows = 86 
+	{
+		// combines official modes list, as defined in the GTFS format, with the extended mode list, as eg used in the Vilnius feed. 
+		// For more information on the extended mode list see https://developers.google.com/transit/gtfs/reference/extended-route-types
+		attribute<uint32> ModeNr       := Matrix/Values[value(id(.)* nrAttr + 0, Matrix)][uint32];
+		attribute<string> Name_src         := Matrix/Values[value(id(.)* nrAttr + 1, Matrix)];
+		attribute<string> Name         := replace(Name_src, '(','',')','');
+		attribute<uint8>  r            := Matrix/Values[value(id(.)* nrAttr + 2, Matrix)][uint8];
+		attribute<uint8>  g            := Matrix/Values[value(id(.)* nrAttr + 3, Matrix)][uint8];
+		attribute<uint8>  b            := Matrix/Values[value(id(.)* nrAttr + 4, Matrix)][uint8];
+		attribute<uint8>  IsGelijkvloers := Matrix/Values[value(id(.)* nrAttr + 5, Matrix)][uint8];
+		attribute<string> LabelText    := Name, DialogType = "LabelText";
+		// attribute<uint32> SymbolColor  := rgb(r, g, b), DialogType = "SymbolColor";
+		attribute<uint32> BrushColor   := rgb(r, g, b), DialogType = "BrushColor";
+		
+		container V := for_each_nedv(replace(name,';','','ú','u',' ','_','-','_','?','','/',''), String(ID(.))+'[..]', void, .);
+		
+		parameter<uint32> nrAttr := 6;
+		unit<uint32> Matrix := Range(uint32, 0, nrAttr*#.)
+		{
+			attribute<string> Values: 
+			[
+			'0',	'Tram',  '  0', '180', '  0','1',
+			'1',	'Metro', '180', '  0', '  0','0',
+			'2',	'Rail',  '222', '220', '  0','0',
+			'3',	'Bus',   '100', '100', '100','1',
+			'4',	'Ferry', '  0', '  0', '180','0',
+			'5',	'Walking', '254', '150', '0','1',
+			'6',	'CableTram', '', '', '','0',
+			'7',	'AerialLift', '', '', '','0',
+			'8',	'Funicular', '', '', '','0',
+			'9',	'Waiting', '120', '50', '225','0',
+			
+			'100',	'Railway_Service', '', '', '','0',
+			'101',	'High_Speed_Rail_Service', '', '', '','0',
+			'102',	'Long_Distance_Trains', '', '', '','0',
+			'103',	'Inter_Regional_Rail_Service', '', '', '','0',
+			'104',	'Car_Transport_Rail_Service', '', '', '','0',
+			'105',	'Sleeper_Rail_Service', '', '', '','0',
+			'106',	'Regional_Rail_Service', '', '', '','0',
+			'107',	'Tourist_Railway_Service', '', '', '','0',
+			'108',	'Rail_Shuttle_(Within_Complex)', '', '', '','0',
+			'109',	'Suburban_Railway', '', '', '','0',
+			'110',	'Replacement_Rail_Service', '', '', '','0',
+			'111',	'Special_Rail_Service', '', '', '','0',
+			'112',	'Lorry_Transport_Rail_Service', '', '', '','0',
+			'113',	'All_Rail_Services', '', '', '','0',
+			'114',	'Cross-Country_Rail_Service', '', '', '','0',
+			'115',	'Vehicle_Transport_Rail_Service', '', '', '','0',
+			'116',	'Rack_and_Pinion_Railway', '', '', '','0',
+			'117',	'Additional_Rail_Service', '', '', '','0',
+			'200',	'Coach_Service', '', '', '','0',
+			'201',	'International_Coach_Service', '', '', '','0',
+			'202',	'National_Coach_Service', '', '', '','0',
+			'203',	'Shuttle_Coach_Service', '', '', '','0',
+			'204',	'Regional_Coach_Service', '', '', '','0',
+			'205',	'Special_Coach_Service', '', '', '','0',
+			'206',	'Sightseeing_Coach_Service', '', '', '','0',
+			'207',	'Tourist_Coach_Service', '', '', '','0',
+			'208',	'Commuter_Coach_Service', '', '', '','0',
+			'209',	'All_Coach_Services', '', '', '','0',
+			'400',	'Urban_Railway_Service', '', '', '','0',
+			'401',	'Metro_Service', '', '', '','0',
+			'402',	'Underground_Service', '', '', '','0',
+			'403',	'Urban_Railway_Service', '', '', '','0',
+			'404',	'All_Urban_Railway_Services', '', '', '','0',
+			'405',	'Monorail', '', '', '','0',
+			'700',	'Bus_Service', '', '', '','0',
+			'701',	'Regional_Bus_Service', '', '', '','0',
+			'702',	'Express_Bus_Service', '', '', '','0',
+			'703',	'Stopping_Bus_Service', '', '', '','0',
+			'704',	'Local_Bus_Service', '', '', '','0',
+			'705',	'Night_Bus_Service', '', '', '','0',
+			'706',	'Post_Bus_Service', '', '', '','0',
+			'707',	'Special_Needs_Bus', '', '', '','0',
+			'708',	'Mobility_Bus_Service', '', '', '','0',
+			'709',	'Mobility_Bus_for_Registered_Disabled', '', '', '','0',
+			'710',	'Sightseeing_Bus', '', '', '','0',
+			'711',	'Shuttle_Bus', '', '', '','0',
+			'712',	'School_Bus', '', '', '','0',
+			'713',	'School_and_Public_Service_Bus', '', '', '','0',
+			'714',	'Rail_Replacement_Bus_Service', '', '', '','0',
+			'715',	'Demand_and_Response_Bus_Service', '', '', '','0',
+			'716',	'All_Bus_Services', '', '', '','0',
+			'717',	'Share_Taxi_Service', '', '', '','0',
+			'800',	'Trolleybus_Service', '', '', '','0',
+			'900',	'Tram_Service', '', '', '','0',
+			'901',	'City_Tram_Service', '', '', '','0',
+			'902',	'Local_Tram_Service', '', '', '','0',
+			'903',	'Regional_Tram_Service', '', '', '','0',
+			'904',	'Sightseeing_Tram_Service', '', '', '','0',
+			'905',	'Shuttle_Tram_Service', '', '', '','0',
+			'906',	'All_Tram_Services', '', '', '','0',
+			'907',	'Cable_Tram', '', '', '','0',
+			'1000',	'Water_Transport_Service', '', '', '','0',
+			'1100',	'Air_Service', '', '', '','0',
+			'1200',	'Ferry_Service', '', '', '','0',
+			'1300',	'Aerial_Lift_Service', '', '', '','0',
+			'1400',	'Funicular_Service', '', '', '','0',
+			'1500',	'Taxi_Service', '', '', '','0',
+			'1501',	'Communal_Taxi_Service', '', '', '','0',
+			'1502',	'Water_Taxi_Service', '', '', '','0',
+			'1503',	'Rail_Taxi_Service', '', '', '','0',
+			'1504',	'Bike_Taxi_Service', '', '', '','0',
+			'1505',	'Licensed_Taxi_Service', '', '', '','0',
+			'1506',	'Private_Hire_Service_Vehicle', '', '', '','0',
+			'1507',	'All_Taxi_Services', '', '', '','0',
+			'1700',	'Miscellaneous_Service', '', '', '''0'
+			];
+		}
+	}
+	
+	unit<uint32> List_selectie := subset(id(List) <= 5 || id(List) == 9)
+	{
+		attribute<string> name         := List/Name[nr_OrgEntity];
+		attribute<string> Label         := name, DialogType = "LabelText";
+		// attribute<uint32> SymbolColor  := List/SymbolColor[nr_OrgEntity], DialogType = "SymbolColor";
+		attribute<uint32> PenColor  := List/BrushColor[nr_OrgEntity], DialogType = "PenColor";
+		attribute<uint32> ModeNr       := List/ModeNr[nr_OrgEntity];
+		attribute<uint8> IsGelijkvloers  := List/IsGelijkvloers[nr_OrgEntity];
+		container V := for_each_nedv(replace(name,';','','ú','u',' ','_','-','_','?','','/',''), String(ID(.))+'[..]', void, .);
+	}
+
+}

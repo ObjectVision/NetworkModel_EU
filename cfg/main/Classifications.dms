@@ -1,0 +1,22 @@
+container Classifications: Using = "Units"
+{
+	#include<osm.dms>
+	
+	container TomTom
+	{
+		unit<uint32> Directions: NrOfRows = 4
+		{
+			attribute<string> code: ['','N','FT','TF'];
+			attribute<string> Label: ['dual', 'nocars', 'forwards', 'backwards'];
+			
+			container V := for_each_nedv(Label, String(ID(.))+'[..]', void, .);
+		}
+		unit<int32> FuncRoadClass_EK := range(int32, -1i, 9i);
+		unit<uint8> FuncRoadClass : nrofrows = 10
+		{
+			attribute<string> Label : ['Not Applicable', 'Motorway, Freeway, or Other Major Road', 'Major Road Less Important than a Motorway', 'Other Major Road','Secondary Road','Local Connecting Road','Local Road of High Importance','Local Road','Local Road of Minor Importance','Other Road'];
+			attribute<string> name := AsItemName(label);
+			container V := for_each_nedv(name, String(ID(.))+'[..]', void, .);
+		}
+	}
+}

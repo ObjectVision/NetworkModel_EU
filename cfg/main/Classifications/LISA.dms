@@ -1,0 +1,43 @@
+container LISA
+{
+	unit<uint32> SBI2008_tabel
+	:  StorageName = "%ProjDir%/data/SBI2008_2018.csv"
+	,  StorageType = "gdal.vect"
+	,  StorageReadOnly = "True"
+	{
+		attribute<string> sbi08;
+	}
+	
+	unit<uint32> SBI2008_code2
+	:  StorageName = "%ProjDir%/data/SBI2008_code2.csv"
+	,  StorageType = "gdal.vect"
+	,  StorageReadOnly = "True"
+	{
+		attribute<string> SBI08_2;
+	}
+	unit<uint32> SBI2008_code3
+	:  StorageName = "%ProjDir%/data/SBI2008_code3.csv"
+	,  StorageType = "gdal.vect"
+	,  StorageReadOnly = "True"
+	{
+		attribute<string> SBI08_3;
+	}
+	unit<uint32> SBI2008_code5
+	:  StorageName = "%ProjDir%/data/SBI2008_code5.csv"
+	,  StorageType = "gdal.vect"
+	,  StorageReadOnly = "True"
+	{
+		attribute<string> SBI08_5;
+	}
+	unit<uint32> SBI2008_sectie
+	:  StorageName = "%ProjDir%/data/SBI2008_sectie.csv"
+	,  StorageType = "gdal.vect"
+	,  StorageReadOnly = "True"
+	{
+		attribute<string> Sectie_code;
+		attribute<string> Label         := Sectie_naam, DialogType = "LabelText";
+		attribute<string> name          := replace(Sectie_naam, '.', '', ',', '', ' ', '_', '-', '', '(', '_', ')', '_', '/', '', ';', '');
+	}
+
+
+}

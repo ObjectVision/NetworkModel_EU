@@ -1,0 +1,72 @@
+container RegionalUnits : using = "geometries"
+{ 
+	unit<uint32> NUTS 
+	: StorageName = "%NetworkModelDataDir%/Regions/Nuts0.shp"
+	, StorageType = "gdal.vect"
+	, StorageReadOnly = "true"
+	{
+		attribute<LambertEA> geometry (poly);
+		attribute<bool>      IsEU            := IsDefined(geometry);
+	}
+
+	unit<uint32> NUTS3 
+	: StorageName = "%NetworkModelDataDir%/Regions/Nuts3.shp"
+	, StorageType = "gdal.vect"
+	, StorageReadOnly = "true"
+	{
+		attribute<LambertEA> geometry (poly);
+		// attribute<bool>      IsEU            := IsDefined(geometry) && TAA != 0i;
+		// attribute<bool>      IsEUplusBalkan  := IsDefined(geometry);
+		// attribute<bool>      IsWater         := TAA == 7i;
+		attribute<string>    label           := NUTS_CODE;
+
+		unit<uint32> CalcCentroids := .
+		{
+			attribute<float64> W          := sum(Population/pop, Population/NUTS3_rel);
+			
+			attribute<float64> Weighted_X := sum(Population/x * Population/pop, Population/NUTS3_rel);
+			attribute<float64> Weighted_Y := sum(Population/y * Population/pop, Population/NUTS3_rel);
+			
+			attribute<float64> mean_X     := Weighted_X / W;
+			attribute<float64> mean_Y     := Weighted_y / W;
+			 
+			attribute<LambertEA> weighted_centroid0            := point(mean_X, mean_Y, LambertEA);
+			attribute<bool>      IsWeighted_centroid_in_nuts3  := IsDefined(point_in_polygon(weighted_centroid0, NUTS3/geometry));
+			attribute<LambertEA> weighted_centroid             := IsWeighted_centroid_in_nuts3 ? weighted_centroid0 : centroid_or_mid(NUTS3/geometry);
+			attribute<LambertEA> geometry                      := weighted_centroid;
+			
+			attribute<spoint>                              Base_grid_1km_spoint_rel ;
+			
+			unit<uint64> Population := SourceData/Locations/wPopulation
+			{
+				attribute<NUTS3>   NUTS3_rel := point_in_polygon(geometry, NUTS3/geometry);
+				attribute<float64> x         := pointcol(geometry);
+				attribute<float64> y         := pointrow(geometry);
+				attribute<float64> pop       := SourceData/Locations/wPopulation/Population[float64];
+			}
+			
+			unit<uint32> Export_NUTS3_Centroids := CalcCentroids
+			{
+				attribute<LambertEA> geometry     := CalcCentroids/geometry;
+				attribute<string>    NUTS_CODE    := CalcCentroids/NUTS_CODE;
+			}
+		}
+	}
+	
+	unit<uint32> Country 
+	: StorageName = "%NetworkModelDataDir%/Regions/CNTR_RG_01M_2020_3035.shp"
+	, StorageType = "gdal.vect"
+	, StorageReadOnly = "true"
+	{
+		attribute<LambertEA> geometry (poly);
+		attribute<bool>      IsEU            := EU_STAT == 'T'; 
+		attribute<bool>      IsEFTA          := EFTA_STAT == 'T'; 
+		attribute<bool>      IsCC            := CC_STAT == 'T'; 
+		attribute<bool>      IsTerritory     := strcount(SVRG_UN, 'Territory') > 0; 
+		
+		unit<uint32> Subset := select_with_attr_by_cond(.,name_engl == 'Finland');
+	}
+	
+	
+	unit<uint32> EUplus := select_with_attr_by_cond(Country, (Country/IsEU || Country/IsEFTA) && !Country/IsTerritory);
+}

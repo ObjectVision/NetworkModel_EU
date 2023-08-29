@@ -1,0 +1,57 @@
+container NetworkPreperation
+{  
+	unit<uint32> road := Prepare_SourceData/Read_Roads_fss;
+	
+	unit<uint32> road_segments  := arc2segm(road/geometry)
+	{
+		attribute<string>                       key              := String(pointRow(point)) + '_' + String(pointCol(point)) + '_' + String(pointRow(nextpoint)) + '_'+ String(pointCol(nextpoint));
+		attribute<km_hr>                        maxspeed         := road/maxspeed[Sequence_rel];
+		
+		unit<uint32> pointset  := union_unit(., .)
+		{
+			attribute<BaseProjection>      point    := Union_Data(., ../point, ../nextpoint);
+			attribute<..>                  ArcID    := value(ID(.) % nrofrows(..), ..); 
+			attribute<uint32>              VolgNr   := ID(.) / nrofrows(..);
+			attribute<bool>                isVerbonden := isNull(rlookup(point, NodesNotConnected/point));
+		}
+		attribute<BaseProjection> geometry (arc)  := points2sequence(pointset/point, pointset/ArcID, pointset/VolgNr);
+	
+		attribute<BaseProjection>               point            := first_point(geometry);
+		attribute<BaseProjection>               nextpoint        := last_point(geometry);
+
+		attribute<bool> isVerbonden := all(pointset/isVerbonden, pointset/ArcID);
+
+		unit<uint32> NodeSet := unique(pointset/point)
+		,	DialogData = "Values"
+		,	DialogType = "Map"
+		{
+			attribute<BaseProjection> values;
+		}
+
+		attribute<NodeSet> F1 := rlookup(point,     NodeSet/Values);
+		attribute<NodeSet> F2 := rlookup(nextpoint, NodeSet/Values);
+	
+		unit<uint32> networks:= connected_parts(F1, F2) // Verzameling van alle netwerken, inclusief de subnetwerken.
+		{
+			attribute<uint32>   nr_nodes   := sum(const(1, NodeSet, uint32), partnr);
+			parameter<uint32>   MaxNrNodes := max(networks/nr_nodes);
+			parameter<networks> main       := rlookup(MaxNrNodes, nr_nodes); // uitgangspunt: het netwerk met de meeste nodes is het relevante netwerk
+		}
+
+		unit<uint32> NodesNotConnected := Subset(networks/partnr <> networks/main)
+		{
+			attribute<BaseProjection> point := NodeSet/Values[Nr_OrgEntity];
+		}
+		
+		unit<uint32> Complete_verbonden := Subset(isVerbonden) // het resulterende verbonden wegennetwerk
+		{
+			attribute<BaseProjection>               geometry (arc)            := ../geometry[nr_OrgEntity];
+			attribute<km_hr>                        maxspeed                  := ../maxspeed[nr_OrgEntity];
+		}
+		unit<uint32> Final_Network := unique(Complete_verbonden/geometry)
+		{
+			attribute<BaseProjection>               geometry (arc):= values;
+			attribute<km_hr>                        maxspeed      := rjoin(values, Complete_verbonden/geometry, Complete_verbonden/maxspeed);
+		}
+	}
+}

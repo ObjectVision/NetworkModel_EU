@@ -1,0 +1,20 @@
+container Units
+{ 
+	unit<int32>   mm        := int32(0.001 * m);
+	unit<float64> m         := baseunit('meter', float64);
+	unit<float64> m2         := m * m;
+	unit<float64> km        := 1000f * m;
+	
+	unit<uint32>  s         := baseunit('second', uint32);
+	unit<float64> s_f       := baseunit('second', float64);
+	unit<uint32>  min       := 60 * s, Descr = "Minutes";
+	unit<float64> min_f     := float64(60f * s_f);
+	unit<uint32>  hr        := 60 * min;
+	unit<float64> hr_f      := float64(60f * min);
+
+	unit<float64> m_s       := m  / s_f;
+	unit<float64> km_hr     := km / hr_f;
+	unit<uint32>  size      ;
+	unit<float64> ratio;
+	
+}
