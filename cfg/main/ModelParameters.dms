@@ -5,15 +5,12 @@
 	parameter<string>   OrgGridsize                    := string(Org_Gridsize)+'km'; // '1km' 5km 10km 50km
 	parameter<string>   DestGridsize                   := string(Dest_Gridsize)+'km'; // '1km'5km 10km 50km
 	parameter<min_f>    MaxTravelTime                  := 240[min_f];
-	// parameter<float32>  MaxConnectDistSqr_Org          := (Org_Gridsize[float32]*100f)^2f;
-	// parameter<float32>  MaxConnectDistSqr_Dist         := (Dest_Gridsize[float32]*100f)^2f;
 	parameter<bool>     UseStreetTypeSubset            := TRUE; // TRUE FALSE
 	parameter<string>   Street_OD_ConnectabletSelectie := 'FuncRoadClass/V/Motorway_Freeway_or_Other_Major_Road';
 	parameter<string>   StreetTypeSubsetSelectie       := 'FuncRoadClass/V/Local_Road_of_Minor_Importance';    //7 FuncRoadClass/V/Local_Road   8 FuncRoadClass/V/Secondary_Road Local_Road_of_Minor_Importance  Local_Road_of_High_Importance 
 	parameter<uint8>    NumberOfItersForNetworkCleanUp := 10b;
 	
 	parameter<bool>     Use_Country_OD_selection       := TRUE; // TRUE FALSE  //Country is currently defined as Finland
-	// parameter<bool>     Use_Country_OD_selection       := FALSE; // TRUE FALSE  //Country is currently defined as Finland
 	
 	parameter<string>   Roads_path                     := '%NetworkModelDataDir%/Infrastructure/TomTom/'+CountryFolder+'/NW2021_SP_streets_subset.fss';
 	parameter<string>   CountryFolder                  := Use_Country_OD_selection ?  'Finland' : 'EU';

@@ -71,14 +71,14 @@ container Analyses: Using = "Units;Classifications;geometries"
 				
 			attribute<min_f> Avg_Traveltime_To_PopulatedCells (NetwerkSpec/OrgDomain) := MakeDefined(convert(Numerator_Di/D_i[s_f] / Denominator_Di/D_i, min_f), 0[min_f]);
 			
-			attribute<min_f>   Numerator_grid                        (Base_grid) := convert(Numerator_Di/D_i[s_f],min_f)[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Numerator_grid-'+ModelParameters/CountryFolder+'.tif'";
-			attribute<float64> Denominator_grid                      (Base_grid) := Denominator_Di/D_i[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Denominator_grid-'+ModelParameters/CountryFolder+'.tif'";
-			attribute<min_f>   Avg_Traveltime_To_PopulatedCells_grid (Base_grid) := Avg_Traveltime_To_PopulatedCells[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Avg_Traveltime_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'.tif'";
+			attribute<min_f>   Numerator_grid                        (Base_grid) := convert(Numerator_Di/D_i[s_f],min_f)[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Numerator_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
+			attribute<float64> Denominator_grid                      (Base_grid) := Denominator_Di/D_i[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Denominator_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
+			attribute<min_f>   Avg_Traveltime_To_PopulatedCells_grid (Base_grid) := Avg_Traveltime_To_PopulatedCells[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Avg_Traveltime_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
 			
 			parameter<string>  Generator                                         := 'Ready', ExplicitSuppliers = "Numerator_grid;Denominator_grid;Avg_Traveltime_To_PopulatedCells_grid";
 		}
 	}
-	
+	 
 	Template Basic_OD_matrix_T
 	{
 		unit<uint32>      Org;
