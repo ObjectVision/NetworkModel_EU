@@ -1,508 +1,129 @@
 container Analyses: Using = "Units;Classifications;geometries" 
 {  
-	container HaagseHogeschool
-	{
-		unit<uint32> RegioUnit_PC6      := /SourceData/BAG/adres/PC6_centroids;
-		
-		unit<uint32> Hogescholen : nrofrows = 4
-		{
-			parameter<BaseProjection>    Hoofdvestiging_DenHaag := point(82055.9694f,453709.895f,BaseProjection);
-			parameter<BaseProjection>    SportCampus_DenHaag    := point(79647.4126f,452263.95f,BaseProjection);
-			parameter<BaseProjection>    Delft                  := point(84938.9649f,446452.206f,BaseProjection);
-			parameter<BaseProjection>    Zoetermeer             := point(95218.327f,451273.643f,BaseProjection);
-			
-			attribute<BaseProjection>    geometry               := union_data(., Hoofdvestiging_DenHaag, SportCampus_DenHaag, Delft, Zoetermeer);
-			attribute<BaseProjection>    point                  := geometry;
-			attribute<string> name                   := union_data(., 'Hoofdvestiging_DenHaag', 'SportCampus_DenHaag', 'Delft', 'Zoetermeer');
-		}
-		
-		
-		unit<uint32> org  := RegioUnit_PC6
-		{
-			attribute<BaseProjection>    geometry := RegioUnit_PC6/geometry;
-			attribute<string> PC6      := RegioUnit_PC6/PC6;
-			
-			attribute<float32> reistijd_bike_delft         := rjoin(pc6+'_Delft', OrgDest/impl/name, OrgDest/bike);
-			// attribute<float32> reistijd_bike_delft_nonnull := !IsDefined(reistijd_bike_delft) ? 9999f : reistijd_bike_delft; 
-			
-			attribute<float32> reistijd_auto_delft         := rjoin(pc6+'_Delft', OrgDest/impl/name, OrgDest/car);
-			// attribute<float32> reistijd_auto_delft_nonnull := !IsDefined(reistijd_auto_delft) ? 9999f : reistijd_auto_delft; 
-			
-			attribute<float32> reistijd_wovw_delft         := rjoin(pc6+'_Delft', OrgDest/impl/name, OrgDest/W_OV_W_WW);
-			// attribute<float32> reistijd_wovw_delft_nonnull := !IsDefined(reistijd_wovw_delft) ? 9999f : reistijd_wovw_delft; 
-			
-			attribute<float32> reistijd_bovw_delft         := rjoin(pc6+'_Delft', OrgDest/impl/name, OrgDest/B_OV_W_BB);
-			// attribute<float32> reistijd_bovw_delft_nonnull := !IsDefined(reistijd_bovw_delft) ? 9999f : reistijd_bovw_delft; 
-		}
-		unit<uint32> dest  := Hogescholen
-		{
-			attribute<BaseProjection>    geometry := Hogescholen/geometry;
-			attribute<string> name     := Hogescholen/name;
-		}
-		
-		unit<uint32> OrgDest := combine(org, dest)
-		{
-			attribute<string>  PC6         := org/Pc6[first_rel];
-			attribute<string>  DestName    := dest/name[second_rel];
-			
-			attribute<float32> B_OV_W_BB    := (impl/BOVW_BB_800 + impl/BOVW_BB_830 + impl/BOVW_BB_845  + impl/BOVW_BB_859) / 4f;
-			attribute<float32> W_OV_W_WW    := (impl/WOVW_WW_800 + impl/WOVW_WW_830 + impl/WOVW_WW_845  + impl/WOVW_WW_859) / 4f;
-			attribute<float32> Bike         := rjoin(impl/name, ReadCSVs/Read_Bike/OrgDestName, ReadCSVs/Read_Bike/Freeflow[float32]);
-			attribute<float32> Car          := rjoin(impl/name, ReadCSVs/Read_Car/OrgDestName, ReadCSVs/Read_Car/maxspeed[float32]);
+	unit<uint32> Dest_populated_grid := ='select_with_attr_by_cond(Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points, Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
 
-			attribute<bool>    AnyDefined   := IsDefined(B_OV_W_BB) || IsDefined(W_OV_W_WW) || IsDefined(Bike) || IsDefined(Car);
+	container Base_Analysis := =
+		'Avg_Traveltime_To_PopulatedCells_T('
+			'Geometries/Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
+			',Dest_populated_grid' //Dest
+			',NetworkSetup/Base_Analysis/NetwerkSpec'
+		')';
+	
+	//Analysis for Felipe
+	container Pop_Weighted_NUTS_centroids := =
+		'Basic_OD_matrix_T('
+			'SourceData/RegionalUnits/NUTS3/CalcCentroids'   //Org
+			',SourceData/RegionalUnits/NUTS3/CalcCentroids' //Dest
+			',NetworkSetup/Pop_Weighted_NUTS_centroids/NetwerkSpec'
+		')';
+	
+	
+	Template Avg_Traveltime_To_PopulatedCells_T
+	{
+		unit<uint32>      Org;
+		unit<uint32>      Dest;
+		container         NetwerkSpec;
+		///
+		
+		parameter<uint32> maxSqrDist := 120 * 120; //km blokken
+		
+		container Indicator_Lewis
+		{
+			unit<uint32> FinalLinkSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
+			unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
+			unit<ipoint> Base_grid    := = 'Geometries/Base_grid_'+ModelParameters/OrgGridsize;
 			
-			unit<uint32> Export_set := subset(AnyDefined)
-			{
-				attribute<string>  PC6         := ../PC6[nr_OrgEntity];
-				attribute<string>  DestName    := ../DestName[nr_OrgEntity];
-				
-				attribute<float32> B_OV_W_BB    := ../B_OV_W_BB[nr_OrgEntity];
-				attribute<float32> W_OV_W_WW    := ../W_OV_W_WW[nr_OrgEntity];
-				attribute<float32> Bike         := ../Bike[nr_OrgEntity];
-				attribute<float32> Car          := ../Car[nr_OrgEntity];
-				
-				container LongFormat
-				{
-					attribute<string>  B_OV_W_BB_str (..)      := string(../B_OV_W_BB); 
-					attribute<string>  W_OV_W_WW_str (..)      := string(../W_OV_W_WW); 
-					attribute<string>  Bike_str      (..)      := string(../Bike); 
-					attribute<string>  Car_str       (..)      := string(../Car); 
+			// gemiddelde reistijden berekenen binnen een 120km eudclidisch straal voor alle 1km celletjes in de EU naar gridcellen met populatie/
+			// cut waarde van 4 uur
+			// EU27 + Zwitserland + Lichtenstein + Noorwegen
+			parameter<s_f> max_sec := convert(ModelParameters/MaxTravelTime, s_f);
+			
+			unit<uint64> Numerator_Di :=
+				impedance_matrix_od64('bidirectional(link_flag);startPoint(Node_rel,OrgZone_loc);endPoint(Node_rel,DstZone_loc);cut(OrgZone_max_imp);euclid(maxSqrDist);interaction(v_i,w_j,dist_decay):D_i'
+					, FinalLinkSet/impedance
+					, FinalLinkSet/F1
+					, FinalLinkSet/F2
 					
-					attribute<string>  BodyLines_fullOD (..) := ../PC6 + ';' + ../DestName + ';' + B_OV_W_BB_str + ';' + W_OV_W_WW_str + ';' + Bike_str + ';' + Car_str;
-					parameter<string>  File_fullOD                        := 'PC6;DestName;B_OV_W_BB;W_OV_W_WW;Bike;Car \n'+AsList(BodyLines_fullOD, '\n'), StorageName = "=ModelParameters/Advanced/fileNamePrefix+'/Traveltimes_HaagseHogescholen.csv'", StorageType = "str";
-				}
-			}
-			
-			
-			container Impl
-			{
-				attribute<string>  name        (..) := PC6 + '_' + DestName;
-			
-				attribute<float32> BOVW_BB_800 (..) := rjoin(name, ReadCSVs/Read_B_OV_W_with_BB_800/OrgDestName, ReadCSVs/Read_B_OV_W_with_BB_800/Traveltime_m_At_08h00m00s[float32]);
-				attribute<float32> BOVW_BB_830 (..) := rjoin(name, ReadCSVs/Read_B_OV_W_with_BB_830/OrgDestName, ReadCSVs/Read_B_OV_W_with_BB_830/Traveltime_m_At_08h30m00s[float32]);
-				attribute<float32> BOVW_BB_845 (..) := rjoin(name, ReadCSVs/Read_B_OV_W_with_BB_845/OrgDestName, ReadCSVs/Read_B_OV_W_with_BB_845/Traveltime_m_At_08h45m00s[float32]);
-				attribute<float32> BOVW_BB_859 (..) := rjoin(name, ReadCSVs/Read_B_OV_W_with_BB_859/OrgDestName, ReadCSVs/Read_B_OV_W_with_BB_859/Traveltime_m_At_08h59m00s[float32]);
+					, !FinalLinkSet/IsOneDirection
+					, FinalNodeSet/OrgNode_rel, NetwerkSpec/OrgLocations_spoint //startPoint(Node_rel,OrgZone_loc)
+					, FinalNodeSet/DestNode_rel, NetwerkSpec/destLocations_spoint //endPoint(Node_rel,DstZone_loc)
+					, convert(ModelParameters/MaxTravelTime, s_f) //cut impedance
+					, maxSqrDist
+					, 1.0 // v_i
+					, NetwerkSpec/DestDomain/Population[float64] // w_j
+					, -1.0 // dist_deacy
+				), KeepData = "True";
+			unit<uint64> Denominator_Di :=
+				impedance_matrix_od64('bidirectional(link_flag);startPoint(Node_rel,OrgZone_loc);endPoint(Node_rel,DstZone_loc);cut(OrgZone_max_imp);euclid(maxSqrDist);interaction(v_i,w_j,dist_decay):D_i'
+					, FinalLinkSet/impedance
+					, FinalLinkSet/F1
+					, FinalLinkSet/F2
+					
+					, !FinalLinkSet/IsOneDirection
+					, FinalNodeSet/OrgNode_rel, NetwerkSpec/OrgLocations_spoint //startPoint(Node_rel,OrgZone_loc)
+					, FinalNodeSet/DestNode_rel, NetwerkSpec/destLocations_spoint //endPoint(Node_rel,DstZone_loc)
+					, convert(ModelParameters/MaxTravelTime, s_f) //cut impedance
+					, maxSqrDist
+					, 1.0 // v_i
+					, NetwerkSpec/DestDomain/Population[float64] // w_j
+					, 0.0 // dist_deacy
+				), KeepData = "True";
 				
+			attribute<min_f> Avg_Traveltime_To_PopulatedCells (NetwerkSpec/OrgDomain) := MakeDefined(convert(Numerator_Di/D_i[s_f] / Denominator_Di/D_i, min_f), 0[min_f]);
+			
+			attribute<min_f>   Numerator_grid                        (Base_grid) := convert(Numerator_Di/D_i[s_f],min_f)[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Numerator_grid-'+ModelParameters/CountryFolder+'.tif'";
+			attribute<float64> Denominator_grid                      (Base_grid) := Denominator_Di/D_i[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Denominator_grid-'+ModelParameters/CountryFolder+'.tif'";
+			attribute<min_f>   Avg_Traveltime_To_PopulatedCells_grid (Base_grid) := Avg_Traveltime_To_PopulatedCells[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Avg_Traveltime_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'.tif'";
+			
+			parameter<string>  Generator                                         := 'Ready', ExplicitSuppliers = "Numerator_grid;Denominator_grid;Avg_Traveltime_To_PopulatedCells_grid";
+		}
+	}
+	
+	Template Basic_OD_matrix_T
+	{
+		unit<uint32>      Org;
+		unit<uint32>      Dest;
+		container         NetwerkSpec;
+		///
+
+		container Basic_OD_matrix
+		{
+			unit<uint32> FinalLinkSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
+			unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
+			
+			unit<uint64> Dijkstra_fullOD := //calculation a full origin-destination matrix
+				dijkstra_m64('bidirectional;startPoint(Node_rel);endPoint(Node_rel);od:impedance,OrgZone_rel,DstZone_rel'
+					, FinalLinkSet/impedance
+					, FinalLinkSet/F1
+					, FinalLinkSet/F2
+					
+					, FinalNodeSet/OrgNode_rel
+					, FinalNodeSet/DestNode_rel
+				)
+			{
+				attribute<string> impedance_min := string(round(impedance / 60d)); //Convert the impedance from seconds to minutes, round it off, and store it as a string value.
 				
-				attribute<float32> WOVW_WW_800 (..) := rjoin(name, ReadCSVs/Read_W_OV_W_with_WW_800/OrgDestName, ReadCSVs/Read_W_OV_W_with_WW_800/Traveltime_m_At_08h00m00s[float32]);
-				attribute<float32> WOVW_WW_830 (..) := rjoin(name, ReadCSVs/Read_W_OV_W_with_WW_830/OrgDestName, ReadCSVs/Read_W_OV_W_with_WW_830/Traveltime_m_At_08h30m00s[float32]);
-				attribute<float32> WOVW_WW_845 (..) := rjoin(name, ReadCSVs/Read_W_OV_W_with_WW_845/OrgDestName, ReadCSVs/Read_W_OV_W_with_WW_845/Traveltime_m_At_08h45m00s[float32]);
-				attribute<float32> WOVW_WW_859 (..) := rjoin(name, ReadCSVs/Read_W_OV_W_with_WW_859/OrgDestName, ReadCSVs/Read_W_OV_W_with_WW_859/Traveltime_m_At_08h59m00s[float32]);
-			}
-		}
-		
-		container ReadCSVs 
-		{
-			unit<uint32> Read_B_OV_W_with_BB_800
-			: StorageName = "%LocalDataDir%/NetworkModel_EU/Output/Traveltime_Long_B_OV_W_with_BB_20220328_Arrival_At_08h00m00s_ORG-PC6-All_DEST-haagsehogescholen_O2SWtime-30min.csv"
-			, StorageType = "gdal.vect"
-			, StorageReadOnly = "true"
-			{
-				attribute<string>  OrgDestName := OrgName + '_' + DestName;
-			}
-			unit<uint32> Read_B_OV_W_with_BB_830
-			: StorageName = "%LocalDataDir%/NetworkModel_EU/Output/Traveltime_Long_B_OV_W_with_BB_20220328_Arrival_At_08h30m00s_ORG-PC6-All_DEST-haagsehogescholen_O2SWtime-30min.csv"
-			, StorageType = "gdal.vect"
-			, StorageReadOnly = "true"
-			{
-				attribute<string>  OrgDestName := OrgName + '_' + DestName;
-			}
-			unit<uint32> Read_B_OV_W_with_BB_845
-			: StorageName = "%LocalDataDir%/NetworkModel_EU/Output/Traveltime_Long_B_OV_W_with_BB_20220328_Arrival_At_08h45m00s_ORG-PC6-All_DEST-haagsehogescholen_O2SWtime-30min.csv"
-			, StorageType = "gdal.vect"
-			, StorageReadOnly = "true"
-			{
-				attribute<string>  OrgDestName := OrgName + '_' + DestName;
-			}
-			unit<uint32> Read_B_OV_W_with_BB_859
-			: StorageName = "%LocalDataDir%/NetworkModel_EU/Output/Traveltime_Long_B_OV_W_with_BB_20220328_Arrival_At_08h59m00s_ORG-PC6-All_DEST-haagsehogescholen_O2SWtime-30min.csv"
-			, StorageType = "gdal.vect"
-			, StorageReadOnly = "true"
-			{
-				attribute<string>  OrgDestName := OrgName + '_' + DestName;
-			}
-	
-			unit<uint32> Read_W_OV_W_with_WW_800
-			: StorageName = "%LocalDataDir%/NetworkModel_EU/Output/Traveltime_Long_W_OV_W_with_WW_20220328_Arrival_At_08h00m00s_ORG-PC6-All_DEST-haagsehogescholen_O2SWtime-30min.csv"
-			, StorageType = "gdal.vect"
-			, StorageReadOnly = "true"
-			{
-				attribute<string>  OrgDestName := OrgName + '_' + DestName;
-			}
-			unit<uint32> Read_W_OV_W_with_WW_830
-			: StorageName = "%LocalDataDir%/NetworkModel_EU/Output/Traveltime_Long_W_OV_W_with_WW_20220328_Arrival_At_08h30m00s_ORG-PC6-All_DEST-haagsehogescholen_O2SWtime-30min.csv"
-			, StorageType = "gdal.vect"
-			, StorageReadOnly = "true"
-			{
-				attribute<string>  OrgDestName := OrgName + '_' + DestName;
-			}
-			unit<uint32> Read_W_OV_W_with_WW_845
-			: StorageName = "%LocalDataDir%/NetworkModel_EU/Output/Traveltime_Long_W_OV_W_with_WW_20220328_Arrival_At_08h45m00s_ORG-PC6-All_DEST-haagsehogescholen_O2SWtime-30min.csv"
-			, StorageType = "gdal.vect"
-			, StorageReadOnly = "true"
-			{
-				attribute<string>  OrgDestName := OrgName + '_' + DestName;
-			}
-			unit<uint32> Read_W_OV_W_with_WW_859
-			: StorageName = "%LocalDataDir%/NetworkModel_EU/Output/Traveltime_Long_W_OV_W_with_WW_20220328_Arrival_At_08h59m00s_ORG-PC6-All_DEST-haagsehogescholen_O2SWtime-30min.csv"
-			, StorageType = "gdal.vect"
-			, StorageReadOnly = "true"
-			{
-				attribute<string>  OrgDestName := OrgName + '_' + DestName;
-			}
-			
-			unit<uint32> Read_Bike
-			: StorageName = "%LocalDataDir%/NetworkModel_EU/Output/Traveltimes_ORG-PC6-All_DEST-haagsehogescholen_NETWERK-Bike.csv"
-			, StorageType = "gdal.vect"
-			, StorageReadOnly = "true"
-			{
-				attribute<string>  OrgDestName := Org + '_' + Dst;
-			}
-			unit<uint32> Read_Car
-			: StorageName = "%LocalDataDir%/NetworkModel_EU/Output/Traveltimes_ORG-PC6-All_DEST-haagsehogescholen_NETWERK-car_DayGroup-MonTue.csv"
-			, StorageType = "gdal.vect"
-			, StorageReadOnly = "true"
-			{
-				attribute<string>  OrgDestName := Org + '_' + Dst;
-			}
-		}
-	}
-
-	container Stemlocaties_Gelderland
-	{
-		unit<uint32> RegioUnit_gemeente := /SourceData/RegioIndelingen/Gemeenten/Gelderland;
-		unit<uint32> RegioUnit_PC6      := /SourceData/RegioIndelingen/PC6_vlakken;
-		unit<uint32> Stemlocaties       := /SourceData/Lcoaties/Stembureaus_Gelderland;
-		
-		container PerGemeente := 
-			for_each_ne(
-				RegioUnit_gemeente/GM_NAAM
-				, 'PerGemeente_T('+string(id(RegioUnit_gemeente))+')'
-			);
-
-		parameter<string> generate_all_expr := AsList('PerGemeente/'+RegioUnit_gemeente/GM_NAAM+'/result',';');
-		parameter<string> generate_all      := 'OK', ExplicitSuppliers = "= generate_all_expr";
-
-		Template PerGemeente_T
-		{
-			parameter<uint32> Gemeente_rel;
-			///
-			
-			unit<uint32> org  := subset(RegioUnit_PC6/GemGelderland_rel == Gemeente_rel)
-			{
-				attribute<BaseProjection>    geometry := RegioUnit_PC6/point[nr_OrgEntity];
-				attribute<string> PC6      := RegioUnit_PC6/PC6[nr_OrgEntity];
-			}
-			unit<uint32> dest  := subset(Stemlocaties/GemGelderland_rel == Gemeente_rel)
-			{
-				attribute<BaseProjection> geometry := Stemlocaties/geometry[nr_OrgEntity];
-			}
-			
-				
-			container NetwerkSpec :=
-				 templates/netwerk(
-					  org
-					, dest
-					, SourceData/OSM/Network_Pedestrian
-					, org/geometry
-					, dest/geometry
-					, SourceData/OSM/Network_Pedestrian/geometry
-					, 'pedestrian'
-				);
-			
-			unit<uint32> LinkSet := NetwerkSpec/OrgToDest/LinkSet;
-			unit<uint32> NodeSet := NetwerkSpec/OrgToDest/NodeSet;
-			
-			attribute<float32> DistanceToNearestDest (NodeSet) := 
-				dijkstra_s('bidirectional(link_flag);startPoint(Node_rel)'
-					, LinkSet/lengte
-					, LinkSet/F1
-					, LinkSet/F2
-					///
-					, NetwerkSpec/OrgToDest/LinkSet/wegtype != classifications/OSM/wegtype/v/motorway && NetwerkSpec/OrgToDest/LinkSet/wegtype != classifications/OSM/wegtype/v/motorway_link
-					, NetwerkSpec/OrgToDest/nr_destNode
-				);
-			attribute<float32> OD_Distance_org (org) := DistanceToNearestDest[NetwerkSpec/OrgToDest/nr_orgNode];
-			
-			unit<uint32> result := org, StorageName = "='%LocalDataDir%/NetworkModel_EU/Stembureau_GE/' + string(Gemeente_rel) + '.fss'"
-			{
-				attribute<float32> dist := OD_Distance_org;
-				attribute<string>  PC6  := org/PC6;
-			}
-			unit<uint32> read_result
-			: StorageName = "='%LocalDataDir%/NetworkModel_EU/Stembureau_GE/' + string(Gemeente_rel) + '.fss'"
-			, StorageReadOnly = "true"
-			{
-				attribute<float32> dist;
-				attribute<string>  PC6;
-			}
-		}
-		
-		
-		
-		unit<uint32> Result := ='union_unit('+AsList('PerGemeente/'+RegioUnit_gemeente/GM_NAAM+'/read_result',',')+')'
-		, StorageName = "%LocalDataDir%/NetworkModel_EU/Stembureau_GE/afstanden.csv"
-		, StorageType = "gdalwrite.vect"
-		{
-			attribute<string>  PC6                     := ='union_data(.,'+AsList('PerGemeente/'+RegioUnit_gemeente/GM_NAAM+'/read_result/PC6',',')+')';
-			attribute<int32>   LoopAfstand2Stemlocatie := ='round(union_data(.,'+AsList('PerGemeente/'+RegioUnit_gemeente/GM_NAAM+'/read_result/dist',',')+'))';
-		}
-		
-	}
-	
-	container PC4_PC4
-	{
-		unit<uint32> RegioUnit_PC4      := /SourceData/RegioIndelingen/PC4_vlakken;
-		
-		unit<uint32> org  := RegioUnit_PC4
-		{
-			attribute<BaseProjection>    geometry := RegioUnit_PC4/point;
-			attribute<string> PC4      := RegioUnit_PC4/PC4;
-		}
-		
-		unit<uint32> dest  := org;
-
-		container NetwerkSpec :=
-			 templates/netwerk(
-				  org
-				, dest
-				, SourceData/Infrastructuur/OSM/Network_car
-				, org/geometry
-				, dest/geometry
-				, SourceData/Infrastructuur/OSM/Network_car/geometry
-				, 'car'
-			);
-		
-		unit<uint32> LinkSet := NetwerkSpec/OrgToDest/LinkSet;
-		unit<uint32> NodeSet := NetwerkSpec/OrgToDest/NodeSet;
-		
-		unit<uint64> Dijkstra :=
-			dijkstra_m64('bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);alternative(link_imp):alt_imp;od:impedance,OrgZone_rel,DstZone_rel'
-				, LinkSet/impedance_max_Car
-				, LinkSet/F1
-				, LinkSet/F2
-				//
-				, NetwerkSpec/OrgToDest/LinkSet/wegtype != classifications/OSM/wegtype/v/motorway && NetwerkSpec/OrgToDest/LinkSet/wegtype != classifications/OSM/wegtype/v/motorway_link
-				, NetwerkSpec/OrgToDest/nr_orgNode
-				, NetwerkSpec/OrgToDest/nr_destNode
-				, LinkSet/lengte
-			)
-		{ 
-			attribute<float32> Traveltime_minutes := impedance / 60f;
-			attribute<float32> Distance           := alt_imp / 1000f;
-			attribute<string>  OrgName            := org/PC4[OrgZone_rel];
-			attribute<string>  DestName           := dest/PC4[DstZone_rel];
-		}
-		
-		unit<uint64> WriteResult := Dijkstra
-		, StorageName = "%LocalDataDir%/NetworkModel_EU/PC4_PC4/PC4_PC4_ReistijdenAuto.csv"
-		, StorageType = "gdalwrite.vect"
-		{
-			attribute<string>  Org                     := Dijkstra/OrgName;
-			attribute<string>  Dest                    := Dijkstra/DestName;
-			attribute<float32> Traveltime_min          := Dijkstra/Traveltime_minutes;
-			attribute<float32> Distance_km             := Dijkstra/Distance;
-		}
-	}
-	
-	container Geldmaat
-	{
-		unit<uint32> org  := /SourceData/BAG/VBOs/Voorraad/IsWoon
-		{
-			attribute<BaseProjection>    geometry  := /SourceData/BAG/VBOs/Voorraad/IsWoon/Geometry;
-			attribute<PC6>    PC6_rel   := point_in_polygon(geometry, PC6/geometry);
-		}
-		
-		unit<uint32> dest  := /SourceData/Locaties/Geldmaat/uq
-		{
-			attribute<BaseProjection>    geometry  := /SourceData/Locaties/Geldmaat/uq/Geometry;
-			// attribute<string> pc_huisnr := /SourceData/Locaties/Geldmaat/uq/pc_huisnr;
-		}
-
-		container NetwerkSpec :=
-			 templates/netwerk(
-				  org
-				, dest
-				, SourceData/Infrastructuur/OSM/Network_pedestrian
-				, org/geometry
-				, dest/geometry
-				, SourceData/Infrastructuur/OSM/Network_pedestrian/geometry
-				, 'pedestrian'
-			);
-		
-		unit<uint32> LinkSet := NetwerkSpec/OrgToDest/LinkSet;
-		unit<uint32> NodeSet := NetwerkSpec/OrgToDest/NodeSet;
-		
-		attribute<float32> DistanceToNearestDest (NodeSet) := 
-			dijkstra_s('bidirectional;startPoint(Node_rel)'
-				, LinkSet/lengte
-				, LinkSet/F1
-				, LinkSet/F2
-				///
-				, NetwerkSpec/OrgToDest/nr_destNode
-			);
-		attribute<float32> OD_Distance_org (org) := DistanceToNearestDest[NetwerkSpec/OrgToDest/nr_orgNode], FreeData = "false";
-		
-		container Euclian
-		{
-			attribute<dest>   dest_rel      (org)   := connect(dest/geometry, org/geometry);
-			
-			attribute<BaseProjection>    geometry_org  (org)   := org/geometry;
-			attribute<BaseProjection>    geometry_dest (org)   := dest/geometry[dest_rel];
-			
-			attribute<m>      dist          (org)   := value(dist(geometry_dest, geometry_org), m);
-		}
-		
-		unit<uint32> PC6 := /SourceData/RegioIndelingen/PC6_vlakken
-		, StorageName = "%LocalDatDir%/Output/Geldmaat_PC6.csv"
-		, StorageType = "gdalwrite.vect"
-		{
-			attribute<string>    PC6            := /SourceData/RegioIndelingen/PC6_vlakken/PC6;
-			attribute<float32>   netwerk_mean   := mean(OD_Distance_org, org/PC6_rel);
-			attribute<float32>   netwerk_median := rth_element(OD_Distance_org, 0.5f, org/PC6_rel);
-			
-			attribute<float32>   euclid_mean    := mean(Euclian/dist, org/PC6_rel);
-			attribute<float32>   euclid_median  := rth_element(Euclian/dist, 0.5f, org/PC6_rel);
-		}
-	}
-	
-	container Utrecht_Seef
-	{
-		unit<uint32> org  := /SourceData/BAG/Adres/sub
-		{
-			attribute<BaseProjection>    geometry  := /SourceData/BAG/Adres/sub/Geometry;
-		}
-		
-		unit<uint32> dest  := /SourceData/BAG/Adres/PC6_centroids
-		{
-			attribute<BaseProjection>    geometry  := /SourceData/BAG/Adres/PC6_centroids/Geometry;
-			attribute<string> pc6       := /SourceData/BAG/Adres/PC6_centroids/pc6;
-			attribute<string> Gemeente  := /SourceData/BAG/Adres/PC6_centroids/city;
-		}
-		
-		parameter<s_f> MaxTravelTime_s := 85f * 60[s_f];
-		
-		container NetwerkSpec :=
-			 templates/netwerk(
-				  org
-				, dest
-				, SourceData/Infrastructuur/OSM/Network_car
-				, org/geometry
-				, dest/geometry
-				, 'car'
-			);
-		
-		unit<uint32> LinkSet := NetwerkSpec/OrgToDest/LinkSet;
-		unit<uint32> NodeSet := NetwerkSpec/OrgToDest/NodeSet;
-		
-		unit<uint64> Dijkstra :=
-			dijkstra_m64('bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);cut(OrgZone_max_imp);od:impedance,OrgZone_rel,DstZone_rel'
-				, LinkSet/impedance_max_Car
-				, LinkSet/F1
-				, LinkSet/F2
-				//
-				, NetwerkSpec/OrgToDest/LinkSet/wegtype != classifications/OSM/wegtype/v/motorway && NetwerkSpec/OrgToDest/LinkSet/wegtype != classifications/OSM/wegtype/v/motorway_link
-				, NetwerkSpec/OrgToDest/nr_orgNode
-				, NetwerkSpec/OrgToDest/nr_destNode
-				, MaxTravelTime_s
-			)
-		{ 
-			attribute<min_f>   Traveltime_minutes   := convert(impedance, min_f);
-			attribute<string>  DestName             := dest/PC6[DstZone_rel];
-			attribute<string>  GemeenteName         := dest/Gemeente[DstZone_rel];
-		}
-		
-		unit<uint64> PC6 := Dijkstra
-		, StorageName = "%LocalDataDir%/Output/UtrechtSeef_PC6.csv"
-		, StorageType = "gdalwrite.vect"
-		{
-			attribute<string>    PC6            := Dijkstra/DestName;
-			attribute<string>    Gemeente       := Dijkstra/GemeenteName;
-			attribute<string>    Reistijd_min   := string(int32(Traveltime_minutes));
-		}
-	}
-	
-	container Dist2Nearest
-	{
-		unit<uint32> org  := /geometries/NL_grid/perGridsize/size_100m/points/IsNederland
-		{
-			attribute<BaseProjection>    geometry  := /geometries/NL_grid/perGridsize/size_100m/points/IsNederland/Geometry;
-		}
-		
-		unit<uint32> dest  :=/SourceData/Infrastructuur/Stations/uq/IsNederland
-		{
-			attribute<BaseProjection>    geometry  := /SourceData/Infrastructuur/Stations/uq/IsNederland/Geometry;
-		}
-		
-		parameter<s_f> MaxTravelTime := convert(120[min_f], s_f);
-
-		container NetwerkSpec :=
-			 templates/netwerk(
-				  org
-				, dest
-				, SourceData/Infrastructuur/OSM/Network_car
-				, org/geometry
-				, dest/geometry
-				// , SourceData/Infrastructuur/OSM/Network_car/geometry
-				, 'car'
-			);
-
-		unit<uint32> LinkSet := NetwerkSpec/OrgToDest/LinkSet
-		{
-			container Connectiveness
-			{
-				unit<uint32> src := ..;
-				attribute<BaseProjection>               point (src)           := first_point(src/segments);
-				attribute<BaseProjection>               nextpoint (src)       := last_point(src/segments);
-				
-				unit<uint32> pointset : = union_unit(src,src)
+				unit<uint32> Matrix_Array := org
 				{
-					attribute<BaseProjection>       point       := union_data(., ../point, ../nextpoint);
-					attribute<bool>                 isVerbonden := isNull(rlookup(point, NodesNotConnected/point));
-					attribute<src>                   ArcNr       := value(ID(.) % #(src), src);
-				}
-				
-				unit<uint32> NodeSet := unique(pointset/point)
-				,	DialogData = "Values"
-				,	DialogType = "Map"
-				{
-					attribute<BaseProjection> values;
+					attribute<string> org_name           := org/label;
+					attribute<string> impedance_min_list := AsList(impedance_min, ';', OrgZone_rel);
 				}
 
-				attribute<NodeSet> F1 (src) := rlookup(point,     NodeSet/Values);
-				attribute<NodeSet> F2 (src) := rlookup(nextpoint, NodeSet/Values);
-			
-				unit<uint32> networks:= connected_parts(F1, F2) // Verzameling van alle netwerken, inclusief de subnetwerken.
+				unit<uint32> Header : nrofrows = 1
 				{
-					attribute<uint32>   nr_nodes   := sum(const(1, NodeSet, uint32), partnr);
-					parameter<uint32>   MaxNrNodes := max(networks/nr_nodes);
-					parameter<networks> main       := rlookup(MaxNrNodes, nr_nodes); // uitgangspunt: het netwerk met de meeste nodes is het relevante netwerk
+					attribute<string> values := AsList(dest/label, ';', const(0[Header],dest));
 				}
 
-				unit<uint32> NodesNotConnected := Subset(networks/partnr <> networks/main)
+				unit<uint32> Matrix_met_header := union_unit(Header, Matrix_Array) //This unit can easily be exported to csv and used in other applications.
+				, StorageName  = "%LocalDataProjDir%/Export/NUTS3_PopWeighted_Centroids_OD_matrix_20230804.csv"
+				, StorageType  = "gdalwrite.vect"
 				{
-					attribute<BaseProjection> point := NodeSet/Values[Nr_OrgEntity];
+					attribute<string> org_name := union_data(., const('',Header), Matrix_Array/org_name);
+					attribute<string> values   := union_data(., Header/values, Matrix_Array/impedance_min_list) ;
 				}
-				attribute<bool> isVerbonden (src) := all(pointset/isVerbonden, pointset/ArcNr);
 			}
 		}
-		
-		unit<uint32> NodeSet := NetwerkSpec/OrgToDest/NodeSet;
-		
-		attribute<float32> TravelTimeToNearestDest (NodeSet) := 
-			dijkstra_s('bidirectional;startPoint(Node_rel);cut(OrgZone_max_imp)'
-				, LinkSet/impedance_max_Car 
-				, LinkSet/F1
-				, LinkSet/F2
-				///
-				, NetwerkSpec/OrgToDest/nr_destNode
-				, MaxTravelTime
-			);
-		attribute<min_f>   OD_Imp_org (org)      := convert(TravelTimeToNearestDest[NetwerkSpec/OrgToDest/nr_orgNode], min_f), FreeData = "false";
-		attribute<float32> grid (NL_grid/domain) := OD_Imp_org[invert(org/NL_grid_domain_rel)], StorageName = "%LocalDataDir%/Output/Reistijd_Trainstations_2019.tif";
-		
-		attribute<float32> Read_grid (NL_grid/domain) : StorageName = "%LocalDataDir%/Output/Reistijd_Trainstations_2019.tif", StorageReadOnly = "true";
-		attribute<float32> Make_grid (NL_grid/domain) := MakeDefined(Read_grid, 120f), StorageName = "%LocalDataDir%/Output/Reistijd_Trainstations_2019_edit.tif";
 	}
+	
+	#include<ComputeProxy.dms>
 }

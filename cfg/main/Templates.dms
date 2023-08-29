@@ -9,16 +9,14 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 		unit<uint32> JunctionDomain;
 		// end case parameters
 
-//		unit<uint32> ConnectorNodeSet := CreateInitialWorkingNetwork/ConnectorRoads/ConnectorNodeSet;
-
 		unit<uint32> OrgDomain := OrgDomain0
 		{
-			// attribute<ConnectorNodeSet> ConnectorNodeSet_rel := rlookup(ipoint(geometry), ConnectorNodeSet/geometry);
+			attribute<UniqueLocations> UniqueLocations_rel := rlookup(ipoint(geometry), ipoint(UniqueLocations/geometry));
 		}
 		
 		unit<uint32> DestDomain := DestDomain0
 		{
-			// attribute<ConnectorNodeSet> ConnectorNodeSet_rel := rlookup(ipoint(geometry), ConnectorNodeSet/geometry);
+			attribute<UniqueLocations> UniqueLocations_rel := rlookup(ipoint(geometry), ipoint(UniqueLocations/geometry));
 		}
 		
 		attribute<BaseProjection>                      OrgLocations  (OrgDomain)      := orgDomain/geometry;
@@ -40,6 +38,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			attribute<BaseProjection>               geometry       := values;
 			attribute<Locations>                    Locations_rel  := rlookup(geometry, Locations/geometry);
 			attribute<OrgDomain>                    OrgDomain_rel  := rlookup(geometry, OrgLocations);
+			attribute<DestDomain>                   DestDomain_rel := rlookup(geometry, DestLocations);
 			attribute<bool>                         IsOrg          := rjoin(geometry, Locations/geometry, Locations/IsOrg);
 			attribute<uint32>                       Population     := Locations/Population[Locations_rel];
 		}

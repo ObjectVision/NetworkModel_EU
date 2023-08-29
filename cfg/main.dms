@@ -19,6 +19,7 @@ container NetworkModel_EU
 	#include<Classifications.dms>
 	#include<SourceData.dms>
 	#include<NetworkSetup.dms>
+	#include<Analyses.dms>
 	#include<Templates.dms>
 	
 	container ConfigSettings
@@ -29,14 +30,8 @@ container NetworkModel_EU
 		}
 	}
 	
-	container ExportSettings: url = "='#'+ExportSettings/Docdata +'/ExportSettings.adms'"
+	container ExportSettings
 	{
-		container SvnImpl
-		{
-			parameter<String> RevisionInfoCmd := Replace(Expand(., 'SubWCRev %projDir% > %projDir%/SubWCRevData.str'), '/', '\\');
-			parameter<uint32> WriteCode       := exec_ec(Expand(., '%env:ComSpec%'), '/c ' + RevisionInfoCmd, Expand(., '%projdir%'));
-		}
-		
 		container MetaInfo
 		{
 			parameter<string> FileName : ='%storageBaseName%.xml';
@@ -58,9 +53,24 @@ container NetworkModel_EU
 					parameter<string> User         := expand(., '%env:USERNAME%');
 					parameter<string> ComputerName := expand(., '%env:COMPUTERNAME%');
 				}
-				container Svn
+				container Parameters
 				{
-					parameter<string> RevisionInfo: Storagename = "=(SvnImpl/WriteCode==0)?'%projDir%/SubWCRevData.str':'Error '+String(SvnImpl/WriteCode)+' while producing %projDir%/SubWCRevData.str'";
+					parameter<string>   OrgGridsize                    := ModelParameters/OrgGridsize;
+					parameter<string>   DestGridsize                   := ModelParameters/DestGridsize;
+					parameter<string>   MaxTravelTime                  := string(ModelParameters/MaxTravelTime);
+					parameter<string>   UseStreetTypeSubset            := string(ModelParameters/UseStreetTypeSubset);
+					parameter<string>   Street_OD_ConnectabletSelectie := ModelParameters/Street_OD_ConnectabletSelectie;
+					parameter<string>   StreetTypeSubsetSelectie       := ModelParameters/StreetTypeSubsetSelectie;
+					parameter<string>   NumberOfItersForNetworkCleanUp := string(ModelParameters/NumberOfItersForNetworkCleanUp);
+					parameter<string>   Use_Country_OD_selection       := string(ModelParameters/Use_Country_OD_selection);
+					parameter<string>   Roads_path                     := ModelParameters/Roads_path;
+					parameter<string>   CountryFolder                  := ModelParameters/CountryFolder;
+					parameter<string>   MaxCarSpeed                    := string(ModelParameters/Advanced/MaxCarSpeed);
+					parameter<string>   MaxCarSpeed_limit              := string(ModelParameters/Advanced/MaxCarSpeed_limit);
+					parameter<string>   CarDefaultSpeed                := string(ModelParameters/Advanced/CarDefaultSpeed);
+					parameter<string>   CarDefaultSpeed_low            := string(ModelParameters/Advanced/CarDefaultSpeed_low);
+					parameter<string>   ConnectorLinkSpeed             := string(ModelParameters/Advanced/ConnectorLinkSpeed);
+					parameter<string>   Ferry_Speed                    := string(ModelParameters/Advanced/Ferry_Speed);
 				}
 			}
 		}
