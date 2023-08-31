@@ -1,7 +1,7 @@
 ﻿container ModelParameters : using = "units"
 {   
-	parameter<uint32>   Org_Gridsize                   := 10; // 1 5 10 50
-	parameter<uint32>   Dest_Gridsize                  := 10; // 1 5 10 50
+	parameter<uint32>   Org_Gridsize                   := 1; // 1 5 10 50
+	parameter<uint32>   Dest_Gridsize                  := 1; // 1 5 10 50
 	parameter<string>   OrgGridsize                    := string(Org_Gridsize)+'km'; // '1km' 5km 10km 50km
 	parameter<string>   DestGridsize                   := string(Dest_Gridsize)+'km'; // '1km'5km 10km 50km
 	parameter<min_f>    MaxTravelTime                  := 240[min_f];
@@ -10,7 +10,7 @@
 	parameter<string>   StreetTypeSubsetSelectie       := 'FuncRoadClass/V/Local_Road_of_Minor_Importance';    //7 FuncRoadClass/V/Local_Road   8 FuncRoadClass/V/Secondary_Road Local_Road_of_Minor_Importance  Local_Road_of_High_Importance 
 	parameter<uint8>    NumberOfItersForNetworkCleanUp := 10b;
 	
-	parameter<bool>     Use_Country_OD_selection       := TRUE; // TRUE FALSE  //Country is currently defined as Finland
+	parameter<bool>     Use_Country_OD_selection       := FALSE; // TRUE FALSE  //Country is currently defined as Finland
 	
 	parameter<string>   Roads_path                     := '%NetworkModelDataDir%/Infrastructure/TomTom/'+CountryFolder+'/NW2021_SP_streets_subset.fss';
 	parameter<string>   CountryFolder                  := Use_Country_OD_selection ?  'Finland' : 'EU';

@@ -60,6 +60,12 @@ container Geometries
 		attribute<Base_grid_1km_spoint> Base_grid_1km_spoint_rel     := point[Base_grid_1km_spoint];
 		attribute<bool>                 Select_criterium             := =ModelParameters/Use_Country_OD_selection ? 'isDefined(id) && IsCountry' : 'isDefined(id) && IsEU';
 		
+		unit<uint32>                    id_key           := range(uint32, 0, #.);
+		attribute<uint32>               id_rel           := value(uint32(pointrow(id(.))) * uint32(nr_cols) + uint32(pointcol(id(.))), id_key);
+			
+		parameter<int32> nr_cols := int32(max(pointcol(id(.))) - min(pointcol(id(.))));
+		parameter<int32> nr_rows := int32(max(pointrow(id(.))) - min(pointrow(id(.))));
+			
 		unit<uint32> points := select_uint32(Select_criterium)
 		{
 			attribute<BaseProjection>       geometry          := select_data(., ../Select_criterium, ../point);
@@ -71,6 +77,7 @@ container Geometries
 			
 			attribute<..>                   grid_domain_rel   := geometry[..];
 			attribute<uint32>               Population        := select_data(., ../Select_criterium, ../Population);
+			attribute<uint32>               id_rel            := select_data(., ../Select_criterium, ../id_rel);
 		}
 	}
 	unit<spoint> Base_grid_1km_spoint  := gridset(

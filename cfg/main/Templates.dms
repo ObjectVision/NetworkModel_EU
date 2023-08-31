@@ -397,7 +397,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<NodeSet>                         F2                             := union_data(., UnchangedLinkSet/F2, JunctionFreeSection/F2);
 					attribute<s_f>                             impedance_org                  := union_data(., UnchangedLinkSet/impedance, JunctionFreeSection/Total_Impedance);
 					attribute<s_f>                             impedance                      := MakeDefined(Find_DuplicateLinks/min_impedance[Find_DuplicateLinks_rel],impedance_org);
-					attribute<km>                              LengthKm                       := union_data(., UnchangedLinkSet/LengthKm, JunctionFreeSection/Total_LengthKm);
+					attribute<km>                              LengthKm_org                   := union_data(., UnchangedLinkSet/LengthKm, JunctionFreeSection/Total_LengthKm);
+					attribute<km>                              LengthKm                       := MakeDefined(Find_DuplicateLinks/min_length_km[Find_DuplicateLinks_rel],LengthKm_org);
 					attribute<bool>                            IsOneDirection                 := union_data(., UnchangedLinkSet/IsOneDirection, JunctionFreeSection/IsOneDirection);
 					
 					attribute<bool>                            IsLinkWithDeadEnd              := NodeSet/IsDeadEnd_and_NotOD[F1] || NodeSet/IsDeadEnd_and_NotOD[F2];
@@ -409,11 +410,13 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<Nodeset_x_NodeSet>               Nodeset_x_NodeSet_rel          := combine_data(Nodeset_x_NodeSet, min_elem(F1, F2), max_elem(F1,F2));
 					attribute<Find_DuplicateLinks>             Find_DuplicateLinks_rel        := rlookup(Nodeset_x_NodeSet_rel, Find_DuplicateLinks/values);
 
+					//After clean up, the reduced road could collapse into a road which is duplicate.
 					unit<uint32> Find_DuplicateLinks := unique(Nodeset_x_NodeSet_rel)
 					{
 						attribute<uint32>                    count_occurence := pcount(Find_DuplicateLinks_rel);
 						attribute<bool>                      IsDuplicateLink := count_occurence > 1;
 						attribute<s_f>                       min_impedance   := min(../impedance_org, Find_DuplicateLinks_rel);
+						attribute<km>                        min_length_km   := min(../LengthKm_org, Find_DuplicateLinks_rel);
 						attribute<..>                        FirstLink       := first(id(..), Find_DuplicateLinks_rel);
 					}
 					
