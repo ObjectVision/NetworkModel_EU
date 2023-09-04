@@ -1,6 +1,6 @@
 container ComputeProxy: Using = "Units;geometries;SourceData;"
 {
-	parameter<s_f>     MaxTraveltime := (30[min_f])[s_f];
+	parameter<s_f>     MaxTraveltime := (60[min_f])[s_f];
 	parameter<km>      Self_Distance := 0.23[km]; //de theoretische gemiddelde 0.23 km die je moet reizen om een random bestemming binnen je eigen 1km grid cel te bereiken. Volgens Lewis.
 	parameter<km>      maxWalkDist   := 1.001[km];
 	parameter<km>      maxCycleDist  := 3.001[km];
@@ -8,7 +8,7 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 	unit<uint32>       FinalLinkSet  := NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
 	unit<uint32>       FinalNodeSet  := NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
 	unit<uint32>       OD_points     := NetworkSetup/Base_Analysis/NetwerkSpec/UniqueLocations;
-	unit<uint32>       Origins       := NetworkSetup/Base_Analysis/NetwerkSpec/OrgDomain;
+	unit<uint32>       Origins       := NetworkSetup/Base_Analysis/NetwerkSpec/DestDomain;
 	unit<uint32>       Destinations  := NetworkSetup/Base_Analysis/NetwerkSpec/DestDomain;
 	
 	unit<uint32> distdecay_functions: NrOfRows = 6 
@@ -36,7 +36,7 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 			, FinalLinkSet/F2
 			///
 			, !FinalLinkSet/IsOneDirection
-			, FinalNodeSet/OrgNode_rel
+			, FinalNodeSet/DestNode_rel
 			, FinalNodeSet/DestNode_rel
 			, MaxTraveltime
 			, FinalLinkSet/LengthKm
@@ -45,7 +45,7 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 		attribute<min_f>        Minutes  := impedance[min_f];
 		attribute<Origins>      i        := OrgZone_rel; //origin id
 		attribute<Destinations> j        := DstZone_rel; //destination id
-		attribute<bool>         self     := Origins/id_rel[i] = Destinations/id_rel[j]; //Is OD-pair pair of itself
+		attribute<bool>         self     := point_isNearBy(Origins/Geometry[i], Destinations/Geometry[j], 1.0d); //Is OD-pair pair of itself
 		attribute<uint32>       Pi       := Origins/Population[i];  //Population in origin
 		attribute<uint32>       Pj       := Destinations/Population[j]; //Population in destination
 		attribute<min_f>        Mij      := self ? convert(Self_Distance / ModelParameters/Advanced/CarDefaultSpeed_low, min_f) : Minutes;
