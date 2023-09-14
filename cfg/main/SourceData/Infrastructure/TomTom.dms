@@ -84,57 +84,48 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 			attribute<m>                  METERS      (domain);
 			attribute<min_f>              MINUTES     (domain);
 			attribute<Directions>         Direction   (domain);
+			
+			attribute<Junctions>          F_JNCT_rel                         (domain) := rlookup(F_JNCTID, Junctions/JNCTID);
+			attribute<bool>               Streets_IsJunctionWithinStudyArea  (domain ):= FSS/Junctions/IsWithinStudyArea[F_JNCT_rel];
+			attribute<bool>               Streets_IsStreetTypeSubsetSelectie (domain) := ='FRC_rel <= '+ModelParameters/StreetTypeSubsetSelectie;
+			
+			attribute<bool>               Streets_Selection_Condition        (domain) := =ModelParameters/UseStreetTypeSubset ? 'Streets_IsStreetTypeSubsetSelectie && Streets_IsJunctionWithinStudyArea' : 'Streets_IsJunctionWithinStudyArea';
 		}
 		
-		unit<uint32> Streets_src := Read_Streets_container/domain
+		unit<uint32> Streets_Selectie   := select_with_attr_by_cond(Read_Streets_container, Read_Streets_container/Streets_Selection_Condition)
 		{
-			attribute<BaseProjection>     Geometry       (arc) := Read_Streets_container/Geometry;
-			attribute<BaseProjection>     geometry_clean (arc) := Impl/geometry_clean, IntegrityCheck = "Impl/CleanUp_BeginEndPointLink/Check_ModuloIsEen";
-			attribute<FuncRoadClass>      FRC_rel              := Read_Streets_container/FRC_rel;
-			
-			attribute<uint64>             F_JNCTID_initial     := Read_Streets_container/F_JNCTID;
-			attribute<uint64>             T_JNCTID_initial     := Read_Streets_container/T_JNCTID;
-			
-			attribute<uint64>             F_JNCTID             := Direction == Directions/v/backwards ? T_JNCTID_initial : F_JNCTID_initial; // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer) --> Comment van Chris
-			attribute<uint64>             T_JNCTID             := Direction == Directions/v/backwards ? F_JNCTID_initial : T_JNCTID_initial; // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer) --> Comment van Chris
-			
-			attribute<km_hr>              KPH            := Read_Streets_container/KPH;
-			attribute<m>                  METERS         := Read_Streets_container/METERS;
-			attribute<min_f>              MINUTES        := Read_Streets_container/MINUTES;
-			attribute<Directions>         Direction      := Read_Streets_container/Direction;
-
-			attribute<Junctions>          F_JNCT_rel     := rlookup(F_JNCTID, Junctions/JNCTID);
+			attribute<BaseProjection>     geometry_clean (arc) := Impl/geometry_clean;
+			attribute<uint64>             F_JNCTID_directed             := Direction == Directions/v/backwards ? T_JNCTID : F_JNCTID; // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer) --> Comment van Chris
+			attribute<uint64>             T_JNCTID_directed             := Direction == Directions/v/backwards ? F_JNCTID : T_JNCTID; // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer) --> Comment van Chris
 			
 			container Impl
 			{
-				attribute<BaseProjection>     geometry_clean        (FSS/Streets_src, arc) := points2sequence(CleanUp_BeginEndPointLink/seq2points/CleanUpPoints/Point, CleanUp_BeginEndPointLink/seq2points/CleanUpPoints/sequence_rel, CleanUp_BeginEndPointLink/seq2points/CleanUpPoints/NewOrdinal);
+				unit<uint32> src := ..;
+				attribute<BaseProjection>     geometry_clean        (src, arc) := points2sequence(CleanUp_BeginEndPointLink/seq2points/CleanUpPoints/Point, CleanUp_BeginEndPointLink/seq2points/CleanUpPoints/sequence_rel, CleanUp_BeginEndPointLink/seq2points/CleanUpPoints/NewOrdinal);
 
 				container CleanUp_BeginEndPointLink
 				{
 					//// checks
 					// #punten per sequence in org moet oneven zijn.
-					parameter<bool> Check_ModuloIsEen           := sum(aantal_punten_per_sequence % 2) == #FSS/Streets_src;
-					
+					parameter<bool> Check_ModuloIsEen           := all(LastOrdinalNr % 2 == 0);
 					// geen dubbele punten binnen sequence rel
-					
 					// er mogen geen punten zijn die wel in de org zitten en niet in clean. 
-					
-					
-					attribute<uint32> aantal_punten_per_sequence (FSS/Streets_src) := pcount(seq2points/sequence_rel);
+					attribute<uint32> aantal_punten_per_sequence (src) := pcount(seq2points/sequence_rel);
 				
-					unit<uint32> seq2points := sequence2points(FSS/Streets_src/geometry)
+					attribute<uint32>     LastOrdinalNr       (src)   := last(seq2points/ordinal, seq2points/sequence_rel);
+					attribute<uint32>     LastRelevantOrdinal (src)   := LastOrdinalNr / 2, IntegrityCheck = "Check_ModuloIsEen";
+					
+					unit<uint32> seq2points := sequence2points(src/geometry)
 					{
-						attribute<Directions> Direction             := rjoin(sequence_rel, id(FSS/Streets_src), FSS/Streets_src/Direction);
-						attribute<uint32>     LastOrdinalNr         := rjoin(sequence_rel, id(FSS/Streets_src), last(ordinal, sequence_rel));
-						
-						attribute<uint32>     LastRelevantOrdinal   := LastOrdinalNr / 2;
-						attribute<bool>       IsLastRelevantOrdinal := LastRelevantOrdinal == Ordinal;
-						attribute<bool>       IsIrrelevant          := Ordinal > LastRelevantOrdinal; //links are doubled, we only want one-way links.
-						
-						attribute<uint32>     ReveresedOrdinal      := abs(Ordinal[int32] - LastRelevantOrdinal[int32])[uint32];
-						attribute<uint32>     NewOrdinal            := Direction == Directions/v/backwards ? ReveresedOrdinal : Ordinal;
+						// attribute<bool>       IsLastRelevantOrdinal := LastRelevantOrdinal == Ordinal;
+						attribute<bool>       IsRelevant          := Ordinal <= LastRelevantOrdinal[sequence_rel]; //links are doubled, we only want one-way links.
 
-						unit<uint32> CleanUpPoints := select_with_attr_by_cond(seq2points,!seq2points/IsIrrelevant);
+						unit<uint32> CleanUpPoints := select_with_attr_by_cond(seq2points, seq2points/IsRelevant)
+						{
+							attribute<Directions> Direction             := src/Direction[sequence_rel];
+							attribute<uint32>     ReversedOrdinal       := LastRelevantOrdinal[sequence_rel] - Ordinal;
+							attribute<uint32>     NewOrdinal            := Direction == Directions/v/backwards ? ReversedOrdinal : Ordinal;
+						}
 					}
 				}
 			}
@@ -143,25 +134,25 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 	
 	container Selection
 	{
-		attribute<bool>               Streets_IsJunctionWithinStudyArea  (FSS/Streets_src) := FSS/Junctions/IsWithinStudyArea[FSS/Streets_src/F_JNCT_rel];
-		attribute<bool>               Streets_IsStreetTypeSubsetSelectie (FSS/Streets_src) := ='FSS/Streets_src/FRC_rel <= '+ModelParameters/StreetTypeSubsetSelectie;
-		attribute<bool>               Streets_Selection_Condition        (FSS/Streets_src) := =ModelParameters/UseStreetTypeSubset ? 'Streets_IsStreetTypeSubsetSelectie && Streets_IsJunctionWithinStudyArea' : 'Streets_IsJunctionWithinStudyArea';
+		// attribute<bool>               Streets_IsJunctionWithinStudyArea  (FSS/Streets_src) := FSS/Junctions/IsWithinStudyArea[FSS/Streets_src/F_JNCT_rel];
+		// attribute<bool>               Streets_IsStreetTypeSubsetSelectie (FSS/Streets_src) := ='FSS/Streets_src/FRC_rel <= '+ModelParameters/StreetTypeSubsetSelectie;
+		// attribute<bool>               Streets_Selection_Condition        (FSS/Streets_src) := =ModelParameters/UseStreetTypeSubset ? 'Streets_IsStreetTypeSubsetSelectie && Streets_IsJunctionWithinStudyArea' : 'Streets_IsJunctionWithinStudyArea';
 		
-		unit<uint32> Streets_selection_unit := select_with_attr_by_cond(FSS/Streets_src, Streets_Selection_Condition);
+		// unit<uint32> Streets_selection_unit := select_with_attr_by_cond(FSS/Streets_src, Streets_Selection_Condition);
 		
-		container Make_Streets_selection := Streets_selection_unit
+		container Make_Streets_selection := FSS/Streets_Selectie
 		, StorageName = "=ModelParameters/Roads_path"
 		{
-			attribute<BaseProjection>     geometry       (Streets_selection_unit, arc) := Streets_selection_unit/geometry_clean;
-			attribute<FuncRoadClass>      FRC_rel        (Streets_selection_unit)      := Streets_selection_unit/FRC_rel;
-			attribute<uint64>             F_JNCTID       (Streets_selection_unit)      := Streets_selection_unit/F_JNCTID[uint64];
-			attribute<uint64>             T_JNCTID       (Streets_selection_unit)      := Streets_selection_unit/T_JNCTID[uint64];
-			attribute<m>                  METERS         (Streets_selection_unit)      := Streets_selection_unit/METERS[m];
-			attribute<min_f>              MINUTES        (Streets_selection_unit)      := Streets_selection_unit/MINUTES[min_f];
-			attribute<km_hr>              KPH            (Streets_selection_unit)      := Streets_selection_unit/KPH[km_hr];
-			attribute<Directions>         Direction      (Streets_selection_unit)      := Streets_selection_unit/Direction;
+			attribute<BaseProjection>     geometry       (FSS/Streets_Selectie, arc) := FSS/Streets_Selectie/geometry_clean;
+			attribute<FuncRoadClass>      FRC_rel        (FSS/Streets_Selectie)      := FSS/Streets_Selectie/FRC_rel;
+			attribute<uint64>             F_JNCTID       (FSS/Streets_Selectie)      := FSS/Streets_Selectie/F_JNCTID[uint64];
+			attribute<uint64>             T_JNCTID       (FSS/Streets_Selectie)      := FSS/Streets_Selectie/T_JNCTID[uint64];
+			attribute<m>                  METERS         (FSS/Streets_Selectie)      := FSS/Streets_Selectie/METERS[m];
+			attribute<min_f>              MINUTES        (FSS/Streets_Selectie)      := FSS/Streets_Selectie/MINUTES[min_f];
+			attribute<km_hr>              KPH            (FSS/Streets_Selectie)      := FSS/Streets_Selectie/KPH[km_hr];
+			attribute<Directions>         Direction      (FSS/Streets_Selectie)      := FSS/Streets_Selectie/Direction;
 			
-			parameter<uint32>             n                                            := #Streets_selection_unit;
+			parameter<uint32>             n                                            := #FSS/Streets_Selectie;
 		}
 		
 		container Read_Streets_selection
