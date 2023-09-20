@@ -105,10 +105,11 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			
 			unit<uint32> LinkSet_Write := LinkSet_Calc,	StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.fss'"
 			{
-				attribute<km_hr>           KPH            := MakeDefined(arc_rel->KPH, ModelParameters/Advanced/CarDefaultSpeed_low);
-				attribute<bool>            IsOneDirection := arc_rel->IsOneDirection;
-				attribute<BaseProjection>  first_point    := first_point(geometry); //OD point   --> vanwege directions hoeft deze niet te klopppen...
-				attribute<BaseProjection>  last_point     := last_point(geometry);  //May or may not be an existing network node, otherwise it is a new node
+				attribute<km_hr>           KPH                  := MakeDefined(arc_rel->KPH, ModelParameters/Advanced/CarDefaultSpeed_low);
+				attribute<bool>            IsOneDirection       := arc_rel->IsOneDirection;
+				attribute<BaseProjection>  first_point          := first_point(geometry); //OD point   --> vanwege directions hoeft deze niet te klopppen...
+				attribute<BaseProjection>  last_point           := last_point(geometry);  //May or may not be an existing network node, otherwise it is a new node
+				attribute<bool>            IsOD_connection_road := !IsDefined(arc_rel);
 			}
 			
 			unit<uint32> LinkSet_Read: StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.fss'", StorageReadOnly = "True"
@@ -117,6 +118,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<bool>            IsOneDirection;
 				attribute<BaseProjection>  first_point;
 				attribute<BaseProjection>  last_point;
+				attribute<bool>            IsOD_connection_road;
 			}
 			
 			unit<uint32> LinkSet := LinkSet_Read
@@ -173,7 +175,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			unit<uint8> Iter := range(uint8, 0[uint8], ModelParameters/NumberOfItersForNetworkCleanUp)
 			{
 				attribute<string> name := 'Iter_'+string(id(.));
-				attribute<string> prevname := MakeDefined(name[ID(.)-1b], 'Start');
+				attribute<string> prevname := MakeDefined(name[sub_or_null(ID(.),1b)], 'Start');
 				attribute<string> Label := name, DialogType = "LabelText";
 				attribute<uint32> nrofarc_na_iter := ='union_data(., '+AsList('OptimiseNetwork/'+name+'/IntermediateLinkSet/count_arcs', ',')+')'; 
 			}
@@ -207,11 +209,12 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			unit<uint32> LastLinkSet := OptimiseNetwork/LastIter/IntermediateLinkSet;
 			unit<uint32> FinalLinkSet_Write := LastLinkSet,	StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalLinkSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.fss'" 
 			{
-				attribute<FinalNodeSet_Calc> F1             := invert(FinalNodeSet_Calc/org_rel)[LastLinkSet/F1];
-				attribute<FinalNodeSet_Calc> F2             := invert(FinalNodeSet_Calc/org_rel)[LastLinkSet/F2];
-				attribute<s_f>               Impedance      := LastLinkSet/Impedance;
-				attribute<km>                LengthKm       := LastLinkSet/LengthKm;
-				attribute<bool>              IsOneDirection := LastLinkSet/IsOneDirection;
+				attribute<FinalNodeSet_Calc> F1                   := invert(FinalNodeSet_Calc/org_rel)[LastLinkSet/F1];
+				attribute<FinalNodeSet_Calc> F2                   := invert(FinalNodeSet_Calc/org_rel)[LastLinkSet/F2];
+				attribute<s_f>               Impedance            := LastLinkSet/Impedance;
+				attribute<km>                LengthKm             := LastLinkSet/LengthKm;
+				attribute<bool>              IsOneDirection       := LastLinkSet/IsOneDirection;
+				attribute<bool>              IsOD_connection_road := LastLinkSet/IsOD_connection_road;
 			}
 			
 			unit<uint32> FinalNodeSet : StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalNodeSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.fss'", StorageReadOnly = "True"
@@ -228,10 +231,13 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<s_f>          Impedance;
 				attribute<km>           LengthKm;
 				attribute<bool>         IsOneDirection;
+				attribute<bool>         IsOD_connection_road;
 			}
 			unit<uint32> FinalLinkSet := FinalLinkSet_Read
 			{
 				attribute<bool>         IsOneDirection := FinalLinkSet_Read/IsOneDirection;
+				attribute<s_f>          Impedance      := FinalLinkSet_Read/Impedance;
+				attribute<km>           LengthKm       := FinalLinkSet_Read/LengthKm;
 				// For visualisation
 				attribute<BaseProjection>                  FirstPoint                     := FinalNodeSet/Geometry[F1];
 				attribute<BaseProjection>                  LastPoint                      := FinalNodeSet/Geometry[F2];
@@ -242,7 +248,26 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<..>                          SeqNr   := value(id(.) % nrofrows(..), ..);
 					attribute<uint32>                      Ordinal := id(.) / nrofrows(..);
 				}
-				container Connectiveness := Templates/Check_Connectiveness_T_adhoc(.,FinalNodeSet, F1, F2);
+				// container Connectiveness := Templates/Check_Connectiveness_T_adhoc(.,FinalNodeSet, F1, F2);
+				
+				attribute<bool>           IsOD_connection_road       := FinalLinkSet_Read/IsOD_connection_road;
+				
+				unit<uint32> Without_OD_connection_roads := select_with_attr_by_org_rel(.,!IsOD_connection_road);
+				
+				unit<uint32> Export := Without_OD_connection_roads
+				, StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Network_Cleaned_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_'+expand(., '%DateTime%')+'.gpkg'"
+				, StorageType = "gdalwrite.vect"
+				{
+					attribute<BaseProjection> geometry     (arc) := Without_OD_connection_roads/geometry;
+					attribute<float32>        Impedance          := float32(Without_OD_connection_roads/Impedance);
+					attribute<float32>        LengthKm           := float32(Without_OD_connection_roads/LengthKm);
+					attribute<float32>        IsOneDir           := float32(Without_OD_connection_roads/IsOneDirection);
+				}
+				
+				container store 
+				{
+					parameter<bool>    store                    :=  True, explicitsuppliers = "Export";
+				}
 			}
 			
 			
@@ -282,7 +307,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<uint32>                          NrConnectedLinks               := pcount(LinkSet/F1) + pcount(LinkSet/F2);
 					attribute<bool>                            BordersWithOneDirectionalRoad  := LinkSet/IsOneDirection[invert(LinkSet/F1)] || LinkSet/IsOneDirection[invert(LinkSet/F2)];
 					attribute<bool>                            WillBeDeleted                  := NrConnectedLinks == 2 && pcount(UniqueLocations/Node_rel) == 0; // 2 connectinglinks means intermediary without junction, and if there are no node_rel's then it is not an OD-point.,
-					
+					attribute<bool>                            IsOD_connection_road           := NodeSet_src/IsOD_connection_road;
+
 					//Forward relations
 					attribute<JunctionFreeSection>             JunctionFreeSection_rel        := ConnectedParts/JunctionFreeSection_rel[ConnectedParts_rel];
 					
@@ -354,6 +380,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<bool>                            Links_InsideJFS_IsOneDirection     := all(LinksInsideJunctionFreeSection/IsOneDirection, LinksInsideJunctionFreeSection/JunctionFreeSection_rel);
 					
 					attribute<bool>                            IsOneDirection                     := First_ConnectorLink_IsOneDirection && Last_ConnectorLink_IsOneDirection && Links_InsideJFS_IsOneDirection;
+					attribute<bool>                            IsOD_connection_road               := const(FALSE,.);
 					
 					//For visualisation
 					// attribute<BaseProjection_ip>                  FirstPoint                     := NodeSet/Geometry[F1];
@@ -376,7 +403,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<s_f>                             impedance                      := LinkSet/impedance[org_rel];
 					attribute<km>                              LengthKm                       := LinkSet/LengthKm[org_rel];
 					attribute<bool>                            IsOneDirection                 := LinkSet/IsOneDirection[org_rel];
-					
+					attribute<bool>                            IsOD_connection_road           := LinkSet/IsOD_connection_road[org_rel];
 					//For visualisation
 					// attribute<BaseProjection_ip>                  FirstPoint                     := NodeSet/geometry[F1];
 					// attribute<BaseProjection_ip>                  LastPoint                      := NodeSet/geometry[F2];
@@ -406,6 +433,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<bool>                            IsDuplicateLink                := Find_DuplicateLinks/IsDuplicateLink[Find_DuplicateLinks_rel] && id(.) != Find_DuplicateLinks/FirstLink[Find_DuplicateLinks_rel];
 					
 					attribute<bool>                            ToBeOmitted                    := (IsLinkWithDeadEnd || IsLinkConnectedWithItself || IsDuplicateLink) && !IsOneDirection;
+					attribute<bool>                            IsOD_connection_road           := union_data(., UnchangedLinkSet/IsOD_connection_road, JunctionFreeSection/IsOD_connection_road);
 					
 					attribute<Nodeset_x_NodeSet>               Nodeset_x_NodeSet_rel          := combine_data(Nodeset_x_NodeSet, min_elem(F1, F2), max_elem(F1,F2));
 					attribute<Find_DuplicateLinks>             Find_DuplicateLinks_rel        := rlookup(Nodeset_x_NodeSet_rel, Find_DuplicateLinks/values);
@@ -434,6 +462,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<s_f>     Impedance      := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/impedance);
 					attribute<km>      LengthKm       := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/LengthKm);
 					attribute<bool>    IsOneDirection := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/IsOneDirection);
+					attribute<bool>    IsOD_connection_road       := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/IsOD_connection_road);
 					
 					parameter<uint32>  count_arcs := #.;
 					
