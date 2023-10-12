@@ -44,9 +44,9 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 		}
 		
 		
-		container CreateInitialWorkingNetwork
+		container CreateInitialWorkingNetwork: Descr = "Turn set of streets into a workable single network"
 		{
-			unit<uint32> Roads_with_unconnected_subnetworks := RoadDomain0
+			unit<uint32> Roads_with_unconnected_subnetworks := RoadDomain0, Descr = "All streets"
 			{
 				attribute<NodeSet_src>            Fsrc_1                   := rlookup(F_JnctId, NodeSet_src/JnctIds);
 				attribute<NodeSet_src>            Fsrc_2                   := rlookup(T_JnctId, NodeSet_src/JnctIds);
@@ -67,19 +67,23 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				container Connectiveness := Templates/Check_Connectiveness_T(.,NodeSet_src, Fsrc_1, Fsrc_2);
 			}
 			
-			attribute<bool> Roads_isConnected (Roads_with_unconnected_subnetworks) := Roads_with_unconnected_subnetworks/Connectiveness/IsVerbonden;
+			attribute<bool> Roads_isConnected (Roads_with_unconnected_subnetworks) := Roads_with_unconnected_subnetworks/Connectiveness/IsVerbonden, Descr = "Boolean indicating whether a street is part of the main (largest) network";
 
-			unit<uint32> Road_linestrings := select(Roads_isConnected)
+			unit<uint32> Road_linestrings := select(Roads_isConnected), Descr = "Subset of streets that are part of the main network"
 			{
 				attribute<BaseProjection>     geometry (arc) := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks/geometry);
 				attribute<bool>               IsOneDirection := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks/IsOneDirection);
 				attribute<km_hr>              KPH            := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks/KPH);
+				attribute<km_hr>			  KPH_freeflow_0830		 := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks/KPH_freeflow_0830);
+				attribute<km_hr>			  KPH_weekday_0830		 := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks/KPH_weekday_0830);
 				attribute<Bool >              Connectable    := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks/Connectable);
 			}
 			
-			unit<uint32> Roads := arc2segm(Road_linestrings/geometry)
+			unit<uint32> Roads := arc2segm(Road_linestrings/geometry), Descr = "Convert streets to two-point segments"
 			{
 				attribute<km_hr>              KPH                  := sequence_rel->KPH;
+				attribute<km_hr>              KPH_freeflow_0830    := sequence_rel->KPH_freeflow_0830;
+				attribute<km_hr>              KPH_weekday_0830     := sequence_rel->KPH_weekday_0830;
 				attribute<bool>               IsOneDirection       := sequence_rel->IsOneDirection;
 				attribute<bool>               Connectable          := sequence_rel->Connectable;
 				unit<uint32> PointSet := union_unit(., .)
@@ -98,7 +102,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<BaseProjection> geometry(arc) := points2sequence(PointSet/geometry, convert(id(PointSet) % #., .));
 			}
 		
-			unit<uint32> LinkSet_Calc := connect_ne(Roads/geometry, uint32(Roads/Connectable), UniqueLocations/geometry, const(0, UniqueLocations))
+			unit<uint32> LinkSet_Calc := connect_ne(Roads/geometry, uint32(Roads/Connectable), UniqueLocations/geometry, const(0, UniqueLocations)), Descr = "Connect streets in main network with origin and destination points"
 			{
 				attribute<BaseProjection>  geometry(arc);
 			}
@@ -106,6 +110,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			unit<uint32> LinkSet_Write := LinkSet_Calc,	StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.fss'"
 			{
 				attribute<km_hr>           KPH                  := MakeDefined(arc_rel->KPH, ModelParameters/Advanced/CarDefaultSpeed_low);
+				attribute<km_hr>           KPH_freeflow_0830    := MakeDefined(arc_rel->KPH_freeflow_0830, ModelParameters/Advanced/CarDefaultSpeed_low);
+				attribute<km_hr>           KPH_weekday_0830     := MakeDefined(arc_rel->KPH_weekday_0830, ModelParameters/Advanced/CarDefaultSpeed_low);
 				attribute<bool>            IsOneDirection       := arc_rel->IsOneDirection;
 				attribute<BaseProjection>  first_point          := first_point(geometry); //OD point   --> vanwege directions hoeft deze niet te klopppen...
 				attribute<BaseProjection>  last_point           := last_point(geometry);  //May or may not be an existing network node, otherwise it is a new node
@@ -115,6 +121,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			unit<uint32> LinkSet_Read: StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.fss'", StorageReadOnly = "True"
 			{
 				attribute<km_hr>           KPH;
+				attribute<km_hr>           KPH_freeflow_0830;
+				attribute<km_hr>           KPH_weekday_0830;
 				attribute<bool>            IsOneDirection;
 				attribute<BaseProjection>  first_point;
 				attribute<BaseProjection>  last_point;
@@ -125,6 +133,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			{
 				attribute<km>              LengthKm       := convert(dist(first_point, last_point)[m], km);
 				attribute<min_f>           Minutes        := MakeDefined(convert((LengthKm / KPH), min_f), 0.0001[min_f]);
+				attribute<min_f>           Minutes_freeflow_0830       := MakeDefined(convert((LengthKm / KPH_freeflow_0830), min_f), 0.0001[min_f]);
+				attribute<min_f>           Minutes_weekday_0830        := MakeDefined(convert((LengthKm / KPH_weekday_0830), min_f), 0.0001[min_f]);
 				attribute<s_f>             impedance      := convert(minutes, s_f) + Float64(CorrectImpedanceForCrossroads/impedance_Start + CorrectImpedanceForCrossroads/impedance_End);
 				attribute<NodeSet>         F1             := rlookup(first_point, NodeSet/Values); //node from the OD towards the network
 				attribute<NodeSet>         F2             := rlookup(last_point,  NodeSet/Values); //network node to which the the OD is connected 
@@ -138,7 +148,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<uint32> NrConnectedLinks := pcount(LinkSet/F1) + pcount(LinkSet/F2);
 			}
 						
- 			container CorrectImpedanceForCrossroads
+ 			container CorrectImpedanceForCrossroads: Descr = "Adds impedance based on complexity of junction. A junction with 3 links incurs a 2 second penalty; 4 links, 5 seconds; more than 4, 6 seconds."
 			// hiermee wordt voor ieder begin en eind node het aantal geconnecte links bepaald
 			// dit bepaalt of het een bocht (2 links), zijweg (3 links), kruising (4 links) of complexe kruising (meer dan 4 links) is
 			// afhankelijk van dit aantal wordt een aantal seconden opgeteld bij de totale impedance
@@ -175,7 +185,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			unit<uint8> Iter := range(uint8, 0[uint8], ModelParameters/NumberOfItersForNetworkCleanUp)
 			{
 				attribute<string> name := 'Iter_'+string(id(.));
-				attribute<string> prevname := MakeDefined(name[sub_or_null(ID(.),1b)], 'Start');
+				//attribute<string> prevname := MakeDefined(name[sub_or_null(ID(.),1b)], 'Start'); // sub_or_null unknown function in v13.1.0
+				attribute<string> prevname :=id(.) > 0b ? name[id(.) - 1b] : 'Start';
 				attribute<string> Label := name, DialogType = "LabelText";
 				attribute<uint32> nrofarc_na_iter := ='union_data(., '+AsList('OptimiseNetwork/'+name+'/IntermediateLinkSet/count_arcs', ',')+')'; 
 			}
@@ -212,6 +223,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<FinalNodeSet_Calc> F1                   := invert(FinalNodeSet_Calc/org_rel)[LastLinkSet/F1];
 				attribute<FinalNodeSet_Calc> F2                   := invert(FinalNodeSet_Calc/org_rel)[LastLinkSet/F2];
 				attribute<s_f>               Impedance            := LastLinkSet/Impedance;
+				attribute<min_f>			 Minutes_freeflow_0830:= LastLinkSet/Minutes_freeflow_0830; 
+				attribute<min_f>			 Minutes_weekday_0830 := LastLinkSet/Minutes_weekday_0830;
 				attribute<km>                LengthKm             := LastLinkSet/LengthKm;
 				attribute<bool>              IsOneDirection       := LastLinkSet/IsOneDirection;
 				attribute<bool>              IsOD_connection_road := LastLinkSet/IsOD_connection_road;
@@ -229,6 +242,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<FinalNodeSet> F1;
 				attribute<FinalNodeSet> F2;
 				attribute<s_f>          Impedance;
+				attribute<min_f>		Minutes_freeflow_0830;
+				attribute<min_f>		Minutes_weekday_0830;
 				attribute<km>           LengthKm;
 				attribute<bool>         IsOneDirection;
 				attribute<bool>         IsOD_connection_road;
@@ -237,6 +252,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			{
 				attribute<bool>         IsOneDirection := FinalLinkSet_Read/IsOneDirection;
 				attribute<s_f>          Impedance      := FinalLinkSet_Read/Impedance;
+				attribute<min_f>		Minutes_freeflow_0830:= FinalLinkSet_Read/Minutes_freeflow_0830;
+				attribute<min_f>		Minutes_weekday_0830:= FinalLinkSet_Read/Minutes_weekday_0830;
 				attribute<km>           LengthKm       := FinalLinkSet_Read/LengthKm;
 				// For visualisation
 				attribute<BaseProjection>                  FirstPoint                     := FinalNodeSet/Geometry[F1];
@@ -322,6 +339,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				unit<uint32> LinksInsideJunctionFreeSection := select(LinkSet/IsInsideJunctionFreeSection), Descr = "Those links that are in the junction free section"
 				{
 					attribute<s_f>                             impedance                      := collect_by_cond(LinksInsideJunctionFreeSection, LinkSet/IsInsideJunctionFreeSection, LinkSet/impedance);
+					attribute<min_f>                           Minutes_freeflow_0830          := collect_by_cond(LinksInsideJunctionFreeSection, LinkSet/IsInsideJunctionFreeSection, LinkSet/Minutes_freeflow_0830);
+					attribute<min_f>                           Minutes_weekday_0830           := collect_by_cond(LinksInsideJunctionFreeSection, LinkSet/IsInsideJunctionFreeSection, LinkSet/Minutes_weekday_0830);
 					attribute<km>                              LengthKm                       := collect_by_cond(LinksInsideJunctionFreeSection, LinkSet/IsInsideJunctionFreeSection, LinkSet/LengthKm);
 					attribute<NodeSet>                         F1                             := collect_by_cond(LinksInsideJunctionFreeSection, LinkSet/IsInsideJunctionFreeSection, LinkSet/F1);
 					attribute<NodeSet>                         F2                             := collect_by_cond(LinksInsideJunctionFreeSection, LinkSet/IsInsideJunctionFreeSection, LinkSet/F2); 
@@ -350,6 +369,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<JunctionFreeSection>             JunctionFreeSection_rel        := NodeSet/JunctionFreeSection_rel[F_delete];
 					attribute<NodeSet>                         NodeSet_rel                    := F_keep;
 					attribute<s_f>                             Impedance                      := LinkSet/Impedance[org_rel];
+					attribute<min_f>                           Minutes_freeflow_0830          := LinkSet/Minutes_freeflow_0830[org_rel];
+					attribute<min_f>                           Minutes_weekday_0830           := LinkSet/Minutes_weekday_0830[org_rel];
 					attribute<km>                              LengthKm                       := LinkSet/LengthKm[org_rel];
 					attribute<bool>                            IsOneDirection                 := LinkSet/IsOneDirection[org_rel];
 				}
@@ -362,10 +383,13 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<ConnectorLink>                   Last_ConnectorLink_rel         := max(id(ConnectorLink), ConnectorLink/JunctionFreeSection_rel); //todo sneller
 					attribute<bool>                            IsDisconnected                 := First_ConnectorLink_rel > Last_ConnectorLink_rel;
 					
-					attribute<s_f>                             Aggregated_Impedence           := sum(LinksInsideJunctionFreeSection/impedance, LinksInsideJunctionFreeSection/JunctionFreeSection_rel);
+					attribute<s_f>                             Aggregated_Impedance           := sum(LinksInsideJunctionFreeSection/impedance, LinksInsideJunctionFreeSection/JunctionFreeSection_rel);
 					attribute<s_f>                             First_ConnectorLink_Impedance  := ConnectorLink/Impedance[First_ConnectorLink_rel];
 					attribute<s_f>                             Last_ConnectorLink_Impedance   := ConnectorLink/Impedance[Last_ConnectorLink_rel];
-					attribute<s_f>                             Total_Impedance                := Aggregated_Impedence + First_ConnectorLink_Impedance + Last_ConnectorLink_Impedance;
+					attribute<s_f>                             Total_Impedance                := Aggregated_Impedance + First_ConnectorLink_Impedance + Last_ConnectorLink_Impedance;
+					
+					attribute<min_f>						   Total_Minutes_freeflow_0830	  := sum(LinksInsideJunctionFreeSection/Minutes_freeflow_0830, LinksInsideJunctionFreeSection/JunctionFreeSection_rel) + ConnectorLink/Minutes_freeflow_0830[First_ConnectorLink_rel] + ConnectorLink/Minutes_freeflow_0830[Last_ConnectorLink_rel];
+					attribute<min_f>						   Total_Minutes_weekday_0830	  := sum(LinksInsideJunctionFreeSection/Minutes_weekday_0830, LinksInsideJunctionFreeSection/JunctionFreeSection_rel) + ConnectorLink/Minutes_weekday_0830[First_ConnectorLink_rel] + ConnectorLink/Minutes_weekday_0830[Last_ConnectorLink_rel];
 					
 					attribute<km>                              Aggregated_LengthKm            := sum(LinksInsideJunctionFreeSection/LengthKm, LinksInsideJunctionFreeSection/JunctionFreeSection_rel);
 					attribute<km>                              First_ConnectorLink_LengthKm   := ConnectorLink/LengthKm[First_ConnectorLink_rel];
@@ -401,6 +425,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<NodeSet>                         F1                             := LinkSet/F1[org_rel];
 					attribute<NodeSet>                         F2                             := LinkSet/F2[org_rel];
 					attribute<s_f>                             impedance                      := LinkSet/impedance[org_rel];
+					attribute<min_f>                           Minutes_freeflow_0830          := LinkSet/Minutes_freeflow_0830[org_rel];
+					attribute<min_f>                           Minutes_weekday_0830           := LinkSet/Minutes_weekday_0830[org_rel];
 					attribute<km>                              LengthKm                       := LinkSet/LengthKm[org_rel];
 					attribute<bool>                            IsOneDirection                 := LinkSet/IsOneDirection[org_rel];
 					attribute<bool>                            IsOD_connection_road           := LinkSet/IsOD_connection_road[org_rel];
@@ -423,9 +449,13 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<NodeSet>                         F1                             := union_data(., UnchangedLinkSet/F1, JunctionFreeSection/F1);
 					attribute<NodeSet>                         F2                             := union_data(., UnchangedLinkSet/F2, JunctionFreeSection/F2);
 					attribute<s_f>                             impedance_org                  := union_data(., UnchangedLinkSet/impedance, JunctionFreeSection/Total_Impedance);
-					attribute<s_f>                             impedance                      := MakeDefined(Find_DuplicateLinks/min_impedance[Find_DuplicateLinks_rel],impedance_org);
+					attribute<s_f>                             impedance                      := !IsOneDirection ? MakeDefined(Find_DuplicateLinks/min_impedance[Find_DuplicateLinks_rel],impedance_org) : impedance_org;
 					attribute<km>                              LengthKm_org                   := union_data(., UnchangedLinkSet/LengthKm, JunctionFreeSection/Total_LengthKm);
-					attribute<km>                              LengthKm                       := MakeDefined(Find_DuplicateLinks/min_length_km[Find_DuplicateLinks_rel],LengthKm_org);
+					attribute<km>                              LengthKm                       := !IsOneDirection ? MakeDefined(Find_DuplicateLinks/min_length_km[Find_DuplicateLinks_rel],LengthKm_org) : LengthKm_org;
+					attribute<min_f> 						   Minutes_freeflow_0830_org	  := union_data(., UnchangedLinkSet/Minutes_freeflow_0830, JunctionFreeSection/Total_Minutes_freeflow_0830);
+					attribute<min_f>                           Minutes_freeflow_0830          := !IsOneDirection ? MakeDefined(Find_DuplicateLinks/min_Minutes_freeflow_0830[Find_DuplicateLinks_rel],Minutes_freeflow_0830_org) : Minutes_freeflow_0830_org;
+					attribute<min_f> 						   Minutes_weekday_0830_org	  	  := union_data(., UnchangedLinkSet/Minutes_weekday_0830, JunctionFreeSection/Total_Minutes_weekday_0830);
+					attribute<min_f>                           Minutes_weekday_0830          := !IsOneDirection ? MakeDefined(Find_DuplicateLinks/min_Minutes_weekday_0830[Find_DuplicateLinks_rel],Minutes_weekday_0830_org) : Minutes_weekday_0830_org;
 					attribute<bool>                            IsOneDirection                 := union_data(., UnchangedLinkSet/IsOneDirection, JunctionFreeSection/IsOneDirection);
 					
 					attribute<bool>                            IsLinkWithDeadEnd              := NodeSet/IsDeadEnd_and_NotOD[F1] || NodeSet/IsDeadEnd_and_NotOD[F2];
@@ -439,12 +469,14 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<Find_DuplicateLinks>             Find_DuplicateLinks_rel        := rlookup(Nodeset_x_NodeSet_rel, Find_DuplicateLinks/values);
 
 					//After clean up, the reduced road could collapse into a road which is duplicate.
-					unit<uint32> Find_DuplicateLinks := unique(Nodeset_x_NodeSet_rel)
+					unit<uint32> Find_DuplicateLinks := unique(Nodeset_x_NodeSet_rel), Descr = "Meant to find parallel links between remaining nodes. Will remain if link is onedirectional."
 					{
 						attribute<uint32>                    count_occurence := pcount(Find_DuplicateLinks_rel);
 						attribute<bool>                      IsDuplicateLink := count_occurence > 1;
 						attribute<s_f>                       min_impedance   := min(../impedance_org, Find_DuplicateLinks_rel);
 						attribute<km>                        min_length_km   := min(../LengthKm_org, Find_DuplicateLinks_rel);
+						attribute<min_f> 					 min_Minutes_freeflow_0830:= min(../Minutes_freeflow_0830_org, Find_DuplicateLinks_rel);
+						attribute<min_f> 					 min_Minutes_weekday_0830:= min(../Minutes_weekday_0830_org, Find_DuplicateLinks_rel);
 						attribute<..>                        FirstLink       := first(id(..), Find_DuplicateLinks_rel);
 					}
 					
@@ -459,10 +491,12 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<NodeSet> F1 := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/F1);
 					attribute<NodeSet> F2 := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/F2);
 		
-					attribute<s_f>     Impedance      := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/impedance);
-					attribute<km>      LengthKm       := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/LengthKm);
-					attribute<bool>    IsOneDirection := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/IsOneDirection);
-					attribute<bool>    IsOD_connection_road       := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/IsOD_connection_road);
+					attribute<s_f>     Impedance      			:= collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/impedance);
+					attribute<min_f>   Minutes_freeflow_0830    := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/Minutes_freeflow_0830);
+					attribute<min_f>   Minutes_weekday_0830     := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/Minutes_weekday_0830);
+					attribute<km>      LengthKm       			:= collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/LengthKm);
+					attribute<bool>    IsOneDirection 			:= collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/IsOneDirection);
+					attribute<bool>    IsOD_connection_road     := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/IsOD_connection_road);
 					
 					parameter<uint32>  count_arcs := #.;
 					

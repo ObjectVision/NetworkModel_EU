@@ -58,6 +58,7 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 		{
 			parameter<uint32>             n                             := #GPKG/Streets;
 			attribute<BaseProjection>     Geometry  (GPKG/Streets, arc) := GPKG/Streets/Geometry;
+			attribute<uint64> 			  networkid (GPKG/Streets)		:= GPKG/Streets/Id[uint64];
 			attribute<FuncRoadClass>      FRC_rel   (GPKG/Streets)      := GPKG/Streets/FRC_rel;
 			attribute<uint64>             F_JNCTID  (GPKG/Streets)      := GPKG/Streets/F_JNCTID[uint64];
 			attribute<uint64>             T_JNCTID  (GPKG/Streets)      := GPKG/Streets/T_JNCTID[uint64];
@@ -77,6 +78,7 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 			
 			attribute<BaseProjection>     Geometry    (domain, arc);
 			attribute<FuncRoadClass>      FRC_rel     (domain);
+			attribute<uint64>			  networkid   (domain);
 			attribute<uint64>             F_JNCTID    (domain);
 			attribute<uint64>             T_JNCTID    (domain);
 			
@@ -92,17 +94,31 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 			attribute<bool>               Streets_Selection_Condition        (domain) := =ModelParameters/UseStreetTypeSubset ? 'Streets_IsStreetTypeSubsetSelectie && Streets_IsJunctionWithinStudyArea' : 'Streets_IsJunctionWithinStudyArea';
 		}
 		
+		unit<uint32> hsnp 
+		: StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/EU_congested/hsnp.fss"
+		, StorageReadOnly = "True"
+		{
+			attribute<float64> network_id;
+			attribute<float32> factor_freeflow_0830;
+			attribute<float32> factor_weekday_0830;
+		}
 		unit<uint32> Streets_Selectie   := select_with_attr_by_cond(Read_Streets_container, Read_Streets_container/Streets_Selection_Condition)
 		{
 			attribute<BaseProjection>     geometry_clean (arc) := Impl/geometry_clean;
 			attribute<uint64>             F_JNCTID_directed             := Direction == Directions/v/backwards ? T_JNCTID : F_JNCTID; // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer) --> Comment van Chris
 			attribute<uint64>             T_JNCTID_directed             := Direction == Directions/v/backwards ? F_JNCTID : T_JNCTID; // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer) --> Comment van Chris
 			
+			attribute<float32> factor_freeflow_0830:= 	MakeDefined(rjoin(networkid, hsnp/network_id[uint64], hsnp/factor_freeflow_0830), 1f);
+			attribute<float32> factor_weekday_0830:= 	MakeDefined(rjoin(networkid, hsnp/network_id[uint64], hsnp/factor_weekday_0830), 1f);
+			
+			attribute<min_f> minutes_freeflow_0830:= Minutes / factor_freeflow_0830[float64];
+			attribute<min_f> minutes_weekday_0830:= Minutes / factor_weekday_0830[float64];
+			
 			container Impl
 			{
 				unit<uint32> src := ..;
 				attribute<BaseProjection>     geometry_clean        (src, arc) := points2sequence(CleanUp_BeginEndPointLink/seq2points/CleanUpPoints/Point, CleanUp_BeginEndPointLink/seq2points/CleanUpPoints/sequence_rel, CleanUp_BeginEndPointLink/seq2points/CleanUpPoints/NewOrdinal);
-
+				
 				container CleanUp_BeginEndPointLink
 				{
 					//// checks
@@ -149,6 +165,8 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 			attribute<uint64>             T_JNCTID       (FSS/Streets_Selectie)      := FSS/Streets_Selectie/T_JNCTID[uint64];
 			attribute<m>                  METERS         (FSS/Streets_Selectie)      := FSS/Streets_Selectie/METERS[m];
 			attribute<min_f>              MINUTES        (FSS/Streets_Selectie)      := FSS/Streets_Selectie/MINUTES[min_f];
+			attribute<min_f>              minutes_freeflow_0830        (FSS/Streets_Selectie)      := FSS/Streets_Selectie/minutes_freeflow_0830[min_f];
+			attribute<min_f>              minutes_weekday_0830        (FSS/Streets_Selectie)      := FSS/Streets_Selectie/minutes_weekday_0830[min_f];
 			attribute<km_hr>              KPH            (FSS/Streets_Selectie)      := FSS/Streets_Selectie/KPH[km_hr];
 			attribute<Directions>         Direction      (FSS/Streets_Selectie)      := FSS/Streets_Selectie/Direction;
 			
@@ -169,6 +187,8 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 			
 			attribute<m>                  METERS         (domain);
 			attribute<min_f>              MINUTES        (domain);
+			attribute<min_f>              minutes_freeflow_0830 (domain);
+			attribute<min_f>              minutes_weekday_0830  (domain);
 			attribute<km_hr>              KPH            (domain);
 			attribute<Directions>         Direction      (domain);
 			
@@ -186,8 +206,13 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 		
 		
 		attribute<km_hr>              KPH                  := Selection/Read_Streets_selection/KPH;
+		attribute<km_hr>			  KPH_freeflow_0830	   := ((Meters / 1000[m]) / (minutes_freeflow_0830 / 60[min_f]))[km_hr];
+		attribute<km_hr>			  KPH_weekday_0830	   := ((Meters / 1000[m]) / (minutes_weekday_0830 / 60[min_f]))[km_hr];
 		attribute<m>                  METERS               := Selection/Read_Streets_selection/METERS;
 		attribute<min_f>              MINUTES              := Selection/Read_Streets_selection/MINUTES;
+		attribute<min_f>              minutes_freeflow_0830:= Selection/Read_Streets_selection/minutes_freeflow_0830;
+		attribute<min_f>              minutes_weekday_0830 := Selection/Read_Streets_selection/minutes_weekday_0830;
+		attribute<min_f>		      delay_weekday_0830:= minutes_weekday_0830 - MINUTES;
 		attribute<Directions>         Direction            := Selection/Read_Streets_selection/Direction; // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer) --> Comment van Chris
 		attribute<bool>               IsOneDirection       := Direction == Directions/v/backwards || Direction == Directions/v/forwards;
 		attribute<bool>               Connectable          := ='FRC_rel != '+ModelParameters/Street_OD_ConnectabletSelectie+' && !IsOneDirection';

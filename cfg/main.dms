@@ -11,7 +11,10 @@ container NetworkModel_EU
 		parameter<string> Create_FinalLinkSet   := 'Ready', ExplicitSuppliers = "/NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet_Write";
 		
 	}	
-	
+    unit<uint32> optionSet := range(uint32, 0, 3);
+    attribute<string> GDAL_ConfigurationOptions (optionSet) : [ "OGR_SQLITE_JOURNAL=OFF", "OGR_SQLITE_CACHE=1024", "OGR_SQLITE_SYNCHRONOUS=OFF" ];
+               
+
 	
 	#include<ModelParameters.dms>
 	#include<units.dms>
