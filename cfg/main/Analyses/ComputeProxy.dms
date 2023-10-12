@@ -7,64 +7,27 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 	
 	unit<uint32>       FinalLinkSet  := NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
 	unit<uint32>       FinalNodeSet  := NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
-	unit<uint32>       OD_points     := NetworkSetup/Base_Analysis/NetwerkSpec/UniqueLocations;
-	unit<uint32>       Origins       := NetworkSetup/Base_Analysis/NetwerkSpec/DestDomain;
-	unit<uint32>       Destinations  := NetworkSetup/Base_Analysis/NetwerkSpec/DestDomain;
+	unit<uint32>       OD_points     := NetworkSetup/Base_Analysis/NetwerkSpec/DestDomain;
 	
-	unit<uint32> distdecay_functions: NrOfRows = 6 
-	{
-		attribute<string> LabelText : 	['Geurs_VanEck_2003_general'
-											, 'logistic_steep'
-											, 'logistic_slight'
-											, 'Power_m10'
-											, 'Power_m15'
-											, 'Power_m20'
-										];
-		attribute<string> eval      : 	['(1d / (1d + exp(-6.899d + (2.326d * log(Mij)))))[min_f]'
-											, '(1d / (1d + exp(-4d + (2.337666667d * log(Mij)))))[min_f]'
-											, '(1d / (1d + exp(-8d + (2.337666667d * log(Mij)))))[min_f]'
-											, '(Mij^-1d)[min_f]'
-											, '(Mij^-1.5d)[min_f]'
-											, '(Mij^-2d)[min_f]'
-										];
-		attribute<float64>    alpha     :	[ -6.899
-											,-4
-											, -8
-											, 0
-											, 0
-											, 0
-										];
-		attribute<float64>    beta      :	[ 2.326
-											, 2.337666667
-											, 2.337666667
-											, 0
-											, 0
-											, 0
-										];
-		attribute<float64>    gamma      :	[ 0
-											, 0
-											, 0
-											, 0
-											, 0
-											, 0
-										];
-		attribute<float64>    γ          :	[ 0
-											, 0
-											, 0
-											, -1
-											, -1.5
-											, -2
-										];
-		attribute<bool>    IsLogLogisticDecay :	[ TRUE
-											, TRUE
-											, TRUE
-											, FALSE
-											, FALSE
-											, FALSE
-										];
-										
-						
+	container RunPerMS:= for_each_ne(RegionalUnits/EUplus/CNTR_ID, CalcPerMs_T(RegionalUnits/EUplus/Geometry, FinalLinkSet/Minutes_weekday_0830));
+	
+	
+	Template CalcPerMs_T {
+		parameter<LambertEA> inZone;
+		attribute<float64> alt_imp (FinalLinkSet);
+		
+		attribute<bool> OD_points_in_zone (OD_points):= point_in_polygon(OD_points/Geometry, inZone);
+		
+		unit<uint32> od_points:= subset(OD_points_in_zone) {
+			attribute<LambertEA> Geometry:= OD_points/Geometry[Nr_OrgEntity];
+			attribute<uint32> pop:= OD_points/population;
+		}
+		
+		
+		
+	
 	}
+	
 	
 	unit<uint64> Matrix :=
 		dijkstra_m64('bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);cut(OrgZone_max_imp);alternative(link_imp):alt_imp;od:OrgZone_rel,DstZone_rel,impedance'
@@ -90,17 +53,6 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 		attribute<km>           EUCL_Dij := self ? Self_Distance : dist(Origins/geometry[i], Destinations/geometry[j])[km];
 	}
 	
-	// container Results_per_distdecay:= 
-		// for_each_ne(
-			// distdecay_functions/LabelText
-			// , 'Compute_Results_T(Matrix, '+string(id(distdecay_functions))+'[distdecay_functions])'
-		// ) 
-	// {
-		// container collect 
-		// {
-			// parameter<bool> Button:= True, explicitsuppliers = "= AsList(distdecay_functions/LabelText+'/StoreOriginResults', ';') + ';' + AsList(distdecay_functions/LabelText+'/StoreDestinationResults', ';') ";
-		// }
-	// }
 	container Results_per_distdecay:= 
 		for_each_ne(
 			distdecay_functions/LabelText
@@ -219,7 +171,60 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 		}
 	}
 	
-	
+	unit<uint32> distdecay_functions: NrOfRows = 6 
+	{
+		attribute<string> LabelText : 	['Geurs_VanEck_2003_general'
+											, 'logistic_steep'
+											, 'logistic_slight'
+											, 'Power_m10'
+											, 'Power_m15'
+											, 'Power_m20'
+										];
+		attribute<string> eval      : 	['(1d / (1d + exp(-6.899d + (2.326d * log(Mij)))))[min_f]'
+											, '(1d / (1d + exp(-4d + (2.337666667d * log(Mij)))))[min_f]'
+											, '(1d / (1d + exp(-8d + (2.337666667d * log(Mij)))))[min_f]'
+											, '(Mij^-1d)[min_f]'
+											, '(Mij^-1.5d)[min_f]'
+											, '(Mij^-2d)[min_f]'
+										];
+		attribute<float64>    alpha     :	[ -6.899
+											,-4
+											, -8
+											, 0
+											, 0
+											, 0
+										];
+		attribute<float64>    beta      :	[ 2.326
+											, 2.337666667
+											, 2.337666667
+											, 0
+											, 0
+											, 0
+										];
+		attribute<float64>    gamma      :	[ 0
+											, 0
+											, 0
+											, 0
+											, 0
+											, 0
+										];
+		attribute<float64>    γ          :	[ 0
+											, 0
+											, 0
+											, -1
+											, -1.5
+											, -2
+										];
+		attribute<bool>    IsLogLogisticDecay :	[ TRUE
+											, TRUE
+											, TRUE
+											, FALSE
+											, FALSE
+											, FALSE
+										];
+										
+						
+	}
 	
 	
 	
