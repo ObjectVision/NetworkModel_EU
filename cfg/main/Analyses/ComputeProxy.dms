@@ -61,16 +61,14 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 		for_each_ne(
 			distdecay_functions/LabelText
 			, 'comp_results_T(Matrix, '+string(id(distdecay_functions))+'[distdecay_functions])'
-		) ;
+		)  {
+			container gen {
+				parameter<bool> button:= True, explicitsuppliers = "= aslist(distdecay_functions/LabelText+'/StoreOriginResults', ';') + ';' + aslist(distdecay_functions/LabelText+'/StoreDestinationResults', ';')";
+			}
+		}
 	
 			
 	}
-	
-	
-	
-	
-	
-	
 	
 	Template comp_results_T {
 		unit<uint64> inMatrix;
@@ -121,44 +119,26 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 			attribute<float64>	visits:= PerDestination/visits;
 			attribute<float64> 	attract:= float64(PerDestination/Pop);
 		}
-		unit<uint32> Origin_Results_ReadOnly: storagename = "= propvalue(StoreOriginResults, 'storagename')", storagereadonly = "True";
-		unit<uint32> Destination_Results_ReadOnly: storagename = "= propvalue(StoreDestinationResults, 'storagename')", storagereadonly = "True";
-		
-		unit<uint32> revert_to_od_points:= all_od_points {
-			attribute<Origin_Results_ReadOnly> or_id:= invert(Origin_Results_ReadOnly/orgid[all_od_points]);
-			attribute<Destination_Results_ReadOnly> dr_id:= invert(Destination_Results_ReadOnly/orgid[all_od_points]);
-			attribute<float64> 	ai:= 		MakeDefined(float64(Origin_Results_ReadOnly/ai[or_id]), 0f);
-			attribute<float64> 	avtimei:= 	MakeDefined(float64(Origin_Results_ReadOnly/avtime[or_id]) / org_pop, 0f);
-			attribute<float64> 	avnetdi:= 	MakeDefined(float64(Origin_Results_ReadOnly/avnetd[or_id]) / org_pop, 0f);
-			attribute<float64> 	aveucdi:= 	MakeDefined(float64(Origin_Results_ReadOnly/aveucd[or_id]) / org_pop, 0f);
-			attribute<float64> 	avtimej:= 	MakeDefined(float64(Destination_Results_ReadOnly/avtime[dr_id]) / org_pop, 0f);
-			attribute<float64> 	avnetdj:= 	MakeDefined(float64(Destination_Results_ReadOnly/avnetd[dr_id]) / org_pop, 0f);
-			attribute<float64> 	fracwalki:= MakeDefined(float64(Origin_Results_ReadOnly/fracwalk[or_id]) / org_pop, 0f);
-			attribute<float64> 	fracyclei:= MakeDefined(float64(Origin_Results_ReadOnly/fraccycle[or_id]) / org_pop, 0f);
-		}
+		unit<uint32> Origin_Results_ReadOnly: storagename = "= propvalue(StoreOriginResults/Geometry, 'storagename')", storagereadonly = "True", storagetype = "gdal.vect" {attribute<LambertEA> Geometry;}
+		unit<uint32> Destination_Results_ReadOnly: storagename = "= propvalue(StoreDestinationResults/Geometry, 'storagename')", storagereadonly = "True", storagetype = "gdal.vect" {attribute<LambertEA> Geometry;}
 		
 	}
-	
-		
-	/// =================================
-	/// ====== EXPORT ============
-	/// =================================
-
-	container Exports
-	{
-		attribute<float32float32>   Population      (OD_points) := OD_points/Population;
-		attribute<Origins>   origin_id       (OD_points) := rlookup(OD_points/OrgDomain_rel, value(Origins/orgid, uint32));
-		
-		attribute<float32>   D_i             (OD_points) := MakeDefined(float32(Matrix/D_i[origin_id]), 0f);
-		
-		attribute<km>        AvgNetDistance    (Origins) := sum(Matrix/Tij * Matrix/Net_d_ij, Matrix/i);
-		attribute<float32>   avnetdi         (OD_points) := MakeDefined(float32(AvgNetDistance[origin_id]) / Population[float32], 0f);
-		
-		attribute<km>        AvgEUCLDistance   (Origins) := sum(Matrix/Tij * Matrix/EUCL_d_ij, Matrix/i);
-		attribute<float32>   aveucdi         (OD_points) := MakeDefined(float32(AvgEUCLDistance[origin_id]) / Population[float32], 0f);
-		
-		attribute<min_f>     AvgTime           (Origins) := sum(Matrix/Tij * Matrix/d_ij, Matrix/i)[min_f];
-		attribute<float32>   avtimei         (OD_points) := MakeDefined(float32(AvgTime[origin_id]) / Population[float32], 0f);
+	container MergeProxies:= for_each_ne(distdecay_functions/LabelText, 'doMergeProxies('+string(id(distdecay_functions))+')') {
+		container collect {
+			parameter<bool> Button:= True, ExplicitSuppliers = "= AsList(distdecay_functions/LabelText+'/mergeProxy',';')";
+		}
+	}
+	Template doMergeProxies {
+		parameter<distdecay_functions> infunc;
+		unit<uint32> mergeProxy: expr = "= 'union_unit('+ AsItemList('RunPerMS/'+ RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly') +')'", DialogData = "point", DialogType = "map", storagename = "= '%LocalDataProjDir%/travel_proxy/mozaiks/'+distdecay_functions/LabelText[infunc]+'.dbf'"
+		{
+			attribute<LambertEA> 	point: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly/Geometry') +')'", storagename = "= '%LocalDataProjDir%/travel_proxy/mozaiks/'+distdecay_functions/LabelText[infunc]+'.shp'";
+			attribute<float64> 		Pop: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly/trips') +')'";
+			attribute<float64> 		Ai: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly/Ai') +')'";
+			attribute<float64> 		avtime: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly/avtime') +')'";
+			attribute<float64> 		aveucd: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly/aveucd') +')'";
+			attribute<float64> 		avaltimp: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly/avaltimp') +')'";
+		}
 	}
 	
 	unit<uint32> distdecay_functions:= subset(id(distdecay_functions_all) < 2) {
