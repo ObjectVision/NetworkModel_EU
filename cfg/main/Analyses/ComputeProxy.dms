@@ -173,8 +173,8 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 											, 'Power_m20'
 										];
 		attribute<string> eval      : 	['(1d / (1d + exp(-6.899d + (2.326d * log(Mij)))))[min_f]'
-											, '(1d / (1d + exp(-4d + (2.337666667d * log(Mij)))))[min_f]'
-											, '(1d / (1d + exp(-8d + (2.337666667d * log(Mij)))))[min_f]'
+											, '(1d / (1d + exp(-5.35d + (2.337666667d * log(Mij)))))[min_f]'
+											, '(1d / (1d + exp(-7.95d + (2.337666667d * log(Mij)))))[min_f]'
 											, '(Mij^-1d)[min_f]'
 											, '(Mij^-1.5d)[min_f]'
 											, '(Mij^-2d)[min_f]'
