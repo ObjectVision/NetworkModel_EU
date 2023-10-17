@@ -5,21 +5,19 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 	parameter<km>      Self_Distance := 0.23[km]; //de theoretische gemiddelde 0.23 km die je moet reizen om een random bestemming binnen je eigen 1km grid cel te bereiken. Volgens Lewis.
 	parameter<km>      maxWalkDist   := 1.001[km];
 	parameter<km>      maxCycleDist  := 3.001[km];
+	parameter<string>  alt_imp_def	 := 'Minutes_weekday_0830';
 	
 	unit<uint32>       FinalLinkSet  := NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
 	unit<uint32>       FinalNodeSet  := NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
 	unit<uint32>       OD_points     := NetworkSetup/Base_Analysis/NetwerkSpec/DestDomain;
 	
-	container RunPerMS:= for_each_ne(RegionalUnits/EUplus/CNTR_ID, 'CalcPerMs_T(RegionalUnits/EUplus/Geometry['+string(id(RegionalUnits/EUplus))+'], FinalLinkSet/Minutes_freeflow_0830, Int_time[float64])');
+	container RunPerMS:= for_each_ne(RegionalUnits/EUplus/CNTR_ID, 'CalcPerMs_T(RegionalUnits/EUplus/Geometry['+string(id(RegionalUnits/EUplus))+'], FinalLinkSet/'+alt_imp_def+', Int_time[float64])');
 	
 	
 	Template CalcPerMs_T {
 		parameter<LambertEA> inZone (polygon);
 		attribute<float64> alt_imp (FinalLinkSet);
 		parameter<float64> alt_imp_self;
-		
-		parameter<string> alt_imp_expr:= propvalue(alt_imp, 'Expr');
-		parameter<string> alt_imp_def:= substr(alt_imp_expr, strpos(alt_imp_expr, '/')+1, strlen(alt_imp_expr)); //isolates name of attribute that is being requested as alternative impedance
 		
 		parameter<string> zonename:= propvalue(., 'Name');
 		

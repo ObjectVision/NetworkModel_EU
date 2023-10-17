@@ -130,12 +130,17 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			}
 			
 			unit<uint32> LinkSet := LinkSet_Read
+			// edit 16/10/2023
+			// adapted attributes to ensure that the weekday estimates are slower than freeflow or regular estimates. Minutes now reflects the absolute lowest impedances that are plausible.
+			// this is useful for later congestion effect calculations
+			// naming needs to be tidied later
 			{
 				attribute<km>              LengthKm       := convert(dist(first_point, last_point)[m], km);
-				attribute<min_f>           Minutes        := MakeDefined(convert((LengthKm / KPH), min_f), 0.0001[min_f]);
-				attribute<min_f>           Minutes_freeflow_0830       := MakeDefined(convert((LengthKm / KPH_freeflow_0830), min_f), 0.0001[min_f]);
-				attribute<min_f>           Minutes_weekday_0830        := MakeDefined(convert((LengthKm / KPH_weekday_0830), min_f), 0.0001[min_f]);
-				attribute<s_f>             impedance      := convert(minutes, s_f) + Float64(CorrectImpedanceForCrossroads/impedance_Start + CorrectImpedanceForCrossroads/impedance_End);
+				attribute<min_f>           Minutes        := MakeDefined(min_elem(convert((LengthKm / KPH), min_f), Minutes_freeflow_0830),0.0001[min_f]); // fix to ensure 
+				attribute<min_f>           Minutes_freeflow_0830       := MakeDefined(convert(LengthKm / KPH_freeflow_0830, min_f),0.0001[min_f]);
+				attribute<min_f>           Minutes_weekday_0830        := MakeDefined(max_elem(convert(LengthKm / KPH_weekday_0830, min_f), convert(LengthKm / KPH_freeflow_0830, min_f), 0.0001[min_f]));
+				attribute<s_f>             impedance      := convert(minutes, s_f);  // without crossroad penalties
+					// + Float64(CorrectImpedanceForCrossroads/impedance_Start + CorrectImpedanceForCrossroads/impedance_End);
 				attribute<NodeSet>         F1             := rlookup(first_point, NodeSet/Values); //node from the OD towards the network
 				attribute<NodeSet>         F2             := rlookup(last_point,  NodeSet/Values); //network node to which the the OD is connected 
  
