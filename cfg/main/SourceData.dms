@@ -5,11 +5,19 @@ container SourceData: Using = "Units;Classifications;geometries"
 	
 	container Locations
 	{
-		unit<ipoint> Population : StorageName = "%NetworkModelDataDir%/Population/JRC_1K_POP_2018.tif", StorageType = "gdal.grid", StorageReadOnly = "True", DialogData = "BaseProjection", DialogType = "map"
+		unit<ipoint> Population_2021 : StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-T_2021_V1-0.tiff", StorageType = "gdal.grid", StorageReadOnly = "True", DialogData = "BaseProjection", DialogType = "map", Descr = "JRC GeoStat 2021 1000m grid"
 		{
 			attribute<uint16> GridData;
 			attribute<uint16> ReadData (Base_Grid_1km);
 		}
+		
+		unit<ipoint> Population_2018 : StorageName = "%NetworkModelDataDir%/Population/JRC_1K_POP_2018.tif", StorageType = "gdal.grid", StorageReadOnly = "True", DialogData = "BaseProjection", DialogType = "map", Descr = "JRC GeoStat 2018 1000m grid"
+		{
+			attribute<uint16> GridData;
+			attribute<uint16> ReadData (Base_Grid_1km);
+		}
+		
+		unit<ipoint> Population := = 'Population_'+string(ModelParameters/PopVersie); 
 		
 		unit<uint64> wPopulation := select_with_org_rel(Population/ReadData > 0[uint16])
 		{

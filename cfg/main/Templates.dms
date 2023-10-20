@@ -103,7 +103,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<BaseProjection>  geometry(arc);
 			}
 			
-			unit<uint32> LinkSet_Write := LinkSet_Calc,	StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.fss'"
+			unit<uint32> LinkSet_Write := LinkSet_Calc,	StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'"
 			{
 				attribute<km_hr>           KPH                  := MakeDefined(arc_rel->KPH, ModelParameters/Advanced/CarDefaultSpeed_low);
 				attribute<bool>            IsOneDirection       := arc_rel->IsOneDirection;
@@ -112,7 +112,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<bool>            IsOD_connection_road := !IsDefined(arc_rel);
 			}
 			
-			unit<uint32> LinkSet_Read: StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.fss'", StorageReadOnly = "True"
+			unit<uint32> LinkSet_Read: StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'", StorageReadOnly = "True"
 			{
 				attribute<km_hr>           KPH;
 				attribute<bool>            IsOneDirection;
@@ -201,13 +201,13 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			
 			unit<uint32> FinalNodeSet_Calc := select_with_org_rel(pcount(LastLinkSet/F1)+pcount(LastLinkSet/F2) > 0);
 			unit<uint32> FinalNodeSet_Write := FinalNodeSet_Calc
-				,	StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalNodeSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.fss'"
+				,	StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalNodeSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'"
 			{
 				attribute<BaseProjection> geometry := org_rel->values;				
 			}
 			
 			unit<uint32> LastLinkSet := OptimiseNetwork/LastIter/IntermediateLinkSet;
-			unit<uint32> FinalLinkSet_Write := LastLinkSet,	StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalLinkSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.fss'" 
+			unit<uint32> FinalLinkSet_Write := LastLinkSet,	StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalLinkSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'" 
 			{
 				attribute<FinalNodeSet_Calc> F1                   := invert(FinalNodeSet_Calc/org_rel)[LastLinkSet/F1];
 				attribute<FinalNodeSet_Calc> F2                   := invert(FinalNodeSet_Calc/org_rel)[LastLinkSet/F2];
@@ -217,14 +217,14 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<bool>              IsOD_connection_road := LastLinkSet/IsOD_connection_road;
 			}
 			
-			unit<uint32> FinalNodeSet : StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalNodeSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.fss'", StorageReadOnly = "True"
+			unit<uint32> FinalNodeSet : StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalNodeSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'", StorageReadOnly = "True"
 			{
 				attribute<BaseProjection> geometry;
 				attribute<.> OrgNode_rel  (OrgDomain)  := rlookup(OrgDomain/geometry,  geometry);
 				attribute<.> DestNode_rel (DestDomain) := rlookup(DestDomain/geometry, geometry);	
 			}
 			
-			unit<uint32> FinalLinkSet_Read: StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalLinkSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.fss'", StorageReadOnly = "True"
+			unit<uint32> FinalLinkSet_Read: StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalLinkSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'", StorageReadOnly = "True"
 			{
 				attribute<FinalNodeSet> F1;
 				attribute<FinalNodeSet> F2;
