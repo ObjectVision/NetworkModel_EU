@@ -423,7 +423,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<NodeSet>                         F1                             := union_data(., UnchangedLinkSet/F1, JunctionFreeSection/F1);
 					attribute<NodeSet>                         F2                             := union_data(., UnchangedLinkSet/F2, JunctionFreeSection/F2);
 					attribute<s_f>                             impedance_org                  := union_data(., UnchangedLinkSet/impedance, JunctionFreeSection/Total_Impedance);
-					attribute<s_f>                             impedance                      := MakeDefined(Find_DuplicateLinks/min_impedance[Find_DuplicateLinks_rel],impedance_org);
+					attribute<s_f>                             impedance                      := !IsOneDirection ? MakeDefined(Find_DuplicateLinks/min_impedance[Find_DuplicateLinks_rel],impedance_org) : impedance_org;
+
 					attribute<km>                              LengthKm_org                   := union_data(., UnchangedLinkSet/LengthKm, JunctionFreeSection/Total_LengthKm);
 					attribute<km>                              LengthKm                       := MakeDefined(Find_DuplicateLinks/min_length_km[Find_DuplicateLinks_rel],LengthKm_org);
 					attribute<bool>                            IsOneDirection                 := union_data(., UnchangedLinkSet/IsOneDirection, JunctionFreeSection/IsOneDirection);
