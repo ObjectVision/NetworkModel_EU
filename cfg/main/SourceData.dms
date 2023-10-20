@@ -5,7 +5,7 @@ container SourceData: Using = "Units;Classifications;geometries"
 	
 	container Locations
 	{
-		unit<ipoint> Population_2021 : StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-T_2021_V1-0.tiff", StorageType = "gdal.grid", StorageReadOnly = "True", DialogData = "BaseProjection", DialogType = "map", Descr = "JRC GeoStat 2021 1000m grid"
+		unit<ipoint> Population_2021_v1_0 : StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-T_2021_V1-0.tiff", StorageType = "gdal.grid", StorageReadOnly = "True", DialogData = "BaseProjection", DialogType = "map", Descr = "JRC GeoStat 2021 1000m grid"
 		{
 			attribute<uint16> GridData;
 			attribute<uint16> ReadData (Base_Grid_1km);
