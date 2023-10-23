@@ -14,9 +14,9 @@ container Geometries
 		container Extent_EU
 		{
 			//EU extent basemap
-			parameter<float64> x_min :=  2000000d;
+			parameter<float64> x_min :=  2300000d;
 			parameter<float64> x_max :=  6500000d;
-			parameter<float64> y_min :=  1000000d;
+			parameter<float64> y_min :=  1300000d;
 			parameter<float64> y_max :=  5500000d;
 		}
 		container Extent_Finland

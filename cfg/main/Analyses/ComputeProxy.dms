@@ -90,40 +90,11 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 		attribute<km>           EUCL_Dij := self ? Self_Distance : dist(Origins/geometry[i], Destinations/geometry[j])[km];
 	}
 	
-	// container Results_per_distdecay:= 
-		// for_each_ne(
-			// distdecay_functions/LabelText
-			// , 'Compute_Results_T(Matrix, '+string(id(distdecay_functions))+'[distdecay_functions])'
-		// ) 
-	// {
-		// container collect 
-		// {
-			// parameter<bool> Button:= True, explicitsuppliers = "= AsList(distdecay_functions/LabelText+'/StoreOriginResults', ';') + ';' + AsList(distdecay_functions/LabelText+'/StoreDestinationResults', ';') ";
-		// }
-	// }
 	container Results_per_distdecay:= 
 		for_each_ne(
 			distdecay_functions/LabelText
 			, 'Calc_perDecayFunction_T('+string(id(distdecay_functions))+'[distdecay_functions])'
-		) 
-	{
-		// container collect 
-		// {
-			// parameter<bool> Button:= True, explicitsuppliers = "= AsList(distdecay_functions/LabelText+'/StoreOriginResults', ';') + ';' + AsList(distdecay_functions/LabelText+'/StoreDestinationResults', ';') ";
-		// }
-	}
-	
-	// container MergeProxies:= 
-		// for_each_ne(
-			// distdecay_functions/LabelText
-			// , 'Do_MergeProxies_T('+string(id(distdecay_functions))+')'
-		// ) 
-	// {
-		// container collect 
-		// {
-			// parameter<bool> Button:= True, ExplicitSuppliers = "= AsList(distdecay_functions/LabelText+'/mergeProxy',';')";
-		// }
-	// }
+		);
 
 	Template Calc_perDecayFunction_T
 	{

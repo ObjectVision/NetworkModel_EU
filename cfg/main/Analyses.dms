@@ -1,4 +1,4 @@
-container Analyses: Using = "Units;Classifications;geometries" 
+container Analyses: Using = "Units;Classifications;geometries;sourcedata" 
 {  
 	unit<uint32> Dest_populated_grid := ='select_with_attr_by_cond(Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points, Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
 
@@ -133,6 +133,8 @@ container Analyses: Using = "Units;Classifications;geometries"
 			parameter<string>  Generator                                         := 'Ready', ExplicitSuppliers = "Avg_Distance_To_PopulatedCells_grid";
 		}
 	}
+	
+
 	 
 	Template Basic_OD_matrix_T
 	{
@@ -181,4 +183,73 @@ container Analyses: Using = "Units;Classifications;geometries"
 	}
 	
 	#include<ComputeProxy.dms>
+	
+	container RunPerMS:= 
+		for_each_ne(
+			RegionalUnits/Continental_EU/name
+			, 'PerMemberState_T('+quote(RegionalUnits/Continental_EU/name)+')'
+		);
+
+	Template PerMemberState_T
+	{
+		parameter<string> MS_name;
+		///
+		
+		unit<uint8>       MS          := select_with_attr_by_cond(RegionalUnits/Continental_EU, RegionalUnits/Continental_EU/name == MS_name);
+		unit<uint32>      Org         := ='select_with_attr_by_cond(Geometries/Base_grid_'+ModelParameters/OrgGridsize+'/points, IsDefined(point_in_polygon(Geometries/Base_grid_'+ModelParameters/OrgGridsize+'/points/geometry, MS/geometry)))';
+		unit<uint32>      Dest        := ='select_with_attr_by_cond(Dest_populated_grid, IsDefined(point_in_polygon(Dest_populated_grid/geometry, MS/geometry)))';
+		parameter<uint32> maxSqrDist   := 120 * 120; //km blokken
+		
+		container Create_Network := =
+			'NetworkSetup/Call_CreateNetwork_T('
+				'Org'   
+				',Dest'
+				','+quote('PopRaster_'+MS_name)+
+			')';
+		
+		container Indicator
+		{
+			unit<uint32> FinalLinkSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
+			unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
+			unit<ipoint> Base_grid    := = 'Geometries/Base_grid_'+ModelParameters/OrgGridsize;
+			
+			
+			unit<uint64> Numerator_Di :=
+				impedance_matrix_od64('bidirectional(link_flag);startPoint(Node_rel,OrgZone_loc);endPoint(Node_rel,DstZone_loc);cut(OrgZone_max_imp);euclid(maxSqrDist);interaction(v_i,w_j,dist_decay):D_i'
+					, FinalLinkSet/impedance
+					, FinalLinkSet/F1
+					, FinalLinkSet/F2
+					
+					, !FinalLinkSet/IsOneDirection
+					, FinalNodeSet/OrgNode_rel, NetwerkSpec/OrgLocations_spoint //startPoint(Node_rel,OrgZone_loc)
+					, FinalNodeSet/DestNode_rel, NetwerkSpec/destLocations_spoint //endPoint(Node_rel,DstZone_loc)
+					, convert(ModelParameters/MaxTravelTime, s_f) //cut impedance
+					, maxSqrDist
+					, 1.0 // v_i
+					, NetwerkSpec/DestDomain/Population[float64] // w_j
+					, -1.0 // dist_deacy
+				);
+				
+			unit<uint64> Denominator_Di :=
+				impedance_matrix_od64('bidirectional(link_flag);startPoint(Node_rel,OrgZone_loc);endPoint(Node_rel,DstZone_loc);cut(OrgZone_max_imp);euclid(maxSqrDist);interaction(v_i,w_j,dist_decay):D_i'
+					, FinalLinkSet/impedance
+					, FinalLinkSet/F1
+					, FinalLinkSet/F2
+					
+					, !FinalLinkSet/IsOneDirection
+					, FinalNodeSet/OrgNode_rel, NetwerkSpec/OrgLocations_spoint //startPoint(Node_rel,OrgZone_loc)
+					, FinalNodeSet/DestNode_rel, NetwerkSpec/destLocations_spoint //endPoint(Node_rel,DstZone_loc)
+					, convert(ModelParameters/MaxTravelTime, s_f) //cut impedance
+					, maxSqrDist
+					, 1.0 // v_i
+					, NetwerkSpec/DestDomain/Population[float64] // w_j
+					, 0.0 // dist_deacy
+				);
+				
+			attribute<min_f> Avg_Traveltime_To_PopulatedCells    (NetwerkSpec/OrgDomain) := MakeDefined(convert(Numerator_Di/D_i[s_f] / Denominator_Di/D_i, min_f), 0[min_f]);
+			attribute<min_f> Avg_Traveltime_To_PopulatedCells_grid           (Base_grid) := Avg_Traveltime_To_PopulatedCells[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Avg_traveltime_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
+			
+			parameter<string>  Generator                                         := 'Ready', ExplicitSuppliers = "Avg_Traveltime_To_PopulatedCells_grid";
+		}
+	}
 }

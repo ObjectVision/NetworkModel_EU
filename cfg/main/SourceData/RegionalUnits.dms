@@ -62,11 +62,38 @@ container RegionalUnits : using = "geometries"
 		attribute<bool>      IsEU            := EU_STAT == 'T'; 
 		attribute<bool>      IsEFTA          := EFTA_STAT == 'T'; 
 		attribute<bool>      IsCC            := CC_STAT == 'T'; 
-		attribute<bool>      IsTerritory     := strcount(SVRG_UN, 'Territory') > 0; 
-		
+		attribute<bool>      IsTerritory       := strcount(SVRG_UN, 'Territory') > 0; 
 		unit<uint32> Subset := select_with_attr_by_cond(.,name_engl == 'Finland');
+		
+		
 	}
 	
+	unit<uint32> Country_Split := split_partitioned_union_polygon(Country/geometry[BaseProjection_ip], id(Country))
+	{
+		attribute<LambertEA> geometry_lea (poly) := geometry[LambertEA];
+		attribute<LambertEA> centroid            := centroid_or_mid(geometry_lea);
+		attribute<bool>      IsEU                := Country/IsEU[part_rel];
+		attribute<bool>      IsEFTA              := Country/IsEFTA[part_rel];
+		attribute<bool>      IsTerritory         := Country/IsTerritory[part_rel];
+		attribute<bool>      IsWithinStudyArea   := IsDefined(point_in_polygon(centroid, Geometries/selection_polygon/polygon));
+		attribute<string>    name                := Country/name_engl[part_rel];
+	}
+
+	unit<uint32> EUplus         := select_with_attr_by_cond(Country, (Country/IsEU || Country/IsEFTA) && !Country/IsTerritory);
 	
-	unit<uint32> EUplus := select_with_attr_by_cond(Country, (Country/IsEU || Country/IsEFTA) && !Country/IsTerritory);
+	unit<uint32> Continental_EU_undissolved := select_with_org_rel((Country_Split/IsEU || Country_Split/IsEFTA) && !Country_Split/IsTerritory && Country_Split/IsWithinStudyArea)
+	{
+		attribute<LambertEA> geometry (poly) := Country_Split/geometry_lea[org_rel];
+		attribute<string>    name            := Country_Split/name[org_rel];
+		
+		attribute<Continental_EU>    Continental_EU_rel     := rlookup(name, Continental_EU/values);
+		
+	}
+	
+	unit<uint8> Continental_EU := unique_uint8(Continental_EU_undissolved/name)
+	{
+		attribute<LambertEA>    geometry (poly) := partitioned_union_polygon(Continental_EU_undissolved/geometry[BaseProjection_ip], Continental_EU_undissolved/Continental_EU_rel)[LambertEA];
+		attribute<string>       name            := values;
+		attribute<string>       label           := values;
+	}
 }
