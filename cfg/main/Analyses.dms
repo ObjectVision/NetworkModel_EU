@@ -74,6 +74,7 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 				
 			attribute<min_f> Avg_Traveltime_To_PopulatedCells    (NetwerkSpec/OrgDomain) := MakeDefined(convert(Numerator_Di/D_i[s_f] / Denominator_Di/D_i, min_f), 0[min_f]);
 			attribute<min_f> Avg_Traveltime_To_PopulatedCells_grid           (Base_grid) := Avg_Traveltime_To_PopulatedCells[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Avg_traveltime_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
+			attribute<min_f> Read_Avg_Traveltime_To_PopulatedCells_grid           (Base_grid) : StorageName = "='%LocalDataProjDir%/Output/Avg_traveltime_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'", StorageReadOnly = "true";
 			
 			parameter<string>  Generator                                         := 'Ready', ExplicitSuppliers = "Avg_Traveltime_To_PopulatedCells_grid";
 		}
@@ -184,11 +185,11 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 	
 	#include<ComputeProxy.dms>
 	
-	container RunPerMS:= 
-		for_each_ne(
-			RegionalUnits/Continental_EU/name
-			, 'PerMemberState_T('+quote(RegionalUnits/Continental_EU/name)+')'
-		);
+	// container RunPerMS:= 
+		// for_each_ne(
+			// RegionalUnits/Continental_EU/name
+			// , 'PerMemberState_T('+quote(RegionalUnits/Continental_EU/name)+')'
+		// );
 
 	Template PerMemberState_T
 	{

@@ -81,19 +81,19 @@ container RegionalUnits : using = "geometries"
 
 	unit<uint32> EUplus         := select_with_attr_by_cond(Country, (Country/IsEU || Country/IsEFTA) && !Country/IsTerritory);
 	
-	unit<uint32> Continental_EU_undissolved := select_with_org_rel((Country_Split/IsEU || Country_Split/IsEFTA) && !Country_Split/IsTerritory && Country_Split/IsWithinStudyArea)
-	{
-		attribute<LambertEA> geometry (poly) := Country_Split/geometry_lea[org_rel];
-		attribute<string>    name            := Country_Split/name[org_rel];
+	// unit<uint32> Continental_EU_undissolved := select_with_org_rel((Country_Split/IsEU || Country_Split/IsEFTA) && !Country_Split/IsTerritory && Country_Split/IsWithinStudyArea)
+	// {
+		// attribute<LambertEA> geometry (poly) := Country_Split/geometry_lea[org_rel];
+		// attribute<string>    name            := Country_Split/name[org_rel];
 		
-		attribute<Continental_EU>    Continental_EU_rel     := rlookup(name, Continental_EU/values);
+		// attribute<Continental_EU>    Continental_EU_rel     := rlookup(name, Continental_EU/values);
 		
-	}
+	// }
 	
-	unit<uint8> Continental_EU := unique_uint8(Continental_EU_undissolved/name)
-	{
-		attribute<LambertEA>    geometry (poly) := partitioned_union_polygon(Continental_EU_undissolved/geometry[BaseProjection_ip], Continental_EU_undissolved/Continental_EU_rel)[LambertEA];
-		attribute<string>       name            := values;
-		attribute<string>       label           := values;
-	}
+	// unit<uint8> Continental_EU := unique_uint8(Continental_EU_undissolved/name)
+	// {
+		// attribute<LambertEA>    geometry (poly) := partitioned_union_polygon(Continental_EU_undissolved/geometry[BaseProjection_ip], Continental_EU_undissolved/Continental_EU_rel)[LambertEA];
+		// attribute<string>       name            := values;
+		// attribute<string>       label           := values;
+	// }
 }

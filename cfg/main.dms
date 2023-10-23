@@ -2,9 +2,9 @@ container NetworkModel_EU
 { 
 	container MakeUnlinkedData
 	{
-		parameter<string> Junctions_fss         := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Junctions_fss ";
-		parameter<string> Streets_fss           := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Streets_fss";
-		parameter<string> Streets_fss_selection := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Streets_fss_selection";
+		// parameter<string> Junctions_fss         := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Junctions_fss ";
+		// parameter<string> Streets_fss           := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Streets_fss";
+		// parameter<string> Streets_fss_selection := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Streets_fss_selection";
 		
 		parameter<string> Create_InitialLinkSet := 'Ready', ExplicitSuppliers = "/NetworkSetup/Base_Analysis/NetwerkSpec/CreateInitialWorkingNetwork/LinkSet_Write";
 		parameter<string> Create_FinalNodeSet   := 'Ready', ExplicitSuppliers = "/NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet_Write";
@@ -21,6 +21,87 @@ container NetworkModel_EU
 	#include<NetworkSetup.dms>
 	#include<Analyses.dms>
 	#include<Templates.dms>
+	
+	container RegressieTest : using = "units"
+	{
+		parameter<String> Step1_prepare_data := 'Ready', ExplicitSuppliers = "/MakeUnlinkedData/Create_InitialLinkSet";
+		parameter<String> Step2_prepare_data := 'Ready', ExplicitSuppliers = "/MakeUnlinkedData/Create_FinalNodeSet;/MakeUnlinkedData/Create_FinalLinkSet";
+		parameter<String> Step3_calc_output  := 'Ready', ExplicitSuppliers = "/Analyses/Base_Analysis_Traveltime/Indicator/Generator";
+
+		container t650_1_NetworkModel_PBL_prepare_data
+		{
+			parameter<string> TempDir                  := '%LocalDataDir%/Regression/log';
+			parameter<string> results_folder_filename  := TempDir + '/results_folder.txt';
+			parameter<string> results_folder           :  Storagename =  "= results_folder_filename", StorageType = "str";
+
+			parameter<string> result_html := 
+				'<description>NetworkModel EU results <br><I> git revision: XXXX, git repo: https://github.com/ObjectVision/NetworkModel_EU; branch: RegressieTest) </I></description>' + 
+				'<result>prepare data: OK</result>'
+			,	StorageType = "str"
+			,	storagename = "= results_folder + '/t650_1_NetworkModel_EU_prepare_data.txt'";
+		}
+
+		container t650_2_NetworkModel_EU_prepare_data
+		{
+			parameter<string> TempDir                  := '%LocalDataDir%/Regression/log';
+			parameter<string> results_folder_filename  := TempDir + '/results_folder.txt';
+			parameter<string> results_folder           :  Storagename =  "= results_folder_filename", StorageType = "str";
+
+			parameter<string> result_html := 
+				'<description>NetworkModel EU results <br><I> git revision: XXXX, git repo: https://github.com/ObjectVision/NetworkModel_EU; branch: RegressieTest) </I></description>' + 
+				'<result>prepare data: OK</result>'
+			,	StorageType = "str"
+			,	storagename = "= results_folder + '/t650_2_NetworkModel_EU_prepare_data.txt'";
+		}
+
+		container t650_3_NetworkModel_EU_indicator_results_test
+		{
+			parameter<string> TempDir                  := '%LocalDataDir%/Regression/log';
+			parameter<string> results_folder_filename  := TempDir + '/results_folder.txt';
+			parameter<string> results_folder           :  Storagename =  "= results_folder_filename", StorageType = "str";
+
+			parameter<string> result := 
+				'<description>NetworkModel EU results <br><I> git revision: XXXX, git repo: https://github.com/ObjectVision/NetworkModel_EU; branch: RegressieTest) </I></description>' + 
+				'<result>' + 
+				'<br><b>WW</b>' +
+				'<br>count: ' + replace(string(PerType/WW/Indicators/count),'.',',') +' <br>' + 
+				'mean: ' + replace(string(PerType/WW/Indicators/mean),'.',',') +'  <br>' + 
+				'max: ' + replace(string(PerType/WW/Indicators/max),'.',',') +'<br>' + 
+				'min: ' + replace(string(sum(PerType/WW/Indicators/min)),'.',',') +' <br>'  + 
+				'modus: ' + replace(string(sum(PerType/WW/Indicators/modus)),'.',',') +' <br>' 
+				
+				'<br><b>W_OV_W</b>' +
+				'<br>count: ' + replace(string(PerType/W_OV_W/Indicators/count),'.',',') +'   <br>' + 
+				'mean: ' + replace(string(PerType/W_OV_W/Indicators/mean),'.',',') +'   <br>' + 
+				'max: ' + replace(string(PerType/W_OV_W/Indicators/max),'.',',') +'  <br>' + 
+				'min: ' + replace(string(sum(PerType/W_OV_W/Indicators/min)),'.',',') +' <br>'  + 
+				'modus: ' + replace(string(sum(PerType/W_OV_W/Indicators/modus)),'.',',') +'  <br>'
+				
+				'<br><b>W_OV_W_with_WW</b>' +
+				'<br>count: ' + replace(string(PerType/W_OV_W_with_WW/Indicators/count),'.',',') +'   <br>' + 
+				'mean: ' + replace(string(PerType/W_OV_W_with_WW/Indicators/mean),'.',',') +'   <br>' + 
+				'max: ' + replace(string(PerType/W_OV_W_with_WW/Indicators/max),'.',',') +'  <br>' + 
+				'min: ' + replace(string(sum(PerType/W_OV_W_with_WW/Indicators/min)),'.',',') +' <br>'  + 
+				'modus: ' + replace(string(sum(PerType/W_OV_W_with_WW/Indicators/modus)),'.',',') +' </result>';
+
+			parameter<string> result_html := result
+			,	StorageType = "str"
+			,	storagename = "= results_folder + '/t650_3_NetworkModel_EU_indicator_results_test.txt'";
+		}
+
+		container Indicators
+		{
+			parameter<uint32>   count                  := count(uint32(Read_Avg_Traveltime_To_PopulatedCells_grid));
+			parameter<float32>  mean                   := mean(Read_Avg_Traveltime_To_PopulatedCells_grid[float32]);
+			parameter<float32>  max                    := max(Read_Avg_Traveltime_To_PopulatedCells_grid[float32]);
+			parameter<float32>  min                    := min(Read_Avg_Traveltime_To_PopulatedCells_grid[float32]);
+			parameter<uint32>   modus                  := modus(uint32(Read_Avg_Traveltime_To_PopulatedCells_grid));
+			
+			unit<ipoint> Base_grid    := = 'Geometries/Base_grid_'+ModelParameters/OrgGridsize;
+			attribute<min_f> Read_Avg_Traveltime_To_PopulatedCells_grid (Base_grid) := /Analyses/Base_Analysis_Traveltime/Indicator/Read_Avg_Traveltime_To_PopulatedCells_grid > 0d ? /Analyses/Base_Analysis_Traveltime/Indicator/Read_Avg_Traveltime_To_PopulatedCells_grid : null_d;
+		}
+	}	
+	
 	
 	container ConfigSettings
 	{
