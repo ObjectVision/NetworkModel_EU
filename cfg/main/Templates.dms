@@ -241,6 +241,17 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<km>           LengthKm;
 				attribute<bool>         IsOneDirection;
 				attribute<bool>         IsOD_connection_road;
+				
+				// For visualisation
+				attribute<BaseProjection>                  FirstPoint                     := FinalNodeSet/Geometry[F1];
+				attribute<BaseProjection>                  LastPoint                      := FinalNodeSet/Geometry[F2];
+				attribute<BaseProjection>                  geometry (arc)                 := points2sequence(PointSet/Point, PointSet/SeqNr, PointSet/Ordinal);
+				unit<uint32> PointSet := union_unit(.,.)
+				{
+					attribute<BaseProjection>              Point   := Union_Data(., ../FirstPoint, ../LastPoint);
+					attribute<..>                          SeqNr   := value(id(.) % nrofrows(..), ..);
+					attribute<uint32>                      Ordinal := id(.) / nrofrows(..);
+				}
 			}
 			unit<uint32> FinalLinkSet := FinalLinkSet_Read
 			{
@@ -304,32 +315,28 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<bool>                            IsOneDirection                 := PrevIntermediateLinkSet/IsOneDirection;
 					
 					// For visualisation
-					// attribute<BaseProjection_ip>                  FirstPoint                     := NodeSet/geometry[F1];
-					// attribute<BaseProjection_ip>                  LastPoint                      := NodeSet/geometry[F2];
-					// attribute<BaseProjection_ip>                  geometry (arc)                 := points2sequence(PointSet/Point, PointSet/SeqNr, PointSet/Ordinal);
-					// unit<uint32> PointSet := union_unit(.,.)
-					// {
-						// attribute<BaseProjection_ip>              Point   := Union_Data(., ../FirstPoint, ../LastPoint);
-						// attribute<..>                          SeqNr   := value(id(.) % nrofrows(..), ..);
-						// attribute<uint32>                      Ordinal := id(.) / nrofrows(..);
-					// }
+					attribute<BaseProjection_ip>               geometry (arc)                 := PrevIntermediateLinkSet/geometry[BaseProjection_ip];
 				}
 				
 				unit<uint32> NodeSet  := NodeSet_src
 				{
 					attribute<uint32>                          NrConnectedLinks               := pcount(LinkSet/F1) + pcount(LinkSet/F2);
 					attribute<bool>                            BordersWithOneDirectionalRoad  := LinkSet/IsOneDirection[invert(LinkSet/F1)] || LinkSet/IsOneDirection[invert(LinkSet/F2)];
-					attribute<bool>                            WillBeDeleted                  := NrConnectedLinks == 2 && pcount(UniqueLocations/Node_rel) == 0 && pcount(UniqueLocations/Node_rel_of_link_to_network) == 0; // 2 connectinglinks means intermediary without junction, and if there are no node_rel's then it is not an OD-point.,
-					// attribute<bool>                            IsOD_connection_road           := NodeSet_src/IsOD_connection_road;
+					attribute<bool>                            WillBeDeleted                  := NrConnectedLinks == 2  // 2 connectinglinks means intermediary without junction
+																									&& !IsOD_connection_road;
+					attribute<bool>                            IsOD_connection_road           := pcount(UniqueLocations/Node_rel) != 0 // if there are node_rel's then it is an OD-point.
+																									|| pcount(UniqueLocations/Node_rel_of_link_to_network) != 0; //if there are nodes related to the network to the OD-point, then it is the cnnecting node
 
 					//Forward relations
 					attribute<JunctionFreeSection>             JunctionFreeSection_rel        := ConnectedParts/JunctionFreeSection_rel[ConnectedParts_rel];
-					
 					attribute<ConnectedParts>                  ConnectedParts_rel             := ConnectedParts/PartNr;
 					
 					attribute<bool>                            IsOrgDest_location             := IsDefined(rlookup(values, UniqueLocations/Values));
 					attribute<uint32>                          NrConnectedLinks_in_LinkSet_cleanedforJFS := pcount(LinkSet_cleanedforJFS/F1) + pcount(LinkSet_cleanedforJFS/F2);
 					attribute<bool>                            IsDeadEnd_and_NotOD            := NrConnectedLinks_in_LinkSet_cleanedforJFS == 1 && !IsOrgDest_location;
+					
+					// For visualisation
+					attribute<BaseProjection_ip>               geometry                       := NodeSet_src/geometry[BaseProjection_ip];
 				}
 
 				unit<uint32> LinksInsideJunctionFreeSection := select(LinkSet/IsInsideJunctionFreeSection), Descr = "Those links that are in the junction free section"
@@ -342,7 +349,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<JunctionFreeSection>             JunctionFreeSection_rel        := NodeSet/JunctionFreeSection_rel[F1];
 					
 					//For visualisation
-					// attribute<BaseProjection_ip>                  geometry  (arc)                :=  collect_by_cond(LinksInsideJunctionFreeSection, LinkSet/IsInsideJunctionFreeSection, LinkSet/geometry);
+					attribute<BaseProjection_ip>                  geometry  (arc)                :=  collect_by_cond(LinksInsideJunctionFreeSection, LinkSet/IsInsideJunctionFreeSection, LinkSet/geometry);
 				}
 				
 				unit<uint32> ConnectedParts := connected_parts(LinksInsideJunctionFreeSection/F1, LinksInsideJunctionFreeSection/F2)
@@ -365,6 +372,9 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<s_f>                             Impedance                      := LinkSet/Impedance[org_rel];
 					attribute<km>                              LengthKm                       := LinkSet/LengthKm[org_rel];
 					attribute<bool>                            IsOneDirection                 := LinkSet/IsOneDirection[org_rel];
+					
+					//For visualisation
+					attribute<BaseProjection_ip>               geometry  (arc)                := LinkSet/geometry[org_rel];
 				}
 				
 				
@@ -385,8 +395,11 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<km>                              Last_ConnectorLink_LengthKm    := ConnectorLink/LengthKm[Last_ConnectorLink_rel];
 					attribute<km>                              Total_LengthKm                 := Aggregated_LengthKm + First_ConnectorLink_LengthKm + Last_ConnectorLink_LengthKm;
 					
-					attribute<NodeSet>                         F1                             := ConnectorLink/NodeSet_rel[First_ConnectorLink_rel];
-					attribute<NodeSet>                         F2                             := ConnectorLink/NodeSet_rel[Last_ConnectorLink_rel];  
+					attribute<NodeSet>                         Fa                             := ConnectorLink/NodeSet_rel[First_ConnectorLink_rel];
+					attribute<NodeSet>                         Fb                             := ConnectorLink/NodeSet_rel[Last_ConnectorLink_rel];  
+					
+					attribute<NodeSet>                         F1                             :=  First_ConnectorLink_rel -> F1 == Fa ? Fa : Fb;
+					attribute<NodeSet>                         F2                             :=  First_ConnectorLink_rel -> F1 == Fa ? Fb : Fa;
 					
 					attribute<bool>                            First_ConnectorLink_IsOneDirection := ConnectorLink/IsOneDirection[First_ConnectorLink_rel];
 					attribute<bool>                            Last_ConnectorLink_IsOneDirection  := ConnectorLink/IsOneDirection[Last_ConnectorLink_rel];
@@ -396,15 +409,15 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<bool>                            IsOD_connection_road               := const(FALSE,.);
 					
 					//For visualisation
-					// attribute<BaseProjection_ip>                  FirstPoint                     := NodeSet/Geometry[F1];
-					// attribute<BaseProjection_ip>                  LastPoint                      := NodeSet/Geometry[F2];
-					// attribute<BaseProjection_ip>                  geometry (arc)                 := points2sequence(PointSet/Point, PointSet/SeqNr, PointSet/Ordinal);
-					// unit<uint32> PointSet := union_unit(.,.)
-					// {
-						// attribute<BaseProjection_ip>              Point   := Union_Data(., ../FirstPoint, ../LastPoint);
-						// attribute<..>                          SeqNr   := value(id(.) % nrofrows(..), ..);
-						// attribute<uint32>                      Ordinal := id(.) / nrofrows(..);
-					// }
+					attribute<BaseProjection_ip>               FirstPoint                     := NodeSet/Geometry[F1];
+					attribute<BaseProjection_ip>               LastPoint                      := NodeSet/Geometry[F2];
+					attribute<BaseProjection_ip>               geometry (arc)                 := points2sequence(PointSet/Point, PointSet/SeqNr, PointSet/Ordinal);
+					unit<uint32> PointSet := union_unit(.,.)
+					{
+						attribute<BaseProjection_ip>           Point   := Union_Data(., ../FirstPoint, ../LastPoint);
+						attribute<..>                          SeqNr   := value(id(.) % nrofrows(..), ..);
+						attribute<uint32>                      Ordinal := id(.) / nrofrows(..);
+					}
 				}
 				unit<uint32> DisconnectedJunctionFreeSection := select_with_attr_by_cond(JunctionFreeSection, JunctionFreeSection/IsDisconnected);
 				
@@ -417,18 +430,18 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<km>                              LengthKm                       := LinkSet/LengthKm[org_rel];
 					attribute<bool>                            IsOneDirection                 := LinkSet/IsOneDirection[org_rel];
 					attribute<bool>                            IsOD_connection_road           := LinkSet/IsOD_connection_road[org_rel];
+					
 					//For visualisation
-					// attribute<BaseProjection_ip>                  FirstPoint                     := NodeSet/geometry[F1];
-					// attribute<BaseProjection_ip>                  LastPoint                      := NodeSet/geometry[F2];
-					// attribute<BaseProjection_ip>                  geometry (arc)                 := points2sequence(PointSet/Point, PointSet/SeqNr, PointSet/Ordinal);
-					// unit<uint32> PointSet := union_unit(.,.)
-					// {
-						// attribute<BaseProjection_ip>              Point   := Union_Data(., ../FirstPoint, ../LastPoint);
-						// attribute<..>                          SeqNr   := value(id(.) % nrofrows(..), ..);
-						// attribute<uint32>                      Ordinal := id(.) / nrofrows(..);
-					// }
+					attribute<BaseProjection_ip>                  FirstPoint                     := NodeSet/geometry[F1];
+					attribute<BaseProjection_ip>                  LastPoint                      := NodeSet/geometry[F2];
+					attribute<BaseProjection_ip>                  geometry (arc)                 := points2sequence(PointSet/Point, PointSet/SeqNr, PointSet/Ordinal);
+					unit<uint32> PointSet := union_unit(.,.)
+					{
+						attribute<BaseProjection_ip>              Point   := Union_Data(., ../FirstPoint, ../LastPoint);
+						attribute<..>                          SeqNr   := value(id(.) % nrofrows(..), ..);
+						attribute<uint32>                      Ordinal := id(.) / nrofrows(..);
+					}
 				}
-				
 				
 				unit<uint32> LinkSet_cleanedforJFS := union_unit(UnchangedLinkSet, JunctionFreeSection)
 				, Descr = "The final link set"
@@ -463,8 +476,15 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					}
 					
 					//For visualisation
-					// unit<uint32> PointSet := union_unit(.,.);
-					// attribute<BaseProjection_ip>                  geometry (arc)                 := points2sequence(Union_Data(PointSet, NodeSet/geometry[F1], NodeSet/geometry[F2]), value(id(PointSet) %., .));
+					attribute<BaseProjection_ip>                  FirstPoint                     := NodeSet/geometry[F1];
+					attribute<BaseProjection_ip>                  LastPoint                      := NodeSet/geometry[F2];
+					attribute<BaseProjection_ip>                  geometry (arc)                 := points2sequence(PointSet/Point, PointSet/SeqNr, PointSet/Ordinal);
+					unit<uint32> PointSet := union_unit(.,.)
+					{
+						attribute<BaseProjection_ip>           Point   := Union_Data(., ../FirstPoint, ../LastPoint);
+						attribute<..>                          SeqNr   := value(id(.) % nrofrows(..), ..);
+						attribute<uint32>                      Ordinal := id(.) / nrofrows(..);
+					}
 				}
 				
 				//Verwijder links naar dead ends (if F1 or F2 occurs only once in all F1/F2, and not being OD-location)
@@ -482,7 +502,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					
 					//For visualisation
 					unit<uint32> PointSet := union_unit(.,.);
-					attribute<BaseProjection> geometry (arc) := points2sequence(Union_Data(PointSet, NodeSet/geometry[F1], NodeSet/geometry[F2]), value(id(PointSet) %#IntermediateLinkSet, IntermediateLinkSet));
+					attribute<BaseProjection_ip> geometry (arc) := points2sequence(Union_Data(PointSet, NodeSet/geometry[F1], NodeSet/geometry[F2]), value(id(PointSet) %#IntermediateLinkSet, IntermediateLinkSet));
 				}
 			}
 		}
