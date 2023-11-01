@@ -63,7 +63,7 @@ container RegionalUnits : using = "geometries"
 		attribute<bool>      IsEFTA          := EFTA_STAT == 'T'; 
 		attribute<bool>      IsCC            := CC_STAT == 'T'; 
 		attribute<bool>      IsTerritory       := strcount(SVRG_UN, 'Territory') > 0; 
-		unit<uint32> Subset := select_with_attr_by_cond(.,name_engl == 'Finland');
+		unit<uint32> Subset := select_with_attr_by_cond(.,name_engl == /ModelParameters/OD_SelectionCountry);
 		
 		
 	}

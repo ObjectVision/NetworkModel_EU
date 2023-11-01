@@ -184,11 +184,11 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 	
 	#include<ComputeProxy.dms>
 	
-	container RunPerMS:= 
-		for_each_ne(
-			RegionalUnits/Continental_EU/name
-			, 'PerMemberState_T('+quote(RegionalUnits/Continental_EU/name)+')'
-		);
+	// container RunPerMS:= 
+		// for_each_ne(
+			// RegionalUnits/Continental_EU/name
+			// , 'PerMemberState_T('+quote(RegionalUnits/Continental_EU/name)+')'
+		// );
 
 	Template PerMemberState_T
 	{

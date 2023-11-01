@@ -109,7 +109,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<bool>            IsOneDirection       := arc_rel->IsOneDirection;
 				attribute<BaseProjection>  first_point          := first_point(geometry); //OD point   --> vanwege directions hoeft deze niet te klopppen...
 				attribute<BaseProjection>  last_point           := last_point(geometry);  //May or may not be an existing network node, otherwise it is a new node
-				attribute<bool>            IsOD_connection_road := !IsDefined(arc_rel);
+				attribute<bool>            IsOD_connection_road := !IsDefined(arc_rel); // connect gives arc_rel which gives the rel to the original link, in case of existing link. Is new link, this is undefined.
 			}
 			
 			unit<uint32> LinkSet_Read: StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'", StorageReadOnly = "True"
@@ -119,6 +119,15 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<BaseProjection>  first_point;
 				attribute<BaseProjection>  last_point;
 				attribute<bool>            IsOD_connection_road;
+				
+				// For visualisation
+				attribute<BaseProjection>                  geometry (arc)                 := points2sequence(PointSet/Point, PointSet/SeqNr, PointSet/Ordinal);
+				unit<uint32> PointSet := union_unit(.,.)
+				{
+					attribute<BaseProjection>              Point   := Union_Data(., ../first_point, ../last_point);
+					attribute<..>                          SeqNr   := value(id(.) % nrofrows(..), ..);
+					attribute<uint32>                      Ordinal := id(.) / nrofrows(..);
+				}
 			}
 			
 			unit<uint32> LinkSet := LinkSet_Read
@@ -279,7 +288,11 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				
 				unit<uint32> UniqueLocations := NetwerkSpec/UniqueLocations
 				{
-					attribute<NodeSet> Node_rel       := rlookup(geometry, NodeSet/Values); 
+					attribute<NodeSet> Node_rel                    := rlookup(geometry, NodeSet/Values); 
+					attribute<LinkSet> Link_rel                    := rlookup(Node_rel, LinkSet/F1);
+					attribute<NodeSet> Node_rel_if_new_ODlink      := Link_rel -> F2;
+					attribute<NodeSet> Node_rel_of_link_to_network := !(link_rel -> IsOD_connection_road) ? Node_rel : Node_rel_if_new_ODlink;
+					
 				}
 				
 				unit<uint32> LinkSet := PrevIntermediateLinkSet
@@ -306,8 +319,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				{
 					attribute<uint32>                          NrConnectedLinks               := pcount(LinkSet/F1) + pcount(LinkSet/F2);
 					attribute<bool>                            BordersWithOneDirectionalRoad  := LinkSet/IsOneDirection[invert(LinkSet/F1)] || LinkSet/IsOneDirection[invert(LinkSet/F2)];
-					attribute<bool>                            WillBeDeleted                  := NrConnectedLinks == 2 && pcount(UniqueLocations/Node_rel) == 0; // 2 connectinglinks means intermediary without junction, and if there are no node_rel's then it is not an OD-point.,
-					attribute<bool>                            IsOD_connection_road           := NodeSet_src/IsOD_connection_road;
+					attribute<bool>                            WillBeDeleted                  := NrConnectedLinks == 2 && pcount(UniqueLocations/Node_rel) == 0 && pcount(UniqueLocations/Node_rel_of_link_to_network) == 0; // 2 connectinglinks means intermediary without junction, and if there are no node_rel's then it is not an OD-point.,
+					// attribute<bool>                            IsOD_connection_road           := NodeSet_src/IsOD_connection_road;
 
 					//Forward relations
 					attribute<JunctionFreeSection>             JunctionFreeSection_rel        := ConnectedParts/JunctionFreeSection_rel[ConnectedParts_rel];
