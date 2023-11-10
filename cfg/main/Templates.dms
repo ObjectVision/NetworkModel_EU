@@ -50,6 +50,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			{
 				attribute<NodeSet_src>            Fsrc_1                   := rlookup(F_JnctId, NodeSet_src/JnctIds);
 				attribute<NodeSet_src>            Fsrc_2                   := rlookup(T_JnctId, NodeSet_src/JnctIds);
+				attribute<bool>                   IsCarRoad                := Direction != /Classifications/TomTom/Directions/V/nocars;
 				
 				unit<uint32> PointSet := union_unit(., .)
 				{
@@ -67,7 +68,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				container Connectiveness := Templates/Check_Connectiveness_T(.,NodeSet_src, Fsrc_1, Fsrc_2);
 			}
 			
-			attribute<bool> Roads_isConnected (Roads_with_unconnected_subnetworks) := Roads_with_unconnected_subnetworks/Connectiveness/IsVerbonden;
+			attribute<bool> Roads_isConnected (Roads_with_unconnected_subnetworks) := Roads_with_unconnected_subnetworks/Connectiveness/IsVerbonden && Roads_with_unconnected_subnetworks/IsCarRoad;
 
 			unit<uint32> Road_linestrings := select(Roads_isConnected)
 			{
