@@ -46,20 +46,20 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 		
 		container CreateInitialWorkingNetwork
 		{
-			unit<uint32> Roads_with_unconnected_subnetworks_w_CarRaods := RoadDomain0
+			unit<uint32> Roads_with_unconnected_subnetworks_w_CarRoads := RoadDomain0
 			{
 				attribute<bool>                   IsCarRoad                := Direction != /Classifications/TomTom/Directions/V/nocars;
 			}
 			
-			unit<uint32> Roads_with_unconnected_subnetworks_wo_CarRoads := select(Roads_with_unconnected_subnetworks_w_CarRaods/IsCarRoad)
+			unit<uint32> Roads_with_unconnected_subnetworks_only_CarRoads := select(Roads_with_unconnected_subnetworks_w_CarRoads/IsCarRoad)
 			{
-				attribute<BaseProjection>     geometry (arc)       := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRaods/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRaods/geometry);
-				attribute<bool>               IsOneDirection       := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRaods/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRaods/IsOneDirection);
-				attribute<km_hr>              KPH                  := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRaods/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRaods/KPH);
-				attribute<Bool >              Connectable          := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRaods/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRaods/Connectable);
+				attribute<BaseProjection>     geometry (arc)       := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRoads/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRoads/geometry);
+				attribute<bool>               IsOneDirection       := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRoads/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRoads/IsOneDirection);
+				attribute<km_hr>              KPH                  := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRoads/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRoads/KPH);
+				attribute<Bool >              Connectable          := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRoads/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRoads/Connectable);
 				
-				attribute<uint64>             F_JNCTID             := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRaods/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRaods/F_JNCTID);
-				attribute<uint64>             T_JNCTID             := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRaods/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRaods/T_JNCTID);
+				attribute<uint64>             F_JNCTID             := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRoads/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRoads/F_JNCTID);
+				attribute<uint64>             T_JNCTID             := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRoads/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRoads/T_JNCTID);
 				
 				attribute<NodeSet_src>        Fsrc_1               := rlookup(F_JnctId, NodeSet_src/JnctIds);
 				attribute<NodeSet_src>        Fsrc_2               := rlookup(T_JnctId, NodeSet_src/JnctIds);
@@ -83,17 +83,31 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				container Connectiveness := Templates/Check_Connectiveness_T(.,NodeSet_src, Fsrc_1, Fsrc_2);
 			}
 			
-			attribute<bool> Roads_isConnected (Roads_with_unconnected_subnetworks_wo_CarRoads) := Roads_with_unconnected_subnetworks_wo_CarRoads/Connectiveness/IsVerbonden;
+			attribute<bool> Roads_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness/IsVerbonden;
+			attribute<bool> Nodes_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness/NodesVerbonden;
 
-			unit<uint32> Road_linestrings := select(Roads_isConnected)
+			unit<uint32> Roads := select(Roads_isConnected)
 			{
-				attribute<BaseProjection>     geometry (arc) := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_wo_CarRoads/geometry);
-				attribute<bool>               IsOneDirection := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_wo_CarRoads/IsOneDirection);
-				attribute<km_hr>              KPH            := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_wo_CarRoads/KPH);
-				attribute<Bool >              Connectable    := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_wo_CarRoads/Connectable);
+				attribute<BaseProjection>     geometry (arc) := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/geometry);
+				attribute<bool>               IsOneDirection := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/IsOneDirection);
+				attribute<km_hr>              KPH            := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/KPH);
+				attribute<Bool >              Connectable    := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/Connectable);
+				attribute<uint64>			  F_JnctId		 := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/F_JnctId);
+				attribute<uint64>			  T_JnctId		 := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/T_JnctId);
+				
+				unit<uint32> UqGeomPointSet:= select(Nodes_isConnected) 
+				{
+					attribute<BaseProjection> geometry := collect_by_cond(.,Nodes_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src/geometry);
+					attribute<uint64> JnctIds := collect_by_cond(.,Nodes_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src/JnctIds);
+					attribute<uint64> values := JnctIds;
+				}
+				attribute<UqGeomPointSet> F1 := rlookup(F_JnctId, UqGeomPointSet/values);
+				attribute<UqGeomPointSet> F2 := rlookup(T_JnctId, UqGeomPointSet/values);
+				
+				container Connectiveness := Templates/Check_Connectiveness_T(.,UqGeomPointSet, F1, F2);
 			}
 			
-			unit<uint32> Roads := arc2segm(Road_linestrings/geometry)
+			/*unit<uint32> Roads := arc2segm(Road_linestrings/geometry)
 			{
 				attribute<km_hr>              KPH                  := sequence_rel->KPH;
 				attribute<bool>               IsOneDirection       := sequence_rel->IsOneDirection;
@@ -112,54 +126,83 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				// for checking and visualisation only
 				container Connectiveness := Templates/Check_Connectiveness_T(.,UqGeomPointSet, F1, F2);
 				attribute<BaseProjection> geometry(arc) := points2sequence(PointSet/geometry, convert(id(PointSet) % #., .));
-			}
-		
+			}*/
+			
 			unit<uint32> LinkSet_Calc := connect_ne(Roads/geometry, uint32(Roads/Connectable), UniqueLocations/geometry, const(0, UniqueLocations))
 			{
 				attribute<BaseProjection>  geometry(arc);
+				attribute<km_hr>           KPH                  := MakeDefined(arc_rel->KPH, ModelParameters/Advanced/CarDefaultSpeed_low);
+				attribute<bool>            IsOneDirection       := Makedefined(arc_rel->IsOneDirection, false);
+				attribute<uint32>		   F1					:= arc_rel->F1[uint32];
+				attribute<uint32>		   F2					:= arc_rel->F2[uint32];
+				attribute<bool>			   isconnector			:= isnull(arc_rel);
+				attribute<bool>			   f_unchanged			:= first_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F1];
+				attribute<bool>			   t_unchanged			:= last_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F2];
+			
+				unit<uint32> location_connectors:= select(isconnector) {
+					attribute<BaseProjection>  geometry (arc):= collect_by_cond(., isconnector, ../geometry);
+					attribute<km_hr>		   KPH				:= const(ModelParameters/Advanced/CarDefaultSpeed_low,.,km_hr);
+					attribute<bool>			   IsOneDirection	:= const(false,.,bool);
+					attribute<BaseProjection>  od_point:= first_point(geometry);
+					attribute<BaseProjection>  cutpoint:= last_point(geometry);
+					attribute<UniqueLocations> ul_id:= rlookup(od_point, UniqueLocations/geometry);
+					attribute<uint32> F1:= ul_id[uint32] + #Roads/UqGeomPointSet;
+					attribute<uint32> F2:= ul_id[uint32] + #Roads/UqGeomPointSet + #.;
+				}
+				unit<uint32> unchanged_links:= select(f_unchanged && t_unchanged) {
+					attribute<BaseProjection>  geometry (arc)	:= collect_by_cond(., f_unchanged && t_unchanged, ../geometry);
+					attribute<km_hr>		   KPH				:= collect_by_cond(., f_unchanged && t_unchanged, ../KPH);
+					attribute<bool>			   IsOneDirection	:= collect_by_cond(., f_unchanged && t_unchanged, ../IsOneDirection);
+					attribute<uint32>		   F1				:= collect_by_cond(., f_unchanged && t_unchanged, ../F1);
+					attribute<uint32>		   F2				:= collect_by_cond(., f_unchanged && t_unchanged, ../F2);
+				}
+				unit<uint32> changed_links:= select(!isconnector && (!f_unchanged || !t_unchanged)) {
+					attribute<BaseProjection>  geometry (arc)	:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../geometry);
+					attribute<km_hr>		   KPH				:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../KPH);
+					attribute<bool>			   IsOneDirection	:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../IsOneDirection);
+					attribute<bool>			   f_notchanged		:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../f_unchanged);
+					attribute<bool>			   t_notchanged		:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../t_unchanged);
+					attribute<uint32>		   org_F1			:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../F1);
+					attribute<uint32>		   org_F2			:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../F2);
+					attribute<uint32>		   F1				:= f_notchanged ? org_F1 : location_connectors/F2[rlookup(first_point(geometry), location_connectors/cutpoint)];
+					attribute<uint32>		   F2				:= t_notchanged ? org_F2 : location_connectors/F2[rlookup(last_point(geometry), location_connectors/cutpoint)];
+				}
+				
 			}
 			
-			unit<uint32> LinkSet_Write := LinkSet_Calc,	StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'"
+			unit<uint32> LinkSet_Write := union_unit(LinkSet_Calc/unchanged_links, LinkSet_Calc/changed_links, LinkSet_Calc/location_connectors),	StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'"
 			{
-				attribute<km_hr>           KPH                  := MakeDefined(arc_rel->KPH, ModelParameters/Advanced/CarDefaultSpeed_low);
-				attribute<bool>            IsOneDirection       := arc_rel->IsOneDirection;
-				attribute<BaseProjection>  first_point          := first_point(geometry); //OD point   --> vanwege directions hoeft deze niet te klopppen...
-				attribute<BaseProjection>  last_point           := last_point(geometry);  //May or may not be an existing network node, otherwise it is a new node
-				attribute<bool>            IsOD_connection_road := !IsDefined(arc_rel); // connect gives arc_rel which gives the rel to the original link, in case of existing link. Is new link, this is undefined.
+				attribute<BaseProjection>  geometry(arc)		:= union_data(.,LinkSet_Calc/unchanged_links/geometry, 		LinkSet_Calc/changed_links/geometry, 		LinkSet_Calc/location_connectors/geometry);
+				attribute<km_hr>           KPH                  := union_data(.,LinkSet_Calc/unchanged_links/KPH, 			LinkSet_Calc/changed_links/KPH, 			LinkSet_Calc/location_connectors/KPH);
+				attribute<bool>            IsOneDirection       := union_data(.,LinkSet_Calc/unchanged_links/IsOneDirection,LinkSet_Calc/changed_links/IsOneDirection, 	LinkSet_Calc/location_connectors/IsOneDirection);
+				attribute<uint32>  		   F_node				:= union_data(.,LinkSet_Calc/unchanged_links/F1,			LinkSet_Calc/changed_links/F1, 				LinkSet_Calc/location_connectors/F1);
+				attribute<uint32>  		   T_node				:= union_data(.,LinkSet_Calc/unchanged_links/F2,			LinkSet_Calc/changed_links/F2, 				LinkSet_Calc/location_connectors/F2);
+				attribute<bool>            IsOD_connection_road := union_data(.,const(False,LinkSet_Calc/unchanged_links,bool),const(False,LinkSet_Calc/changed_links,bool),const(True,LinkSet_Calc/location_connectors,bool));
 			}
 			
 			unit<uint32> LinkSet_Read: StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'", StorageReadOnly = "True"
 			{
+				attribute<BaseProjection>  geometry(arc);
 				attribute<km_hr>           KPH;
 				attribute<bool>            IsOneDirection;
-				attribute<BaseProjection>  first_point;
-				attribute<BaseProjection>  last_point;
+				attribute<uint32>  		   F_node;
+				attribute<uint32>  		   T_node;
 				attribute<bool>            IsOD_connection_road;
-				
-				// For visualisation
-				attribute<BaseProjection>                  geometry (arc)                 := points2sequence(PointSet/Point, PointSet/SeqNr, PointSet/Ordinal);
-				unit<uint32> PointSet := union_unit(.,.)
-				{
-					attribute<BaseProjection>              Point   := Union_Data(., ../first_point, ../last_point);
-					attribute<..>                          SeqNr   := value(id(.) % nrofrows(..), ..);
-					attribute<uint32>                      Ordinal := id(.) / nrofrows(..);
-				}
 			}
 			
 			unit<uint32> LinkSet := LinkSet_Read
 			{
-				attribute<km>              LengthKm       := convert(dist(first_point, last_point)[m], km);
+				attribute<km>              LengthKm       := convert(arc_length(geometry, float64)[m], km);
 				attribute<min_f>           Minutes        := MakeDefined(convert((LengthKm / KPH), min_f), 0.0001[min_f]);
 				attribute<s_f>             impedance      := convert(minutes, s_f) + Float64(CorrectImpedanceForCrossroads/impedance_Start + CorrectImpedanceForCrossroads/impedance_End);
-				attribute<NodeSet>         F1             := rlookup(first_point, NodeSet/Values); //node from the OD towards the network
-				attribute<NodeSet>         F2             := rlookup(last_point,  NodeSet/Values); //network node to which the the OD is connected 
+				attribute<NodeSet>         F1             := rlookup(F_node, NodeSet/Values); //node from the OD towards the network
+				attribute<NodeSet>         F2             := rlookup(T_node, NodeSet/Values); //network node to which the the OD is connected 
  
 				unit<uint32> PointSet := union_unit(., .);
 			}
 
-			unit<uint32> NodeSet := unique(union_data(LinkSet/PointSet, LinkSet/first_point, LinkSet/last_point))
+			unit<uint32> NodeSet := unique(union_data(LinkSet/PointSet, LinkSet/F_node, LinkSet/T_node))
 			{
-				attribute<BaseProjection> geometry := values;
 				attribute<uint32> NrConnectedLinks := pcount(LinkSet/F1) + pcount(LinkSet/F2);
 			}
 						
@@ -540,7 +583,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 		}
 		
 		attribute<bool> IsVerbonden (LinkSet_domain) := Networks/IsConnected[F1] && Networks/IsConnected[F2];
-
+		attribute<bool>	NodesVerbonden (NodeSet_domain):= Networks/IsConnected;
+		
 		unit<uint32> NodesNotConnected := select_with_org_rel(!Networks/IsConnected)
 		{
 			attribute<BaseProjection>        geometry := org_rel -> geometry;
