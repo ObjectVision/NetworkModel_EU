@@ -5,21 +5,21 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 	parameter<km>      Self_Distance := 0.23[km]; //de theoretische gemiddelde 0.23 km die je moet reizen om een random bestemming binnen je eigen 1km grid cel te bereiken. Volgens Lewis.
 	parameter<km>      maxWalkDist   := 1.001[km];
 	parameter<km>      maxCycleDist  := 3.001[km];
+	parameter<string>  alt_imp_def	 := 'Minutes_weekday_0830'; //'LengthKM';//
 	
 	unit<uint32>       FinalLinkSet  := NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
 	unit<uint32>       FinalNodeSet  := NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
 	unit<uint32>       OD_points     := NetworkSetup/Base_Analysis/NetwerkSpec/DestDomain;
 	
-	container RunPerMS:= for_each_ne(RegionalUnits/EUplus/CNTR_ID, 'CalcPerMs_T(RegionalUnits/EUplus/Geometry['+string(id(RegionalUnits/EUplus))+'], FinalLinkSet/Minutes_weekday_0830, Int_time[float64])');
+	container RunPerMS:= for_each_ne(RegionalUnits/EUplus/CNTR_ID, 'CalcPerMs_T(RegionalUnits/EUplus/Geometry['+string(id(RegionalUnits/EUplus))+'], FinalLinkSet/'+alt_imp_def+', Int_time[float64])') {
+		container debug:= = 'CalcPerMs_T(debug_set/Geometry[0], FinalLinkSet/'+alt_imp_def+', Int_time[float64])';
+	}
 	
 	
 	Template CalcPerMs_T {
 		parameter<LambertEA> inZone (polygon);
 		attribute<float64> alt_imp (FinalLinkSet);
 		parameter<float64> alt_imp_self;
-		
-		parameter<string> alt_imp_expr:= propvalue(alt_imp, 'Expr');
-		parameter<string> alt_imp_def:= substr(alt_imp_expr, strpos(alt_imp_expr, '/')+1, strlen(alt_imp_expr)); //isolates name of attribute that is being requested as alternative impedance
 		
 		parameter<string> zonename:= propvalue(., 'Name');
 		
@@ -61,16 +61,14 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 		for_each_ne(
 			distdecay_functions/LabelText
 			, 'comp_results_T(Matrix, '+string(id(distdecay_functions))+'[distdecay_functions])'
-		) ;
+		)  {
+			container gen {
+				parameter<bool> button:= True, explicitsuppliers = "= aslist(distdecay_functions/LabelText+'/StoreOriginResults', ';') + ';' + aslist(distdecay_functions/LabelText+'/StoreDestinationResults', ';')";
+			}
+		}
 	
 			
 	}
-	
-	
-	
-	
-	
-	
 	
 	Template comp_results_T {
 		unit<uint64> inMatrix;
@@ -98,69 +96,70 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 		unit<uint32> PerDestination: expr = "Destinations" {
 			attribute<float64> visits:			expr = "sum(Matrix/Tij, Matrix/j)";
 			attribute<float64> ACCj:			expr = "Matrix/Aj";
-			attribute<float64> AvgTime: 		expr = "sum(Matrix/Tij * Matrix/Mij, Matrix/j) / visits";
-			attribute<float64> AvgAltImp:		expr = "sum(Matrix/Tij * Matrix/Alt_Dij, Matrix/j) / visits";
+			attribute<float64> AvgTime: 		expr = "sum(Matrix/Tij * Matrix/Mij, Matrix/j)";
+			attribute<float64> AvgAltImp:		expr = "sum(Matrix/Tij * Matrix/Alt_Dij, Matrix/j)";
+			attribute<float64> AvgEUCLDistance: expr = "sum(Matrix/Tij * Matrix/EUCL_Dij, Matrix/j)";
 		}
-		unit<uint32> StoreOriginResults:= PerOrigin, storagename = "= '%LocalDataProjDir%/travel_proxy/region_origin_results/'+ZoneName+'/'+distdecay_functions/LabelText[infunc]+'.dbf'" {
+		unit<uint32> StoreOriginResults:= PerOrigin, storagename = "= '%LocalDataProjDir%/travel_proxy/'+alt_imp_def+'/region_origin_results/'+ZoneName+'/'+distdecay_functions/LabelText[infunc]+'.dbf'" {
+			attribute<LambertEA>Geometry:= PerOrigin/Geometry, storagename = "= '%LocalDataProjDir%/travel_proxy/'+alt_imp_def+'/region_origin_results/'+ZoneName+'/'+distdecay_functions/LabelText[infunc]+'.shp'";
 			attribute<uint32> 	orgid:= PerOrigin/Nr_OrgEntity;
 			attribute<float64>	ai:= ACCi;
 			attribute<float64> 	avtime:= AvgTime;
-			attribute<float64>	visits:= AvgAltImp;
+			attribute<float64>	avaltimp:= AvgAltImp;
 			attribute<float64>	aveucd:= AvgEUCLDistance;
-			attribute<float64>	fracwalk:= PotWalk;
-			attribute<float64>	fraccycle:= PotCycle;
+			attribute<float64> 	trips:= float64(Pop);
+			//attribute<float64>	fracwalk:= PotWalk;
+			//attribute<float64>	fraccycle:= PotCycle;
 		}
-		unit<uint32> StoreDestinationResults:= PerDestination, storagename = "= '%LocalDataProjDir%/travel_proxy/region_destination_results/'+ZoneName+'/'+distdecay_functions/LabelText[infunc]+'.dbf'" {
+		unit<uint32> StoreDestinationResults:= PerDestination, storagename = "= '%LocalDataProjDir%/travel_proxy/'+alt_imp_def+'/region_destination_results/'+ZoneName+'/'+distdecay_functions/LabelText[infunc]+'.dbf'" {
+			attribute<LambertEA>Geometry:= PerDestination/Geometry, storagename = "= '%LocalDataProjDir%/travel_proxy/'+alt_imp_def+'/region_destination_results/'+ZoneName+'/'+distdecay_functions/LabelText[infunc]+'.shp'";
 			attribute<uint32> 	orgid:= PerDestination/Nr_OrgEntity;
 			attribute<float64>	aj:= ACCj;
 			attribute<float64> 	avtime:= AvgTime;
 			attribute<float64>	avaltimp:= AvgAltImp;
+			attribute<float64>	aveucd:= AvgEUCLDistance;
 			attribute<float64>	visits:= PerDestination/visits;
 			attribute<float64> 	attract:= float64(PerDestination/Pop);
 		}
-		unit<uint32> Origin_Results_ReadOnly: storagename = "= propvalue(StoreOriginResults, 'storagename')", storagereadonly = "True";
-		unit<uint32> Destination_Results_ReadOnly: storagename = "= propvalue(StoreDestinationResults, 'storagename')", storagereadonly = "True";
-		
-		unit<uint32> revert_to_od_points:= all_od_points {
-			attribute<Origin_Results_ReadOnly> or_id:= invert(Origin_Results_ReadOnly/orgid[all_od_points]);
-			attribute<Destination_Results_ReadOnly> dr_id:= invert(Destination_Results_ReadOnly/orgid[all_od_points]);
-			attribute<float64> 	ai:= 		MakeDefined(float64(Origin_Results_ReadOnly/ai[or_id]), 0f);
-			attribute<float64> 	avtimei:= 	MakeDefined(float64(Origin_Results_ReadOnly/avtime[or_id]) / org_pop, 0f);
-			attribute<float64> 	avnetdi:= 	MakeDefined(float64(Origin_Results_ReadOnly/avnetd[or_id]) / org_pop, 0f);
-			attribute<float64> 	aveucdi:= 	MakeDefined(float64(Origin_Results_ReadOnly/aveucd[or_id]) / org_pop, 0f);
-			attribute<float64> 	avtimej:= 	MakeDefined(float64(Destination_Results_ReadOnly/avtime[dr_id]) / org_pop, 0f);
-			attribute<float64> 	avnetdj:= 	MakeDefined(float64(Destination_Results_ReadOnly/avnetd[dr_id]) / org_pop, 0f);
-			attribute<float64> 	fracwalki:= MakeDefined(float64(Origin_Results_ReadOnly/fracwalk[or_id]) / org_pop, 0f);
-			attribute<float64> 	fracyclei:= MakeDefined(float64(Origin_Results_ReadOnly/fraccycle[or_id]) / org_pop, 0f);
-		}
+		unit<uint32> Origin_Results_ReadOnly: storagename = "= propvalue(StoreOriginResults/Geometry, 'storagename')", storagereadonly = "True", storagetype = "gdal.vect" {attribute<LambertEA> Geometry;}
+		unit<uint32> Destination_Results_ReadOnly: storagename = "= propvalue(StoreDestinationResults/Geometry, 'storagename')", storagereadonly = "True", storagetype = "gdal.vect" {attribute<LambertEA> Geometry;}
 		
 	}
-	
-		
-	/// =================================
-	/// ====== EXPORT ============
-	/// =================================
-
-	container Exports
-	{
-		attribute<float32float32>   Population      (OD_points) := OD_points/Population;
-		attribute<Origins>   origin_id       (OD_points) := rlookup(OD_points/OrgDomain_rel, value(Origins/orgid, uint32));
-		
-		attribute<float32>   D_i             (OD_points) := MakeDefined(float32(Matrix/D_i[origin_id]), 0f);
-		
-		attribute<km>        AvgNetDistance    (Origins) := sum(Matrix/Tij * Matrix/Net_d_ij, Matrix/i);
-		attribute<float32>   avnetdi         (OD_points) := MakeDefined(float32(AvgNetDistance[origin_id]) / Population[float32], 0f);
-		
-		attribute<km>        AvgEUCLDistance   (Origins) := sum(Matrix/Tij * Matrix/EUCL_d_ij, Matrix/i);
-		attribute<float32>   aveucdi         (OD_points) := MakeDefined(float32(AvgEUCLDistance[origin_id]) / Population[float32], 0f);
-		
-		attribute<min_f>     AvgTime           (Origins) := sum(Matrix/Tij * Matrix/d_ij, Matrix/i)[min_f];
-		attribute<float32>   avtimei         (OD_points) := MakeDefined(float32(AvgTime[origin_id]) / Population[float32], 0f);
+	container MergeProxies:= for_each_ne(distdecay_functions/LabelText, 'doMergeProxies('+string(id(distdecay_functions))+')') {
+		container collect {
+			parameter<bool> Button:= True, ExplicitSuppliers = "= AsList(distdecay_functions/LabelText+'/mergeProxyOrigins',';')+';'+AsList(distdecay_functions/LabelText+'/mergeProxyDestinations',';')";
+		}
+	}
+	Template doMergeProxies {
+		parameter<distdecay_functions> infunc;
+		unit<uint32> mergeProxyOrigins: expr = "= 'union_unit('+ AsItemList('RunPerMS/'+ RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly') +')'", DialogData = "point", DialogType = "map", storagename = "= '%LocalDataProjDir%/travel_proxy/'+alt_imp_def+'/mozaiks/origins_'+distdecay_functions/LabelText[infunc]+'.dbf'"
+		{
+			attribute<LambertEA> 	point: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly/Geometry') +')'", storagename = "= '%LocalDataProjDir%/travel_proxy/'+alt_imp_def+'/mozaiks/origins_'+distdecay_functions/LabelText[infunc]+'.shp'";
+			attribute<float64> 		Pop: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly/trips') +')'";
+			attribute<float64> 		Ai: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly/Ai') +')'";
+			attribute<float64> 		avtime: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly/avtime') +')'";
+			attribute<float64> 		aveucd: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly/aveucd') +')'";
+			attribute<float64> 		avaltimp: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Origin_Results_ReadOnly/avaltimp') +')'";
+		}
+		unit<uint32> mergeProxyDestinations: expr = "= 'union_unit('+ AsItemList('RunPerMS/'+ RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Destination_Results_ReadOnly') +')'", DialogData = "point", DialogType = "map", storagename = "= '%LocalDataProjDir%/travel_proxy/'+alt_imp_def+'/mozaiks/destinations_'+distdecay_functions/LabelText[infunc]+'.dbf'"
+		{
+			attribute<LambertEA> 	point: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Destination_Results_ReadOnly/Geometry') +')'", storagename = "= '%LocalDataProjDir%/travel_proxy/'+alt_imp_def+'/mozaiks/destinations_'+distdecay_functions/LabelText[infunc]+'.shp'";
+			attribute<float64> 		Visits: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Destination_Results_ReadOnly/visits') +')'";
+			attribute<float64> 		Attract: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Destination_Results_ReadOnly/attract') +')'";
+			attribute<float64> 		Aj: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Destination_Results_ReadOnly/Aj') +')'";
+			attribute<float64> 		avtime: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Destination_Results_ReadOnly/avtime') +')'";
+			attribute<float64> 		aveucd: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Destination_Results_ReadOnly/aveucd') +')'";
+			attribute<float64> 		avaltimp: expr = "= 'union_data(.,'+ AsItemList('RunPerMS/'+  RegionalUnits/EUplus/CNTR_ID +'/Results_per_distdecay/'+distdecay_functions/LabelText[infunc]+'/Destination_Results_ReadOnly/avaltimp') +')'";
+		}
 	}
 	
 	unit<uint32> distdecay_functions:= subset(id(distdecay_functions_all) < 2) {
 		attribute<string> LabelText:= distdecay_functions_all/LabelText[Nr_OrgEntity];
 		attribute<string> eval:= distdecay_functions_all/eval[Nr_OrgEntity];
+	}
+	
+	unit<uint32> debug_set: storagename = "%localdataprojdir%/debug/amsterdam_sel.shp", storagereadonly = "true", storagetype = "gdal.vect" {
+		attribute<LambertEA> Geometry (polygon);
 	}
 	
 	unit<uint32> distdecay_functions_all: NrOfRows = 6 

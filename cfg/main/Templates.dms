@@ -133,14 +133,25 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			unit<uint32> LinkSet := LinkSet_Read
 			{
 				attribute<km>              LengthKm       := convert(dist(first_point, last_point)[m], km);
-				attribute<min_f>           Minutes        := MakeDefined(convert((LengthKm / KPH), min_f), 0.0001[min_f]);
-				attribute<min_f>           Minutes_freeflow_0830       := MakeDefined(convert((LengthKm / KPH_freeflow_0830), min_f), 0.0001[min_f]);
-				attribute<min_f>           Minutes_weekday_0830        := MakeDefined(convert((LengthKm / KPH_weekday_0830), min_f), 0.0001[min_f]);
-				attribute<s_f>             impedance      := convert(minutes, s_f) + Float64(CorrectImpedanceForCrossroads/impedance_Start + CorrectImpedanceForCrossroads/impedance_End);
+				attribute<min_f>           Minutes        := MakeDefined(min_elem(convert((LengthKm / KPH), min_f), Minutes_freeflow_0830),0.0001[min_f]); // fix to ensure 
+				attribute<min_f>           Minutes_freeflow_0830       := MakeDefined(convert(LengthKm / KPH_freeflow_0830, min_f),0.0001[min_f]);
+				attribute<min_f>           Minutes_weekday_0830        := MakeDefined(convert(LengthKm / KPH_weekday_0830, min_f), 0.0001[min_f]);
+				attribute<s_f>             impedance      := convert(minutes, s_f);  // without crossroad penalties
+					// + Float64(CorrectImpedanceForCrossroads/impedance_Start + CorrectImpedanceForCrossroads/impedance_End);
 				attribute<NodeSet>         F1             := rlookup(first_point, NodeSet/Values); //node from the OD towards the network
 				attribute<NodeSet>         F2             := rlookup(last_point,  NodeSet/Values); //network node to which the the OD is connected 
  
 				unit<uint32> PointSet := union_unit(., .);
+				
+				unit<uint32> store_linkset_grid:= LinkSet {
+					attribute<SourceData/Locations/Population> fgrid:= first_point[/SourceData/Locations/Population];
+					attribute<SourceData/Locations/Population> tgrid:= last_point[/SourceData/Locations/Population];
+					
+					attribute<uint32> nroads (SourceData/Locations/Population):= (pcount(fgrid) + pcount(tgrid)) / 2;
+					attribute<float32> froadlength (SourceData/Locations/Population):= sum(float32(!IsOD_connection_road) * float32(LengthKm), fgrid);
+					attribute<float32> troadlength (SourceData/Locations/Population):= sum(float32(!IsOD_connection_road) * float32(LengthKm), tgrid);
+					attribute<float32> roadlength (SourceData/Locations/Population):= (froadlength + troadlength) / 2f, StorageName = "%LocalDataProjDir%/roadgrid/roadlengths.tif";
+				}
 			}
 
 			unit<uint32> NodeSet := unique(union_data(LinkSet/PointSet, LinkSet/first_point, LinkSet/last_point))
@@ -277,9 +288,10 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				, StorageType = "gdalwrite.vect"
 				{
 					attribute<BaseProjection> geometry     (arc) := Without_OD_connection_roads/geometry;
-					attribute<float32>        Impedance          := float32(Without_OD_connection_roads/Impedance);
+					attribute<float32>        Minutes            := float32(Without_OD_connection_roads/Impedance[min_f]);
 					attribute<float32>        LengthKm           := float32(Without_OD_connection_roads/LengthKm);
 					attribute<float32>        IsOneDir           := float32(Without_OD_connection_roads/IsOneDirection);
+					attribute<float32>		  Weekday_0830_kph   := float32(Without_OD_connection_roads/Minutes_weekday_0830);
 				}
 				
 				container store 
