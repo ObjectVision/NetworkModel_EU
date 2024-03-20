@@ -14,9 +14,9 @@ container Geometries
 		container Extent_EU
 		{
 			//EU extent basemap
-			parameter<float64> x_min :=  2000000d;
+			parameter<float64> x_min :=  2300000d;
 			parameter<float64> x_max :=  6500000d;
-			parameter<float64> y_min :=  1000000d;
+			parameter<float64> y_min :=  1300000d;
 			parameter<float64> y_max :=  5500000d;
 		}
 		container Extent_Finland
@@ -26,6 +26,14 @@ container Geometries
 			parameter<float64> x_max :=  5300000d;
 			parameter<float64> y_min :=  4700000d;
 			parameter<float64> y_max :=  5230000d;
+		}
+		container Extent_Amsterdam
+		{
+			//Extent Amsterdam
+			parameter<float64> x_min :=  3960000d;
+			parameter<float64> x_max :=  3987000d;
+			parameter<float64> y_min :=  3250000d;
+			parameter<float64> y_max :=  3270000d;
 		}
 		
 		container Extent := ='Extent_'+ModelParameters/CountryFolder;
@@ -42,7 +50,9 @@ container Geometries
 			attribute<.>               ordinal      := id(.);
 		}
 		
-		attribute<BaseProjection> polygon (poly)      := points2sequence(point_set/point, point_set/sequence_rel, point_set/ordinal);
+		attribute<BaseProjection> geometry (poly)      := points2sequence(point_set/point, point_set/sequence_rel, point_set/ordinal);
+		
+		unit<uint32> result := selection_polygon;
 	}
 	
 	unit<ipoint> Base_grid_1km       := SourceData/Locations/Population, DialogData = "BaseProjection"

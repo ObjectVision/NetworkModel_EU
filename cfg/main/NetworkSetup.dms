@@ -3,7 +3,7 @@ container NetworkSetup : using = "units;geometries;SourceData;Classifications"
 	unit<uint32> Dest_populated_grid := ='select_with_attr_by_cond(Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points, Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
 
 	container Base_Analysis := =
-		'Create_Network_T('
+		'Call_CreateNetwork_T('
 			'Geometries/Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
 			',Dest_populated_grid' //Dest
 			',''PopRaster'''
@@ -11,14 +11,14 @@ container NetworkSetup : using = "units;geometries;SourceData;Classifications"
 	
 	//Analysis for Felipe
 	container Pop_Weighted_NUTS_centroids := =
-		'Create_Network_T('
+		'Call_CreateNetwork_T('
 			'SourceData/RegionalUnits/NUTS3/CalcCentroids'   //Org
 			',SourceData/RegionalUnits/NUTS3/CalcCentroids' //Dest
 			',''PopW_NUTS'''
 		')';
 	
 	
-	Template Create_Network_T
+	Template Call_CreateNetwork_T
 	{
 		unit<uint32>      Org;
 		unit<uint32>      Dest;
