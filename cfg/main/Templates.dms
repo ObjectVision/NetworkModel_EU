@@ -73,6 +73,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			{
 				attribute<BaseProjection>     geometry (arc) := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks/geometry);
 				attribute<bool>               IsOneDirection := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks/IsOneDirection);
+				attribute<Directions>		  Direction		 := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks/Direction);
 				attribute<km_hr>              KPH            := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks/KPH);
 				attribute<km_hr>			  KPH_freeflow_0830		 := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks/KPH_freeflow_0830);
 				attribute<km_hr>			  KPH_weekday_0830		 := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks/KPH_weekday_0830);
@@ -186,7 +187,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			{
 				attribute<string> name := 'Iter_'+string(id(.));
 				//attribute<string> prevname := MakeDefined(name[sub_or_null(ID(.),1b)], 'Start'); // sub_or_null unknown function in v13.1.0
-				attribute<string> prevname :=id(.) > 0b ? name[id(.) - 1b] : 'Start';
+				attribute<string> prevname :=id(.) > 0b ? name[uint8(int32(id(.)) - 1i)] : 'Start';
 				attribute<string> Label := name, DialogType = "LabelText";
 				attribute<uint32> nrofarc_na_iter := ='union_data(., '+AsList('OptimiseNetwork/'+name+'/IntermediateLinkSet/count_arcs', ',')+')'; 
 			}

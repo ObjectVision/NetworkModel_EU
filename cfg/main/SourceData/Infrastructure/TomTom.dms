@@ -217,8 +217,18 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 		attribute<bool>               IsOneDirection       := Direction == Directions/v/backwards || Direction == Directions/v/forwards;
 		attribute<bool>               Connectable          := ='FRC_rel != '+ModelParameters/Street_OD_ConnectabletSelectie+' && !IsOneDirection';
 		
+		attribute<Junctions>		  F_Jnct_rel		   := rlookup(F_JNCTID, Junctions/JNCTID);
+		attribute<Junctions>		  T_Jnct_rel		   := rlookup(T_JNCTID, Junctions/JNCTID);
+		
+		attribute<bool>		  		  F_Jnct_geom_chk1	   := fromPoint[upoint] == from_rel_jnct[upoint];
+		attribute<bool>		  		  F_Jnct_geom_chk2	   := fromPoint[upoint] == to_rel_jnct[upoint];
+		attribute<bool>		  		  T_Jnct_geom_chk1	   := toPoint[upoint] == to_rel_jnct[upoint];
+		attribute<bool>		  		  T_Jnct_geom_chk2	   := toPoint == from_rel_jnct;
+		
 		attribute<BaseProjection>     fromPoint            := first_point(geometry);
 		attribute<BaseProjection>     toPoint              := last_point(geometry);
+		attribute<BaseProjection> 	  from_rel_jnct		   := Junctions/Geometry[F_Jnct_rel];
+		attribute<BaseProjection> 	  to_rel_jnct		   := Junctions/Geometry[T_Jnct_rel];
 		
 	}
 }
