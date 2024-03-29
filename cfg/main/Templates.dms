@@ -100,6 +100,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<BaseProjection> geometry := collect_by_cond(.,Nodes_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src/geometry);
 					attribute<uint64> JnctIds := collect_by_cond(.,Nodes_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src/JnctIds);
 					attribute<uint64> values := JnctIds;
+					attribute<bool>	  connectable:= any(../Connectable, F1) || any(../Connectable, F2);
+					attribute<uint32> conn_count:= pcount(F1) + pcount(F2);
 				}
 				attribute<UqGeomPointSet> F1 := rlookup(F_JnctId, UqGeomPointSet/values);
 				attribute<UqGeomPointSet> F2 := rlookup(T_JnctId, UqGeomPointSet/values);
@@ -138,7 +140,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<bool>			   isconnector			:= isnull(arc_rel);
 				attribute<bool>			   f_unchanged			:= first_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F1];
 				attribute<bool>			   t_unchanged			:= last_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F2];
-			
+				
 				unit<uint32> location_connectors:= select(isconnector) {
 					attribute<BaseProjection>  geometry (arc):= collect_by_cond(., isconnector, ../geometry);
 					attribute<km_hr>		   KPH				:= const(ModelParameters/Advanced/CarDefaultSpeed_low,.,km_hr);
@@ -147,7 +149,19 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<BaseProjection>  cutpoint:= last_point(geometry);
 					attribute<UniqueLocations> ul_id:= rlookup(od_point, UniqueLocations/geometry);
 					attribute<uint32> F1:= ul_id[uint32] + #Roads/UqGeomPointSet;
-					attribute<uint32> F2:= ul_id[uint32] + #Roads/UqGeomPointSet + #.;
+					attribute<uint32> F2:= unique_cutpoints/suggested_node_id[rlookup(cutpoint, unique_cutpoints/Values)];
+					
+					// list connectable nodes to which the cutpoint may have snapped
+					unit<uint32> existing_connectable_nodes:= select_with_org_rel(Roads/UqGeomPointSet/Connectable) {
+						attribute<BaseProjection> 	Geometry:= org_rel->Geometry;
+						attribute<uint32>			conn_count:= org_rel->conn_count;
+						attribute<unique_cutpoints>	uc_rel:= rlookup(Geometry, unique_cutpoints/Values);
+					}
+					// unique cutpoints (may have snapped to existing_connectable_nodes)
+					unit<uint32> unique_cutpoints:= unique(cutpoint) {
+						attribute<Roads/UqGeomPointSet> ecn_rel:= existing_connectable_nodes/org_rel[max_index(existing_connectable_nodes/conn_count, existing_connectable_nodes/uc_rel)];  //prefer the node location with the most connections.
+						attribute<uint32>	suggested_node_id:= makedefined(ecn_rel[uint32], #Roads/UqGeomPointSet + #UniqueLocations + id(.)[uint32]); // if not on a connectable existing node, identify as new node
+					}
 				}
 				unit<uint32> unchanged_links:= select(f_unchanged && t_unchanged) {
 					attribute<BaseProjection>  geometry (arc)	:= collect_by_cond(., f_unchanged && t_unchanged, ../geometry);
@@ -199,11 +213,18 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<NodeSet>         F2             := rlookup(T_node, NodeSet/Values); //network node to which the the OD is connected 
  
 				unit<uint32> PointSet := union_unit(., .);
+				unit<uint32> Subnetworks:= connected_parts(F1, F2);
 			}
 
 			unit<uint32> NodeSet := unique(union_data(LinkSet/PointSet, LinkSet/F_node, LinkSet/T_node))
 			{
-				attribute<uint32> NrConnectedLinks := pcount(LinkSet/F1) + pcount(LinkSet/F2);
+				attribute<uint32>   		NrConnectedLinks := pcount(LinkSet/F1) + pcount(LinkSet/F2);
+				attribute<bool>				OD_node:= any(LinkSet/IsOD_connection_road, LinkSet/F1);
+				attribute<BaseProjection> 	Geometry:= makedefined(first(first_point(LinkSet/Geometry), LinkSet/F1), first(last_point(LinkSet/Geometry), LinkSet/F2));
+				
+				unit<uint32> OD_nodes:= select_with_org_rel(OD_node) {
+					attribute<BaseProjection> geometry:= org_rel->Geometry;
+				}
 			}
 						
  			container CorrectImpedanceForCrossroads
@@ -271,7 +292,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			unit<uint32> FinalNodeSet_Write := FinalNodeSet_Calc
 				,	StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalNodeSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'"
 			{
-				attribute<BaseProjection> geometry := org_rel->values;				
+				attribute<BaseProjection> geometry := org_rel->geometry;
+				attribute<bool>			  OD_node  := org_rel->OD_node;
 			}
 			
 			unit<uint32> LastLinkSet := OptimiseNetwork/LastIter/IntermediateLinkSet;
@@ -288,8 +310,12 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			unit<uint32> FinalNodeSet : StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalNodeSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'", StorageReadOnly = "True"
 			{
 				attribute<BaseProjection> geometry;
-				attribute<.> OrgNode_rel  (OrgDomain)  := rlookup(OrgDomain/geometry,  geometry);
-				attribute<.> DestNode_rel (DestDomain) := rlookup(DestDomain/geometry, geometry);	
+				attribute<bool>			  OD_node;
+				attribute<.> OrgNode_rel  (OrgDomain)  := OD_nodes/org_rel[rlookup(OrgDomain/geometry,  OD_nodes/geometry)];
+				attribute<.> DestNode_rel (DestDomain) := OD_nodes/org_rel[rlookup(DestDomain/geometry, OD_nodes/geometry)];	
+				unit<uint32> OD_nodes:= select_with_org_rel(OD_node) {
+					attribute<BaseProjection> geometry:= org_rel->geometry;
+				}
 			}
 			
 			unit<uint32> FinalLinkSet_Read: StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalLinkSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'", StorageReadOnly = "True"
@@ -358,7 +384,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				
 				unit<uint32> UniqueLocations := NetwerkSpec/UniqueLocations
 				{
-					attribute<NodeSet> Node_rel                    := rlookup(geometry, NodeSet/Values); 
+					attribute<NodeSet> Node_rel                    := NodeSet/OD_nodes/org_rel[rlookup(geometry, NodeSet/OD_nodes/geometry)]; 
 					attribute<LinkSet> Link_rel                    := rlookup(Node_rel, LinkSet/F1);
 					attribute<NodeSet> Node_rel_if_new_ODlink      := Link_rel -> F2;
 					attribute<NodeSet> Node_rel_of_link_to_network := !(link_rel -> IsOD_connection_road) ? Node_rel : Node_rel_if_new_ODlink;
@@ -390,9 +416,10 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<JunctionFreeSection>             JunctionFreeSection_rel        := ConnectedParts/JunctionFreeSection_rel[ConnectedParts_rel];
 					attribute<ConnectedParts>                  ConnectedParts_rel             := ConnectedParts/PartNr;
 					
-					attribute<bool>                            IsOrgDest_location             := IsDefined(rlookup(values, UniqueLocations/Values));
+					attribute<bool>                            IsOrgDest_location             := OD_node;
 					attribute<uint32>                          NrConnectedLinks_in_LinkSet_cleanedforJFS := pcount(LinkSet_cleanedforJFS/F1) + pcount(LinkSet_cleanedforJFS/F2);
 					attribute<bool>                            IsDeadEnd_and_NotOD            := NrConnectedLinks_in_LinkSet_cleanedforJFS == 1 && !IsOrgDest_location;
+					attribute<bool>                            IsDeadEnd            		  := NrConnectedLinks_in_LinkSet_cleanedforJFS == 1;
 					
 					// For visualisation
 					attribute<BaseProjection_ip>               geometry                       := NodeSet_src/geometry[BaseProjection_ip];
@@ -514,7 +541,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<km>                              LengthKm                       := MakeDefined(Find_DuplicateLinks/min_length_km[Find_DuplicateLinks_rel],LengthKm_org);
 					attribute<bool>                            IsOneDirection                 := union_data(., UnchangedLinkSet/IsOneDirection, JunctionFreeSection/IsOneDirection);
 					
-					attribute<bool>                            IsLinkWithDeadEnd              := NodeSet/IsDeadEnd_and_NotOD[F1] || NodeSet/IsDeadEnd_and_NotOD[F2];
+					attribute<bool>                            IsLinkWithDeadEnd              := (NodeSet/IsDeadEnd[F1] || NodeSet/IsDeadEnd[F2]) && !IsOD_connection_road;
 					attribute<bool>                            IsLinkConnectedWithItself      := F1 == F2;
 					attribute<bool>                            IsDuplicateLink                := Find_DuplicateLinks/IsDuplicateLink[Find_DuplicateLinks_rel] && id(.) != Find_DuplicateLinks/FirstLink[Find_DuplicateLinks_rel];
 					
