@@ -22,7 +22,7 @@ container SourceData: Using = "Units;Classifications;geometries"
 		unit<uint64> wPopulation := select_with_org_rel(Population/ReadData > 0[uint16])
 		{
 			attribute<BaseProjection> geometry    := org_rel[BaseProjection];
-			attribute<uint16>         Population  := select_data(., Locations/Population/ReadData > 0[uint16], Locations/Population/ReadData);
+			attribute<uint16>         Population  := collect_by_cond(., Locations/Population/ReadData > 0[uint16], Locations/Population/ReadData);
 		}
 	}
 }
