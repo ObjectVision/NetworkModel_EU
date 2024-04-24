@@ -34,8 +34,8 @@ container NetworkSetup : using = "units;geometries;SourceData;Classifications"
 			);
 		
 		
-		parameter<string> Generator_Network1         := 'Ready', ExplicitSuppliers = "NetwerkSpec/CreateInitialWorkingNetwork/LinkSet_Write";
-		parameter<string> Generator_Network2         := 'Ready', ExplicitSuppliers = "NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet_Write;NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet_Write";
+		// parameter<string> Generator_Network1         := 'Ready', ExplicitSuppliers = "NetwerkSpec/CreateInitialWorkingNetwork/LinkSet_Write";
+		// parameter<string> Generator_Network2         := 'Ready', ExplicitSuppliers = "NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet_Write;NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet_Write";
 		parameter<string> Export_Cleaned_RoadNetwork := 'Ready', explicitsuppliers = "NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkset/store/store";
 	}
 }
