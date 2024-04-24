@@ -9,7 +9,7 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 	container GPKG
 	{
 		unit<uint32> Junctions
-		: StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/src/TomTom_Compiled_Themes_2021.gpkg"
+		: StorageName = "%NetworkModel_EU_DataDir%/Infrastructure/TomTom/src/TomTom_Compiled_Themes_2021.gpkg"
 		, StorageType = "gdal.vect"
 		, StorageReadOnly = "True"
 		, DialogData = "BaseProjection" 
@@ -17,7 +17,7 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 			attribute<BaseProjection> geometry;
 		}
 		unit<uint32> Streets
-		: StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/src/NW2021_SP_streets.gpkg"
+		: StorageName = "%NetworkModel_EU_DataDir%/Infrastructure/TomTom/src/NW2021_SP_streets.gpkg"
 		, StorageType = "gdal.vect"
 		, StorageReadOnly = "True"
 		, DialogData = "BaseProjection" 
@@ -37,14 +37,14 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 	container FSS
 	{
 		unit<uint32> Make_Junctions := GPKG/Junctions
-		, StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/EU/TomTom_Compiled_Themes_2021_Junctions.fss"
+		, StorageName = "%NetworkModel_EU_DataDir%/Infrastructure/TomTom/EU/TomTom_Compiled_Themes_2021_Junctions.fss"
 		{
 			attribute<BaseProjection>     Geometry  := GPKG/Junctions/Geometry;
 			attribute<uint64>             JNCTID    := GPKG/Junctions/id[uint64];
 		}
 	
 		unit<uint32> Junctions
-		: StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/EU/TomTom_Compiled_Themes_2021_Junctions.fss"
+		: StorageName = "%NetworkModel_EU_DataDir%/Infrastructure/TomTom/EU/TomTom_Compiled_Themes_2021_Junctions.fss"
 		, StorageReadOnly = "True"
 		{
 			attribute<BaseProjection>     Geometry;
@@ -54,7 +54,7 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 		}
 	
 		container Make_Streets
-		: StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/EU/NW2021_SP_streets.fss"
+		: StorageName = "%NetworkModel_EU_DataDir%/Infrastructure/TomTom/EU/NW2021_SP_streets.fss"
 		{
 			parameter<uint32>             n                             := #GPKG/Streets;
 			attribute<BaseProjection>     Geometry  (GPKG/Streets, arc) := GPKG/Streets/Geometry;
@@ -68,7 +68,7 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 		}
 		
 		container Read_Streets_container
-		: StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/EU/NW2021_SP_streets.fss"
+		: StorageName = "%NetworkModel_EU_DataDir%/Infrastructure/TomTom/EU/NW2021_SP_streets.fss"
 		, StorageReadOnly = "True"
 		{
 			parameter<uint32> n;

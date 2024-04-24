@@ -50,7 +50,8 @@ container NetworkModel_EU
 	{
 		container Overridable
 		{
-			parameter<String> NetworkModelDataDir        := '%SourceDataDir%/\RegressionTests/NetworkModel_EU_regressiontest';
+			parameter<String> NetworkModel_EU_DataDir        := '%SourceDataDir%/\RegressionTests/NetworkModel_EU_regressiontest';
+			// parameter<String> NetworkModel_EU_DataDir        := '%SourceDataDir%/NetworkModel_EU';
 		}
 	}
 	

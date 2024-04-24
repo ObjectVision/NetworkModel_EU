@@ -4,7 +4,7 @@ container Infrastructure : using = "geometries;units"
 	container Railroads
 	{
 		unit<uint32> Read_Railroads_gpkg 
-		:	StorageName     = "%NetworkModelDataDir%/Infrastructure/FullEurope_Railroads.gpkg"
+		:	StorageName     = "%NetworkModel_EU_DataDir%/Infrastructure/FullEurope_Railroads.gpkg"
 		,	StorageType     = "gdal.vect"
 		,	StorageReadOnly = "True"
 		,	SyncMode        = "AllTables"
@@ -33,7 +33,7 @@ container Infrastructure : using = "geometries;units"
 	container OSM
 	{	
 		parameter<string> file_date := '20211004';
-		parameter<string> dir       := '%NetworkModelDataDir%/Infrastructure/OSM/'+file_date;
+		parameter<string> dir       := '%NetworkModel_EU_DataDir%/Infrastructure/OSM/'+file_date;
 		parameter<string> date      := 'latest';
 		unit<uint32>      Regios    := ModelParameters/Advanced/OSM_Regios;
 	

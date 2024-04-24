@@ -12,7 +12,7 @@
 	
 	parameter<bool>     Use_Country_OD_selection       := TRUE; // TRUE FALSE  //Country is currently defined as Finland
 	parameter<string>   PopVersie                      := '2021_v1_0'; //2021_v1_0 2018
-	parameter<string>   Roads_path                     := '%NetworkModelDataDir%/Infrastructure/TomTom/'+CountryFolder+'/NW2021_SP_streets_subset.fss';
+	parameter<string>   Roads_path                     := '%NetworkModel_EU_DataDir%/Infrastructure/TomTom/'+CountryFolder+'/NW2021_SP_streets_subset.fss';
 	parameter<string>   CountryFolder                  := Use_Country_OD_selection ?  'Finland' : 'EU';
 
 	container Advanced

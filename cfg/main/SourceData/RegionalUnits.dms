@@ -1,7 +1,7 @@
 container RegionalUnits : using = "geometries"
 { 
 	unit<uint32> NUTS 
-	: StorageName = "%NetworkModelDataDir%/Regions/Nuts0.shp"
+	: StorageName = "%NetworkModel_EU_DataDir%/Regions/Nuts0.shp"
 	, StorageType = "gdal.vect"
 	, StorageReadOnly = "true"
 	{
@@ -10,7 +10,7 @@ container RegionalUnits : using = "geometries"
 	}
 
 	unit<uint32> NUTS3 
-	: StorageName = "%NetworkModelDataDir%/Regions/Nuts3.shp"
+	: StorageName = "%NetworkModel_EU_DataDir%/Regions/Nuts3.shp"
 	, StorageType = "gdal.vect"
 	, StorageReadOnly = "true"
 	{
@@ -54,7 +54,7 @@ container RegionalUnits : using = "geometries"
 	}
 	
 	unit<uint32> Country 
-	: StorageName = "%NetworkModelDataDir%/Regions/CNTR_RG_01M_2020_3035.shp"
+	: StorageName = "%NetworkModel_EU_DataDir%/Regions/CNTR_RG_01M_2020_3035.shp"
 	, StorageType = "gdal.vect"
 	, StorageReadOnly = "true"
 	{
