@@ -35,6 +35,13 @@ container Geometries
 			parameter<float64> y_min :=  3250000d;
 			parameter<float64> y_max :=  3270000d;
 		}
+		container Extent_Netherlands
+		{
+			parameter<float64> x_min :=  3851000d;
+			parameter<float64> x_max :=  4136000d;
+			parameter<float64> y_min :=  3070000d;
+			parameter<float64> y_max :=  3400000d;
+		}
 		
 		container Extent := ='Extent_'+ModelParameters/CountryFolder;
 		

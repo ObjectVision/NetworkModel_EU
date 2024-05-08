@@ -83,8 +83,10 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				container Connectiveness := Templates/Check_Connectiveness_T(.,NodeSet_src, Fsrc_1, Fsrc_2);
 			}
 			
-			attribute<bool> Roads_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness/IsVerbonden;
-			attribute<bool> Nodes_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness/NodesVerbonden;
+			//attribute<bool> Roads_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness/IsVerbonden;
+			attribute<bool> Roads_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness/IsSterkVerbonden;
+			//attribute<bool> Nodes_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness/NodesVerbonden;
+			attribute<bool> Nodes_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness/NodesSterkVerbonden;
 
 			unit<uint32> Roads := select(Roads_isConnected)
 			{
@@ -138,8 +140,10 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<uint32>		   F1					:= arc_rel->F1[uint32];
 				attribute<uint32>		   F2					:= arc_rel->F2[uint32];
 				attribute<bool>			   isconnector			:= isnull(arc_rel);
-				attribute<bool>			   f_unchanged			:= first_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F1];
-				attribute<bool>			   t_unchanged			:= last_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F2];
+				attribute<bool>			   f_unchanged_is			:= first_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F1];
+				attribute<bool>			   f_unchanged          := point_isNearby(first_point(geometry), first_point(arc_rel->geometry), 1d); //point(1d, 1d, dpoint));
+				attribute<bool>			   t_unchanged_is		:= last_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F2];
+				attribute<bool>			   t_unchanged          := point_isNearby(last_point(geometry), last_point(arc_rel->geometry), 1d);//point(1d, 1d, BaseProjection));
 				
 				unit<uint32> location_connectors:= select(isconnector) {
 					attribute<BaseProjection>  geometry (arc):= collect_by_cond(., isconnector, ../geometry);
@@ -180,6 +184,16 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<uint32>		   org_F2			:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../F2);
 					attribute<uint32>		   F1				:= f_notchanged ? org_F1 : location_connectors/F2[rlookup(first_point(geometry), location_connectors/cutpoint)];
 					attribute<uint32>		   F2				:= t_notchanged ? org_F2 : location_connectors/F2[rlookup(last_point(geometry), location_connectors/cutpoint)];
+					
+					unit<uint32> sel_nulls:= select(isnull(F1) || isnull(F2)) {
+						attribute<BaseProjection>  geometry (arc)   := collect_by_cond(., isnull(F1) || isnull(F2), ../geometry);
+						attribute<BaseProjection>  fpoint			:= first_point(geometry);
+						attribute<BaseProjection>  tpoint			:= last_point(geometry);
+						attribute<BaseProjection>  org_fpoint		:= collect_by_cond(., isnull(F1) || isnull(F2), Roads/UqGeomPointSet/geometry[../org_F1]);
+						attribute<BaseProjection>  org_tpoint		:= collect_by_cond(., isnull(F1) || isnull(F2), Roads/UqGeomPointSet/geometry[../org_F2]);
+						attribute<bool>			   f_notchanged     := collect_by_cond(., isnull(F1) || isnull(F2), ../f_notchanged);
+						attribute<bool>			   t_notchanged     := collect_by_cond(., isnull(F1) || isnull(F2), ../t_notchanged);
+					}
 				}
 				
 			}
@@ -602,17 +616,38 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 		attribute<NodeSet_domain> F2(LinkSet_domain);
 		///
 		
-		unit<uint32> Networks:= connected_parts(F1, F2) // Verzameling van alle netwerken, inclusief de subnetwerken.
+		unit<uint32> Connected_Networks:= connected_parts(F1, F2) // Verzameling van alle netwerken, inclusief de subnetwerken.
 		{
 			attribute<uint32>   Nr_Nodes   := pcount(PartNr);
-			parameter<Networks> Main       := max_index(Nr_Nodes); // uitgangspunt: het netwerk met de meeste nodes is het relevante netwerk
+			parameter<Connected_Networks> Main       := max_index(Nr_Nodes); // uitgangspunt: het netwerk met de meeste nodes is het relevante netwerk
 			attribute<bool>     IsConnected (NodeSet_domain) := PartNr == Main;
 		}
 		
-		attribute<bool> IsVerbonden (LinkSet_domain) := Networks/IsConnected[F1] && Networks/IsConnected[F2];
-		attribute<bool>	NodesVerbonden (NodeSet_domain):= Networks/IsConnected;
+		unit<uint32> reverse_directions:= select(!LinkSet_domain/IsOneDirection);
 		
-		unit<uint32> NodesNotConnected := select_with_org_rel(!Networks/IsConnected)
+		// may require doubling of links with doubled directions...
+		unit<uint32> LinkSet_digraph:= union_unit(LinkSet_domain, reverse_directions) {
+			attribute<NodeSet_domain> F1:= union_data(., ../F1, collect_by_cond(reverse_directions, !LinkSet_domain/IsOneDirection, ../F2));
+			attribute<NodeSet_domain> F2:= union_data(., ../F2, collect_by_cond(reverse_directions, !LinkSet_domain/IsOneDirection, ../F1));
+		}
+		
+		unit<uint32> Strongly_connected_Networks:= strongly_connected_components(LinkSet_digraph/F1, LinkSet_digraph/F2) {
+			attribute<uint32>   Nr_Nodes   := pcount(PartNr);
+			parameter<Strongly_connected_Networks> Main       := max_index(Nr_Nodes); 
+			attribute<bool>     IsConnected (NodeSet_domain) := PartNr == Main;
+		}
+		
+		attribute<bool> IsVerbonden (LinkSet_domain) := Connected_Networks/IsConnected[F1] && Connected_Networks/IsConnected[F2];
+		attribute<bool> IsSterkVerbonden (LinkSet_domain) := Strongly_connected_Networks/IsConnected[F1] && Strongly_connected_Networks/IsConnected[F2];
+		
+		attribute<bool>	NodesVerbonden (NodeSet_domain):= Connected_Networks/IsConnected;
+		attribute<bool>	NodesSterkVerbonden (NodeSet_domain):= Strongly_connected_Networks/IsConnected;
+		
+		unit<uint32> NodesNotConnected := select_with_org_rel(!Connected_Networks/IsConnected)
+		{
+			attribute<BaseProjection>        geometry := org_rel -> geometry;
+		}
+		unit<uint32> NodesNotStronglyConnected := select_with_org_rel(!Strongly_connected_Networks/IsConnected)
 		{
 			attribute<BaseProjection>        geometry := org_rel -> geometry;
 		}
