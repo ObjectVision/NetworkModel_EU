@@ -75,7 +75,7 @@ container RegionalUnits : using = "geometries"
 		attribute<bool>      IsEU                := Country/IsEU[part_rel];
 		attribute<bool>      IsEFTA              := Country/IsEFTA[part_rel];
 		attribute<bool>      IsTerritory         := Country/IsTerritory[part_rel];
-		attribute<bool>      IsWithinStudyArea   := IsDefined(point_in_polygon(centroid, Geometries/selection_polygon/polygon));
+		attribute<bool>      IsWithinStudyArea   := IsDefined(point_in_polygon(centroid, Geometries/selection_polygon/geometry));
 		attribute<string>    name                := Country/name_engl[part_rel];
 	}
 
