@@ -12,11 +12,13 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 		unit<uint32> OrgDomain := OrgDomain0
 		{
 			attribute<UniqueLocations> UniqueLocations_rel := rlookup(ipoint(geometry), ipoint(UniqueLocations/geometry));
+			attribute<uint32>		   id_rel:= OrgDomain0/id_rel;
 		}
 		
 		unit<uint32> DestDomain := DestDomain0
 		{
 			attribute<UniqueLocations> UniqueLocations_rel := rlookup(ipoint(geometry), ipoint(UniqueLocations/geometry));
+			attribute<uint32>		   id_rel:= DestDomain0/id_rel;
 		}
 		
 		attribute<BaseProjection>                      OrgLocations  (OrgDomain)      := orgDomain/geometry;
@@ -38,7 +40,9 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			attribute<BaseProjection>               geometry       := values;
 			attribute<Locations>                    Locations_rel  := rlookup(geometry, Locations/geometry);
 			attribute<OrgDomain>                    OrgDomain_rel  := rlookup(geometry, OrgLocations);
+			attribute<uint32>						Org_id_rel	   := OrgDomain/id_rel[OrgDomain_rel];
 			attribute<DestDomain>                   DestDomain_rel := rlookup(geometry, DestLocations);
+			attribute<uint32>						Dest_id_rel	   := DestDomain/id_rel[DestDomain_rel];
 			attribute<bool>                         IsOrg          := rjoin(geometry, Locations/geometry, Locations/IsOrg);
 			attribute<uint32>                       Population     := Locations/Population[Locations_rel];
 		}
@@ -73,7 +77,6 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<BaseProjection>   Points             := union_data(., fromPoint, toPoint);
 					attribute<BaseProjection>   geometry           := points;
 				}
-				
 				unit<uint32> NodeSet_src := unique(PointSet/JnctIds)
 				{
 					attribute<BaseProjection>   geometry           := PointSet/geometry[rlookup(JnctIds, PointSet/JnctIds)];
@@ -340,6 +343,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<km>           LengthKm;
 				attribute<bool>         IsOneDirection;
 				attribute<bool>         IsOD_connection_road;
+				attribute<km>			Length_Direct:= convert(dist(FirstPoint, LastPoint)[m], km);
 				
 				// For visualisation
 				attribute<BaseProjection>                  FirstPoint                     := FinalNodeSet/Geometry[F1];
@@ -382,6 +386,21 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<float32>        LengthKm           := float32(Without_OD_connection_roads/LengthKm);
 					attribute<float32>        IsOneDir           := float32(Without_OD_connection_roads/IsOneDirection);
 				}
+				
+				//adhoc
+				attribute<bool>			  Is_inNL:= point_in_polygon(FirstPoint, RegionalUnits/country/subset/geometry) = 23 || point_in_polygon(LastPoint, RegionalUnits/country/subset/geometry) = 23;
+				
+				unit<uint32> Roads_NL:= select_with_attr_by_org_rel(.,Is_inNL);
+				unit<uint32> Export_NL := Roads_NL
+				, StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/IN_NL/Network_Cleaned_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_'+expand(., '%DateTime%')+'.gpkg'"
+				, StorageType = "gdalwrite.vect"
+				{
+					attribute<BaseProjection> geometry     (arc) := Roads_NL/geometry;
+					attribute<float32>        Impedance          := float32(Roads_NL/Impedance);
+					attribute<float32>        LengthKm           := float32(Roads_NL/LengthKm);
+					attribute<float32>        IsOneDir           := float32(Roads_NL/IsOneDirection);
+				}
+				
 				
 				container store 
 				{

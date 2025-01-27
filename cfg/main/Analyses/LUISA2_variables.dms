@@ -1,0 +1,115 @@
+container LUISA2_variables: Using = "Geometries;SourceData;" {
+	
+	parameter<s_f>     MaxTraveltime := (60[min_f])[s_f];
+	parameter<km>      Self_Distance := 0.23[km]; //de theoretische gemiddelde 0.23 km die je moet reizen om een random bestemming binnen je eigen 1km grid cel te bereiken. Volgens Lewis.
+	
+	unit<ipoint> Grid:= Locations/population {
+		attribute<uint32> nr_orgnodes:= pcount(OrgNodeSet/grid_rel);
+		attribute<uint32> nr_realnodes:= sum(OrgNodeSet/Real_Node, OrgNodeSet/grid_rel);
+		attribute<float32> k:= sum(OrgNodeSet/NrConnected_Real_Links, OrgNodeSet/grid_rel);
+		attribute<float32> k_means:= k / float32(nr_realnodes);
+		attribute<float32> intersections:= sum(OrgNodeSet/NrConnected_Real_Links > 2f ? 1f : 0f, OrgNodeSet/grid_rel);
+		attribute<km>	  arcs_length:= sum(NodeSet/arcs_length, NodeSet/grid_rel);
+		attribute<km>	  direct_length:= sum(NodeSet/direct_length, NodeSet/grid_rel);
+		attribute<km>	  mean_length:= mean(NodeSet/direct_length, NodeSet/grid_rel);
+		attribute<float32> straightness:= direct_length[float32] / arcs_length[float32];
+		
+		unit<ipoint> Grid_export:= Grid {
+			attribute<float32> k_means:= ../k_means, storagename = "%localdataprojdir%/luisa_2_variables/network_indicators/k_means.tif";
+			attribute<float32> intersections:= ../intersections, storagename = "%localdataprojdir%/luisa_2_variables/network_indicators/intersections.tif";
+			attribute<float32> straightness:= ../straightness, storagename = "%localdataprojdir%/luisa_2_variables/network_indicators/straightness.tif";
+			attribute<float32> mean_length:= ../mean_length[float32], storagename = "%localdataprojdir%/luisa_2_variables/network_indicators/mean_length.tif";
+		}
+	}
+	unit<uint32> Network:= /NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
+	unit<uint32> NodeSet:= /NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet 
+	{
+		attribute<Grid> grid_rel:= Geometry[Grid];
+		attribute<km>	  arcs_length:= sum(Network/IsOD_connection_road ? 0[km] : Network/LengthKm, Network/F1) + sum(Network/IsOD_connection_road ? 0[km] : Network/LengthKm, Network/F2) / 2[km];
+		attribute<km>	  direct_length:= sum(Network/IsOD_connection_road ? 0[km] : Network/Length_Direct, Network/F1) + sum(Network/IsOD_connection_road ? 0[km] : Network/Length_Direct, Network/F2) / 2[km];
+	}
+	unit<uint32> OrgNodeSet:= /NetworkSetup/Base_Analysis/NetwerkSpec/CreateInitialWorkingNetwork/NodeSet, using = "/NetworkSetup/Base_Analysis/NetwerkSpec/CreateInitialWorkingNetwork/LinkSet;"
+	{
+		attribute<uint32> 		Real_Node:= uint32(NrConnected_Real_Links > 1.0f);
+		attribute<float32> 		NrConnected_Real_Links:= 
+			sum(LinkSet/IsOD_connection_road ? 0f : 1f, LinkSet/F1) +
+			sum(LinkSet/IsOD_connection_road ? 0f : 1f, LinkSet/F2);
+		attribute<Grid> grid_rel:= Geometry[Grid];
+	}
+		
+	unit<uint32> Origins:= /NetworkSetup/Base_Analysis/NetwerkSpec/OrgDomain 
+	{
+		attribute<LambertEA> 	Geometry:= NetworkSetup/Base_Analysis/NetwerkSpec/OrgDomain/Geometry; 
+		attribute<NodeSet> 		Node_rel:= NodeSet/OrgNode_rel; 
+		attribute<Countries> 	Analysis_Countries_rel:= invert(Countries/Country_rel)[Country_rel];
+	}
+	unit<uint32> Destinations:= /NetworkSetup/Base_Analysis/NetwerkSpec/DestDomain 
+	{
+		attribute<LambertEA> Geometry:=  /NetworkSetup/Base_Analysis/NetwerkSpec/DestDomain/Geometry; 
+		attribute<NodeSet> Node_rel:= NodeSet/DestNode_rel; attribute<uint32> pop:= population;
+		attribute<Countries> 	Analysis_Countries_rel:= invert(Countries/Country_rel)[Country_rel];
+	}
+	
+	unit<uint8> Countries:= /SourceData/RegionalUnits/Continental_EU; //CNTR_ID;
+	
+	container Run_per_country:= for_each_ne(Countries/country_id, 'Results_By_MS('+string(id(Countries))+'[Countries])');
+	
+	Template Results_By_MS {
+		parameter<Countries> inCountry;
+		
+		unit<uint32> Origins_sel:= select_with_attr_by_cond(Origins, Origins/Analysis_Countries_rel = inCountry);
+		unit<uint32> Destinations_sel:= select_with_attr_by_cond(Destinations, Destinations/Analysis_Countries_rel = inCountry);
+		
+		unit<uint64> Matrix:= dijkstra_m64('bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);cut(OrgZone_max_imp);od:OrgZone_rel,DstZone_rel,impedance'
+			, Network/impedance
+			, Network/F1
+			, Network/F2
+			///
+			, !Network/IsOneDirection
+			, Origins_sel/Node_rel
+			, Destinations_sel/Node_rel
+			, MaxTraveltime
+		)
+		{
+			attribute<min_f>        	Minutes  := impedance[min_f];
+			attribute<Origins_sel>      i        := OrgZone_rel; //origin id
+			attribute<Destinations_sel> j        := DstZone_rel; //destination id
+			attribute<bool>         	self     := point_isNearBy(Origins_sel/Geometry[i], Destinations_sel/Geometry[j], 1.0d); //Is OD-pair pair of itself
+			attribute<uint32>      	 	Pj       := Destinations_sel/pop[j]; //Population in destination
+			attribute<min_f>        	Mij      := self ? convert(Self_Distance / ModelParameters/Advanced/CarDefaultSpeed_low, min_f) : Minutes;
+			attribute<min_f>			Fij		 := = /Analyses/ComputeProxy/distdecay_functions/eval[0];
+		}
+		
+		attribute<float32> Ai (Origins_sel):= sum(Matrix/Pj[float32] * Matrix/Fij[float32], Matrix/i);
+		attribute<uint64> ni (Origins_sel):= pcount(Matrix/i);
+		attribute<uint64> nj (Destinations_sel):= pcount(Matrix/j);
+		
+		unit<uint32> export_ai:= Origins_sel, StorageName = "= '%localdataprojdir%/luisa_2_variables/ai/'+Countries/country_id[inCountry]+'.dbf'" {
+			attribute<float32> acc_i:= Ai;
+			attribute<uint32> n_i:= ni[uint32];
+			attribute<LambertEA> Geometry:= Origins_sel/Geometry, storagename = "= '%localdataprojdir%/luisa_2_variables/ai/'+Countries/country_id[inCountry]+'.shp'";
+		}
+		unit<uint32> ai_readonly: storagename = "= propvalue(export_ai/Geometry, 'StorageName')", storagereadonly = "true", storagetype = "gdal.vect" {
+			attribute<LambertEA> Geometry;
+			attribute<float32> 	acc_i;
+			attribute<float32>  rel_acc_i:= acc_i / mean(acc_i);
+			attribute<Grid>		grid_rel:= Geometry[Grid];
+		}
+		
+	}
+	container create_result_grids {
+		unit<uint32> all_results:= = 'union_unit('+asitemlist('Run_per_country/'+Countries/country_id+'/ai_readonly')+')' {
+			attribute<Grid> grid_rel:= ='union_data(., '+asitemlist('Run_per_country/'+Countries/country_id+'/ai_readonly/grid_rel')+')';
+			attribute<float32> acc_i:= ='union_data(., '+asitemlist('Run_per_country/'+Countries/country_id+'/ai_readonly/acc_i')+')';
+			attribute<float32> rel_acc_i:= ='union_data(., '+asitemlist('Run_per_country/'+Countries/country_id+'/ai_readonly/rel_acc_i')+')';
+		}
+		unit<ipoint> exp_grids:= Grid {
+			attribute<all_results> ar_rel:= invert(all_results/grid_rel);
+			attribute<float32>	   ai:= all_results/acc_i[ar_rel], storagename = "%localdataprojdir%/luisa_2_variables/ai/_grids/ai.tif";
+			attribute<float32>	   rel_ai:= all_results/rel_acc_i[ar_rel], storagename = "%localdataprojdir%/luisa_2_variables/ai/_grids/rel_ai.tif";
+		
+		}
+	}
+	
+
+}

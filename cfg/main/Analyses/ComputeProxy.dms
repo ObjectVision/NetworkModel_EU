@@ -115,12 +115,12 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 				, FinalLinkSet/F2
 				///
 				, !FinalLinkSet/IsOneDirection
-				, FinalNodeSet/OrgNode_rel
+				, FinalNodeSet/DestNode_rel
 				, FinalNodeSet/DestNode_rel
 				, MaxTraveltime                  // cut orgzone_max_imp
 				, FinalLinkSet/LengthKm          // link_imp
 				
-				, float64(Origins/Population)  // v_i
+				, float64(Destinations/Population)  // v_i
 				, float64(Destinations/Population) // w_j
 				, alpha
 				, beta
@@ -135,12 +135,12 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 				, FinalLinkSet/F2
 				///
 				, !FinalLinkSet/IsOneDirection
-				, FinalNodeSet/OrgNode_rel
+				, FinalNodeSet/DestNode_rel
 				, FinalNodeSet/DestNode_rel
 				, MaxTraveltime
 				, FinalLinkSet/LengthKm
 				
-				, float64(Origins/Population)  // v_i
+				, float64(Destinations/Population)  // v_i
 				, float64(Destinations/Population) // w_j
 				, γ
 				, 0d //OrgZone_alpha, dit is 0 want org is inelastisch, dwz I_ij := v_i * w_j * t_ij / (SUM k: w_j*t_kj)
@@ -161,7 +161,8 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 			// attribute<float64>      D_i (Origins)      := sum(w_j[float64] * t_ij, i);                      // potential accessibility to destination population aka Ai
 			// attribute<float64>      C_j (Destinations) := sum(v_i[float64] * t_ij, j);                      // potential accessibility to origin population   Aj
 			
-			attribute<float64> Tij               := (1d / D_i[i]) * v_i[float64] * w_j[float64] * t_ij; // Estimated number of trips from i to j
+			attribute<float64> Tij               := (1d / D_i[OrgZone_rel]) * (Destinations/Population[OrgZone_rel])[float64] * (Destinations/Population[DstZone_rel])[float64] * impedance; // Estimated number of trips from i to j
+			attribute<km>	EUCL_d_ij 			 := convert(dist(Destinations/Geometry[OrgZone_rel], Destinations/Geometry[DstZone_rel])[m], km);
 			
 			// attribute<float64> WALKij            := float64(Net_Dij < maxWalkDist);                 // is network distance walkable?
 			// attribute<float64> CYCLij            := float64(Net_Dij < maxCycleDist);                // is network distance bikeable?
@@ -174,18 +175,18 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 
 		container Exports
 		{
-			attribute<float32>   Population      (OD_points) := OD_points/Population;
-			attribute<Origins>   origin_id       (OD_points) := rlookup(OD_points/OrgDomain_rel, value(Origins/orgid, uint32));
+			attribute<float32>   Population      (OD_points) := OD_points/Population[float32];
+			attribute<Origins>   origin_id       (OD_points) := rlookup(OD_points/Org_id_rel, value(Origins/id_rel, uint32));
 			
 			attribute<float32>   D_i             (OD_points) := MakeDefined(float32(Matrix/D_i[origin_id]), 0f);
 			
-			attribute<km>        AvgNetDistance    (Origins) := sum(Matrix/Tij * Matrix/Net_d_ij, Matrix/i);
+			attribute<float64>   AvgNetDistance    (Origins) := sum(Matrix/Tij * Matrix/alt_imp[float64], Matrix/OrgZone_rel);
 			attribute<float32>   avnetdi         (OD_points) := MakeDefined(float32(AvgNetDistance[origin_id]) / Population[float32], 0f);
 			
-			attribute<km>        AvgEUCLDistance   (Origins) := sum(Matrix/Tij * Matrix/EUCL_d_ij, Matrix/i);
+			attribute<float64>   AvgEUCLDistance   (Origins) := sum(Matrix/Tij * Matrix/EUCL_d_ij, Matrix/OrgZone_rel);
 			attribute<float32>   aveucdi         (OD_points) := MakeDefined(float32(AvgEUCLDistance[origin_id]) / Population[float32], 0f);
 			
-			attribute<min_f>     AvgTime           (Origins) := sum(Matrix/Tij * Matrix/d_ij, Matrix/i)[min_f];
+			attribute<min_f>     AvgTime           (Origins) := sum(Matrix/Tij * Matrix/impedance, Matrix/OrgZone_rel)[min_f];
 			attribute<float32>   avtimei         (OD_points) := MakeDefined(float32(AvgTime[origin_id]) / Population[float32], 0f);
 		}
 	}

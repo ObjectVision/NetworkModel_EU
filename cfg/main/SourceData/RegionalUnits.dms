@@ -52,7 +52,13 @@ container RegionalUnits : using = "geometries"
 			}
 		}
 	}
-	
+	unit<uint32> FUA_2021
+	: StorageName = "%NetworkModelDataDir%/Regions/FUA_2021.shp"
+	, StorageType = "gdal.vect"
+	, StorageReadOnly = "true"
+	{
+		attribute<LambertEA> geometry (poly);
+	}
 	unit<uint32> Country 
 	: StorageName = "%NetworkModelDataDir%/Regions/CNTR_RG_01M_2020_3035.shp"
 	, StorageType = "gdal.vect"
@@ -63,7 +69,7 @@ container RegionalUnits : using = "geometries"
 		attribute<bool>      IsEFTA          := EFTA_STAT == 'T'; 
 		attribute<bool>      IsCC            := CC_STAT == 'T'; 
 		attribute<bool>      IsTerritory       := strcount(SVRG_UN, 'Territory') > 0; 
-		unit<uint32> Subset := select_with_attr_by_cond(.,name_engl == /ModelParameters/OD_SelectionCountry);
+		unit<uint32> Subset := select_with_attr_by_cond(.,(ModelParameters/Use_Country_OD_selection && name_engl == /ModelParameters/OD_SelectionCountry) || (IsEu || IsEFTA));
 		
 		
 	}
@@ -75,7 +81,7 @@ container RegionalUnits : using = "geometries"
 		attribute<bool>      IsEU                := Country/IsEU[part_rel];
 		attribute<bool>      IsEFTA              := Country/IsEFTA[part_rel];
 		attribute<bool>      IsTerritory         := Country/IsTerritory[part_rel];
-		attribute<bool>      IsWithinStudyArea   := IsDefined(point_in_polygon(centroid, Geometries/selection_polygon/polygon));
+		attribute<bool>      IsWithinStudyArea   := IsDefined(point_in_polygon(centroid, Geometries/selection_polygon/geometry));
 		attribute<string>    name                := Country/name_engl[part_rel];
 	}
 
@@ -85,7 +91,6 @@ container RegionalUnits : using = "geometries"
 	{
 		attribute<LambertEA> geometry (poly) := Country_Split/geometry_lea[org_rel];
 		attribute<string>    name            := Country_Split/name[org_rel];
-		
 		attribute<Continental_EU>    Continental_EU_rel     := rlookup(name, Continental_EU/values);
 		
 	}
@@ -95,5 +100,7 @@ container RegionalUnits : using = "geometries"
 		attribute<LambertEA>    geometry (poly) := partitioned_union_polygon(Continental_EU_undissolved/geometry[BaseProjection_ip], Continental_EU_undissolved/Continental_EU_rel)[LambertEA];
 		attribute<string>       name            := values;
 		attribute<string>       label           := values;
+		attribute<Country/Subset>	Country_rel		:= rlookup(name, Country/Subset/name_engl);
+		attribute<string>  		country_id 		:= Country/Subset/CNTR_ID[Country_rel];
 	}
 }

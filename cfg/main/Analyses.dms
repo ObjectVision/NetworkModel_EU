@@ -1,6 +1,7 @@
 container Analyses: Using = "Units;Classifications;geometries;sourcedata" 
 {  
 	unit<uint32> Dest_populated_grid := ='select_with_attr_by_cond(Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points, Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
+	//unit<uint32> Dest_populated_grid := ='collect_by_cond(Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points, Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
 
 	container Base_Analysis_Traveltime := =
 		'Avg_Traveltime_To_PopulatedCells_T('
@@ -23,6 +24,10 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 			',SourceData/RegionalUnits/NUTS3/CalcCentroids' //Dest
 			',NetworkSetup/Pop_Weighted_NUTS_centroids/NetwerkSpec'
 		')';
+	
+	#include<LUISA2_variables.dms>
+	#include<Settlement_Hierarchies.dms>
+	#include<Create_Catchments.dms>
 	
 	
 	Template Avg_Traveltime_To_PopulatedCells_T
@@ -133,8 +138,6 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 			parameter<string>  Generator                                         := 'Ready', ExplicitSuppliers = "Avg_Distance_To_PopulatedCells_grid";
 		}
 	}
-	
-
 	 
 	Template Basic_OD_matrix_T
 	{
@@ -183,6 +186,7 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 	}
 	
 	#include<ComputeProxy.dms>
+	
 	
 	// container RunPerMS:= 
 		// for_each_ne(

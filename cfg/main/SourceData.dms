@@ -22,7 +22,14 @@ container SourceData: Using = "Units;Classifications;geometries"
 		unit<uint64> wPopulation := select_with_org_rel(Population/ReadData > 0[uint16])
 		{
 			attribute<BaseProjection> geometry    := org_rel[BaseProjection];
-			attribute<uint16>         Population  := select_data(., Locations/Population/ReadData > 0[uint16], Locations/Population/ReadData);
+			attribute<uint16>         Population  := collect_by_cond(., Locations/Population/ReadData > 0[uint16], Locations/Population/ReadData);
 		}
+		
+		unit<uint32> Settlements_v4: StorageName = "%NetworkModelDataDir%/Population/settlements_v4_2021/cities_towns_villages_2021_20230608_enriched.shp"
+			, StorageType = "gdal.vect", StorageReadOnly = "True"
+			, DialogData = "BaseProjection", DialogType = "map"
+			, Descr = "Provisional settlement boundaries derived from GeoSTAT 21 grid, by Eurostat" {
+				attribute<BaseProjection> Geometry (polygon);
+			}
 	}
 }
