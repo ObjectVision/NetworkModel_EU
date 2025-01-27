@@ -60,24 +60,24 @@ container Infrastructure : using = "geometries;units"
 			,	DialogData = "geometry_bp"	
 			{
 				attribute<wgs84_base>        geometry    (arc);
-				attribute<BaseProjection>    geometry_bp (arc)   := arcs_geodms_ordered;
+				attribute<BaseProjection>    geometry_bp (arc)   := convert(geometry, BaseProjection);
 
 				attribute<string>            fclass;
 				attribute<int32>             maxspeed;
 				
-				attribute<BaseProjection> reproject           (arc) := convert(points2sequence(dms_order_to_epsg_order/point_xy, dms_order_to_epsg_order/Sequence_rel), BaseProjection);
-				attribute<BaseProjection> arcs_geodms_ordered (arc) := points2sequence(epsg_order_to_dms_order/point_yx, epsg_order_to_dms_order/Sequence_rel);
+				// attribute<BaseProjection> reproject           (arc) := convert(points2sequence(dms_order_to_epsg_order/point_xy, dms_order_to_epsg_order/Sequence_rel), BaseProjection);
+				// attribute<BaseProjection> arcs_geodms_ordered (arc) := points2sequence(epsg_order_to_dms_order/point_yx, epsg_order_to_dms_order/Sequence_rel);
 			}
 			
-			unit<uint32> dms_order_to_epsg_order := sequence2points(Read_Roads_shp/geometry)
-			{
-				attribute<wgs84_base> point_xy := point(PointRow(point), PointCol(point))[wgs84_base];
-			}
+			// unit<uint32> dms_order_to_epsg_order := sequence2points(Read_Roads_shp/geometry)
+			// {
+				// attribute<wgs84_base> point_xy := point(PointRow(point), PointCol(point))[wgs84_base];
+			// }
 
-			unit<uint32> epsg_order_to_dms_order := sequence2points(Read_Roads_shp/reproject)
-			{
-				attribute<BaseProjection> point_yx := point(PointRow(point), PointCol(point))[BaseProjection];
-			}		
+			// unit<uint32> epsg_order_to_dms_order := sequence2points(Read_Roads_shp/reproject)
+			// {
+				// attribute<BaseProjection> point_yx := point(PointRow(point), PointCol(point))[BaseProjection];
+			// }		
 			
 			unit<uint32> Make_Roads_fss := Read_Roads_shp
 			,   StorageName = "='%LocalDataDir%/NetworkModel_EU/RegionFiles/'+Regio+'/Roads_'+file_date+'.fss'"
