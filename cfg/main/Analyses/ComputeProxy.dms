@@ -172,13 +172,15 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 		/// =================================
 		/// ====== EXPORT ============
 		/// =================================
-
+		
+		parameter<string> filepath:= '%LocalDataProjDir%/Distances_Travelled_Proxy/'+ModelParameters/PopVersie+'/'+distdecay_functions/LabelText[infunc];
+		
 		container Exports
 		{
 			attribute<float32>   Population      (OD_points) := OD_points/Population[float32];
 			attribute<Origins>   origin_id       (OD_points) := rlookup(OD_points/Org_id_rel, value(Origins/id_rel, uint32));
 			
-			attribute<float32>   D_i             (OD_points) := MakeDefined(float32(Matrix/D_i[origin_id]), 0f);
+			attribute<float32>   D_i             (Origins) := MakeDefined(float32(Matrix/D_i), 0f);
 			
 			attribute<float64>   AvgNetDistance    (Origins) := sum(Matrix/Tij * Matrix/alt_imp[float64], Matrix/OrgZone_rel);
 			attribute<float32>   avnetdi         (OD_points) := MakeDefined(float32(AvgNetDistance[origin_id]) / Population[float32], 0f);
@@ -188,6 +190,10 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 			
 			attribute<min_f>     AvgTime           (Origins) := sum(Matrix/Tij * Matrix/impedance, Matrix/OrgZone_rel)[min_f];
 			attribute<float32>   avtimei         (OD_points) := MakeDefined(float32(AvgTime[origin_id]) / Population[float32], 0f);
+		}
+		unit<ipoint> exportgrid:= /Geometries/Base_grid_1km {
+			attribute<Origins> org_rel:= invert(NetworkSetup/Dest_populated_grid/grid_domain_rel);
+			attribute<float32> D_i:= makedefined(Exports/D_i[org_rel], 0f), storagename = "= filepath+'/pot_ai.tif'";
 		}
 	}
 	

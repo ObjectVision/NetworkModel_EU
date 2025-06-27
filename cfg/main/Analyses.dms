@@ -28,7 +28,7 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 	#include<LUISA2_variables.dms>
 	#include<Settlement_Hierarchies.dms>
 	#include<Create_Catchments.dms>
-	
+	#include<functional_rural_areas.dms>
 	
 	Template Avg_Traveltime_To_PopulatedCells_T
 	{

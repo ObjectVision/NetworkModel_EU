@@ -5,6 +5,21 @@ container SourceData: Using = "Units;Classifications;geometries"
 	
 	container Locations
 	{
+		unit<ipoint> Population_2011_Ardeco: StorageName = "%NetworkModelDataDir%/Population/pop_2011_1km_ARDECO.tif", StorageType = "gdal.grid", StorageReadOnly = "True", DialogData = "BaseProjection", DialogType = "map", Descr = "JRC GeoStat 2021 1000m grid (v2)"
+		{
+			attribute<uint16> GridData;
+			attribute<uint16> ReadData (Base_Grid_1km);
+		}
+		unit<ipoint> Population_2021_Ardeco: StorageName = "%NetworkModelDataDir%/Population/pop_2021_1km_ARDECO.tif", StorageType = "gdal.grid", StorageReadOnly = "True", DialogData = "BaseProjection", DialogType = "map", Descr = "JRC GeoStat 2021 1000m grid (v2)"
+		{
+			attribute<uint16> GridData;
+			attribute<uint16> ReadData (Base_Grid_1km);
+		}
+		unit<ipoint> Population_2021_v2_0 : StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-T_2021_V2.tiff", StorageType = "gdal.grid", StorageReadOnly = "True", DialogData = "BaseProjection", DialogType = "map", Descr = "JRC GeoStat 2021 1000m grid (v2)"
+		{
+			attribute<uint16> GridData;
+			attribute<uint16> ReadData (Base_Grid_1km);
+		}
 		unit<ipoint> Population_2021_v1_0 : StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-T_2021_V1-0.tiff", StorageType = "gdal.grid", StorageReadOnly = "True", DialogData = "BaseProjection", DialogType = "map", Descr = "JRC GeoStat 2021 1000m grid"
 		{
 			attribute<uint16> GridData;
@@ -28,8 +43,27 @@ container SourceData: Using = "Units;Classifications;geometries"
 		unit<uint32> Settlements_v4: StorageName = "%NetworkModelDataDir%/Population/settlements_v4_2021/cities_towns_villages_2021_20230608_enriched.shp"
 			, StorageType = "gdal.vect", StorageReadOnly = "True"
 			, DialogData = "BaseProjection", DialogType = "map"
-			, Descr = "Provisional settlement boundaries derived from GeoSTAT 21 grid, by Eurostat" {
+			, Descr = "Provisional settlement boundaries derived from GeoSTAT 21 grid, by Eurostat, provided by Mert Kompil (only EU member states)" {
 				attribute<BaseProjection> Geometry (polygon);
 			}
+		unit<uint32> Settlements_v4_CH_NO:= select_with_attr_by_cond(Settlements_v4, Settlements_v4/CNTR_CODE = 'CH' || Settlements_v4/CNTR_CODE = 'NO');
+		unit<uint32> Settlements_v5_in: StorageName = "%NetworkModelDataDir%/Population/Settlements_v5_geostat_2021_v2/SETTLEMENT_POLYGONS_EU_FOR_COMPUTATIONS_S07.shp"
+			, StorageType = "gdal.vect", StorageReadOnly = "True"
+			, DialogData = "BaseProjection", DialogType = "map"
+			, Descr = "Settlement boundaries derived from GeoSTAT 21 grid v2, by Eurostat, early 2025" {
+				attribute<BaseProjection> Geometry (polygon);
+			}
+		unit<uint32> Settlements_v5:= union_unit(Settlements_v5_in, Settlements_v4_CH_NO)
+			, StorageType = "gdal.vect", StorageReadOnly = "True"
+			, DialogData = "Geometry", DialogType = "map"
+			, Descr = "Settlement boundaries derived from GeoSTAT 21 grid v2, by Eurostat, early 2025; with CH and NO settlements derived from earlier provisional boundaries." {
+				attribute<BaseProjection> Geometry (polygon):= union_data(., Settlements_v5_in/Geometry, Settlements_v4_CH_NO/Geometry);
+				attribute<float64> 		 POPL:= union_data(., Settlements_v5_in/POP_2021_A, Settlements_v4_CH_NO/POPL);
+				attribute<uint32> 		 DEGURBA:= union_data(., Settlements_v5_in/Type_estat[uint32], Settlements_v4_CH_NO/DEGURBA[uint32]);
+				attribute<string>		 CNTR_CODE:= union_data(., Settlements_v5_in/COUNTRY_C, Settlements_v4_CH_NO/CNTR_CODE);
+				attribute<int64>		 UNIQUE_ID:= union_data(., Settlements_v5_in/UNIQUE_ID, 80000000[int64] +  Settlements_v4_CH_NO/OBJECTID);
+				attribute<string>		 Name:= string(degurba) + '_' + string(UNIQUE_ID);
+																								
+		}
 	}
 }

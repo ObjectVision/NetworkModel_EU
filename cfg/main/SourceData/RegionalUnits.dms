@@ -52,7 +52,23 @@ container RegionalUnits : using = "geometries"
 			}
 		}
 	}
-	unit<uint32> FUA_2021
+	unit<uint32> FUA_2021:= union_unit(FUA_2021_20250626, FUA_provisional_add) {
+		attribute<LambertEA> geometry (poly):= union_data(., FUA_2021_20250626/geometry, FUA_provisional_add/geometry);
+		attribute<string> CNTR_CODE:= union_data(., FUA_2021_20250626/CNTR_CODE, FUA_provisional_add/CNTR_CODE);
+		attribute<string> FUA_ID:= union_data(., FUA_2021_20250626/Sheet1_FUA, FUA_provisional_add/FUA_ID);
+		attribute<string> FUA_Name:= union_data(., FUA_2021_20250626/Sheet1_F_1, FUA_provisional_add/FUA_Name);
+		attribute<string> Label:= FUA_ID;
+	}
+	unit<uint32> FUA_provisional_add:= select_with_attr_by_cond(FUA_provisional, FUA_provisional/add);
+	unit<uint32> FUA_provisional
+	: StorageName = "%NetworkModelDataDir%/Regions/FUA_2021_provisional.shp"
+	, StorageType = "gdal.vect"
+	, StorageReadOnly = "true"
+	{
+		attribute<LambertEA> geometry (poly);
+		attribute<bool> add:= CNTR_CODE='IT' || CNTR_CODE='CH' || CNTR_CODE='NO';
+	}
+	unit<uint32> FUA_2021_20250626
 	: StorageName = "%NetworkModelDataDir%/Regions/FUA_2021.shp"
 	, StorageType = "gdal.vect"
 	, StorageReadOnly = "true"
