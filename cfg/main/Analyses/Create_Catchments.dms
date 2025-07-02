@@ -377,7 +377,7 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 					// double step because bg_ split operator presently fills holes with separate polygons
 					unit<uint32> initial_split_proto_catchments := bg_split_polygon(currValue/proto_catchments/poly) 
 					{
-						attribute<bool>			   not_a_hole			  := isdefined(point_in_polygon(centroid_or_mid(Geometry), currValue/proto_catchments/poly));
+						attribute<bool>			   not_a_hole			  := area(Geometry, float64) > 0d;
 					}
 					
 					attribute<split_proto_catchments> spc_rel_settlements (Country_Settlements):= point_in_polygon(Country_Settlements/Geometry, split_proto_catchments/Geometry);

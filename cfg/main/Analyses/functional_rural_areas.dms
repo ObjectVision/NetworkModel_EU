@@ -1,0 +1,343 @@
+container Functional_Rural_Areas: using = "Units;Geometries;SourceData/RegionalUnits;" {
+	
+	//parameter<float32> 	matrix_max_time:= max(variants/max_time_h);
+	parameter<s_f> 		matrix_max_time:= convert(max(variants/max_time_h), s_f);
+	parameter<float32> 	dist_decay:= -1f;
+	parameter<string> 	eval_rule:= '(PrevMatrix/maxwpop[fsel] > 1f || PrevMatrix/min[fsel] < min_time) && thighscore > 0f';//'thighscore > intscore';
+	parameter<string> 	catchment_def:= 'm10_ex_fua';
+	
+	unit<uint32> tt_aggregation_method: nrofrows = 2 {
+		attribute<string> LabelText: ['mean', 'biggest_centres'];
+	}
+	
+	unit<uint32> variants: NrOfRows = 5{
+		attribute<string>  LabelText:= 'idealpop'+replace(string(ideal_pop_M), '.', '')+'_maxt'+string(max_time_h)+(min_time_h > 0d ? '_mint'+string(min_time_h) : '') + (agg_m > 0 ? '_agg_' + tt_aggregation_method/LabelText[agg_m] : '');
+		attribute<float32> ideal_pop_M: [0.025, 0.05, 0.025, 0.05, 0.05];
+		attribute<min_f> max_time_h:  [60, 60, 120, 120, 45];
+		attribute<min_f> min_time_h:  [30, 30, 30,  30, 20];
+		attribute<tt_aggregation_method> agg_m:= (id(.)>#.)[tt_aggregation_method];
+	}	
+	
+	container gen_eu_cb:= Prepare_Functional_Areas_T(/Analyses/Create_Catchments/get_catchments_m15_a);
+	container gen_eu_dom:= Prepare_Functional_Areas_T(/Analyses/Create_Catchments/get_catchments_m15_d);
+	container gen_eu_dom_nofua:= Prepare_Functional_Areas_T(/Analyses/Create_Catchments/get_catchments_m15_d, '/without_fua_territory');
+	container gen_eu_dom_10m_nofua:= Prepare_Functional_Areas_T(/Analyses/Create_Catchments/get_catchments_m10_d_nofua_exclusion, '/10m_without_fua_territory');
+	container gen_eu_dom_15m_nofua:= Prepare_Functional_Areas_T(/Analyses/Create_Catchments/get_catchments_m15_d_nofua_exclusion, '/15m_without_fua_territory');
+	container gen_benelux_cb:= Prepare_Functional_Areas_T(/Analyses/Create_Catchments/get_catchments_m15_a_benelux);
+	
+	
+	Template Prepare_Functional_Areas_T {
+		container CatchmentPrep;
+		parameter<string> path_addition:= '';	
+		unit<uint32> Network:= CatchmentPrep/FinalLinkSet;
+		unit<uint32> NodeSet:= CatchmentPrep/FinalNodeSet;
+		unit<uint32> region_unit:= CatchmentPrep/inCountries;	
+		
+		parameter<string> inThreshold:= CatchmentPrep/threshold_sel_string;
+		
+		container iterate_by_Memberstates:= for_each_ne(region_unit/ZoneId, 'iterate_areas('+quote(region_unit/ZoneId)+')');
+		
+		container mozaik_over_Memberstates:= for_each_ne(variants/LabelText, 'doMozaikByVariant('+string(id(variants))+')') {
+			container storeall {
+				parameter<bool> button:= True, explicitsuppliers="= aslist(variants/LabelText+'/StoreDef',';')";
+			}
+		}
+}
+	
+		
+	
+	Template doMozaikByVariant: Descr = "Mozaik member-state specific results and generate relevant statistics" {
+		parameter<variants> inVariant;
+		
+		parameter<string> settlements_refname:= ='iterate_by_Memberstates/'+first(region_unit/ZoneId)+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/settlements_refname';
+		parameter<string> filepath:= '%LocalDataProjDir%/Functional_Rural_Areas/'+settlements_refname+'/Base_'+inThreshold+'/'+variants/LabelText[inVariant]+'/mozaik_';		
+		
+		unit<uint32> StoreDef:= ='union_unit('+AsItemList('iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def')+')', StorageName = "=filepath+'.dbf'" {
+			attribute<LambertEA> Geometry (polygon):= ='union_data(.,'+AsItemList('iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def/Geometry')+')', StorageName = "=filepath+'.shp'";
+			attribute<string>	 Name:= ='union_data(.,'+AsItemList('iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def/Name')+')';
+			attribute<string>	 Category:= ='union_data(.,'+AsItemList('iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def/Category')+')';
+			attribute<float32>	 Pop:= ='union_data(.,'+AsItemList('iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def/Pop')+')';
+			attribute<string>	 MS:= ='union_data(.,'+AsItemList('const('+quote(region_unit/ZoneId)+', '+'iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def,string)')+')';
+			attribute<uint32>	 FUA:= ='union_data(.,'+AsItemList('iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def/FUA')+')';
+			attribute<float32>	 Area:= float32(area(Geometry, float64)) / (1000f * 1000f);
+			//attribute<uint32>	 SubSects:= ='union_data(.,'+AsItemList('checkLauContiguity/by_memberstate/'+region_unit/ZoneId+'/CheckPerVariant/'+variants/LabelText[inVariant]+'/ContiguityMatrixInFRA/FRAs_Analysis/num_subnets')+')';
+			//attribute<float32>	 SectShare:= ='union_data(.,'+AsItemList('checkLauContiguity/by_memberstate/'+region_unit/ZoneId+'/CheckPerVariant/'+variants/LabelText[inVariant]+'/ContiguityMatrixInFRA/FRAs_Analysis/share_area_biggest')+')';
+		}
+		unit<uint32> read_def: storagename="= propvalue(StoreDef/Geometry, 'StorageName')", storagetype = "gdal.vect", storagereadonly = "True" {
+			attribute<LambertEA> Geometry (polygon);
+			attribute<LambertEA> centroid:= centroid_or_mid(Geometry);
+			attribute<EUplus>	 EU_plus_rel:= point_in_polygon(centroid, EUplus/Geometry);
+		}
+		unit<ipoint> grid:= Geometries/Base_grid_1km {
+		//unit<spoint> grid:= Geometries/Base_grid_1km_spoint { // test to see if errors yielded in process with Continental_EU are not a consequence of grid definition
+			attribute<read_def> results_rel:= poly2grid(read_def/Geometry, .);	
+			attribute<EUplus> 	country_rel:= poly2grid(EUplus/Geometry, .);	
+			attribute<bool>		domestic:= read_def/EU_plus_rel[results_rel] = country_rel;
+		}
+		unit<uint32> stats:= read_def { 
+			attribute<uint32>	surface:= uint32(pcount(grid/results_rel));
+			attribute<uint32>	dom_surface:= sum(uint32(grid/domestic), grid/results_rel);
+			attribute<uint32>	pop:= sum(uint32(Locations/Population_2021_v1_0/ReadData), grid/results_rel);
+			attribute<uint32>   dom_pop:= sum(uint32(grid/domestic) * uint32(Locations/Population_2021_v1_0/ReadData), grid/results_rel);
+			
+			//container area_split:= for_each_nedv(EUplus/CNTR_ID, 'sum(uint32(country_rel = '+string(id(EUplus))+'), results_rel)', uint32, read_def);
+			//container pop_split:= for_each_nedv(EUplus/CNTR_ID, 'sum(uint32(Locations/Population_2021_v1_0/ReadData) * uint32(country_rel = '+string(id(EUplus))+'), results_rel)', uint32, read_def);
+		}
+		
+		/*unit<uint32> statistics:= region_unit {
+			attribute<uint32> nr_zones:= ='union_data(., '+AsItemList(region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/nr_zones')+')';
+			attribute<uint32> nr_fra:= ='union_data(., '+AsItemList(region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/nr_fra')+')';
+			attribute<uint32> nr_fra_idealpop:= ='union_data(., '+AsItemList(+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/nr_fra_idealpop')+')';
+			parameter<float32>	avg_pop:= 		sum(StoreDef/Pop * float32(1-StoreDef/FUA)) / float32(#StoreDef - #region_unit);
+			parameter<float32>	avg_size:= 		sum(StoreDef/Area * float32(1-StoreDef/FUA)) / float32(#StoreDef - #region_unit);
+			parameter<float32>	stdev_size:= 	sqrt(sum(((StoreDef/Area * float32(1-StoreDef/FUA)) - avg_size)^2f) / float32(#StoreDef));
+			parameter<float32>	stdev_pop:= 	sqrt(sum(((StoreDef/Pop * float32(1-StoreDef/FUA)) - avg_size)^2f) / float32(#StoreDef));
+		}	*/
+		
+		/*unit<uint32> muni_subnets:= ='union_unit('+AsItemList('checkLauContiguity/by_memberstate/'+region_unit/ZoneId+'/CheckPerVariant/'+variants/LabelText[inVariant]+'/ContiguityMatrixInFRA/storeSet')+')', StorageName = "='%LocalDataProjDir%/Functional_Rural_Areas/Base_'+inThreshold+'/mozaiks/muni_nets/'+variants/LabelText[inVariant]+'.dbf'" { 
+			attribute<uint32> id:= id(.);
+			attribute<LambertEA> Geometry (arc):= ='union_data(.,'+AsItemList('checkLauContiguity/by_memberstate/'+region_unit/ZoneId+'/CheckPerVariant/'+variants/LabelText[inVariant]+'/ContiguityMatrixInFRA/storeSet/Geometry')+')', StorageName = "='%LocalDataProjDir%/Functional_Rural_Areas/Base_'+inThreshold+'/mozaiks/muni_nets/'+variants/LabelText[inVariant]+'.shp'";
+		}
+		unit<uint32> FRAs_from_LAUs:= ='union_unit('+AsItemList('checkLauContiguity/by_memberstate/'+region_unit/ZoneId+'/CheckPerVariant/'+variants/LabelText[inVariant]+'/IntersectedLAUS/FRAs_from_LAUs_ReadOnly')+')', StorageName = "='%LocalDataProjDir%/Functional_Rural_Areas/Base_'+inThreshold+'/mozaiks/FRAs_from_LAUs/'+variants/LabelText[inVariant]+'.dbf'" { 
+			attribute<uint32> id:= id(.);
+			attribute<LambertEA> Geometry (polygon):= ='union_data(.,'+AsItemList('checkLauContiguity/by_memberstate/'+region_unit/ZoneId+'/CheckPerVariant/'+variants/LabelText[inVariant]+'/IntersectedLAUS/FRAs_from_LAUs_ReadOnly/Geometry')+')', StorageName = "='%LocalDataProjDir%/Functional_Rural_Areas/Base_'+inThreshold+'/mozaiks/FRAs_from_LAUs/'+variants/LabelText[inVariant]+'.shp'";
+			//attribute<string>	 Name:= ='union_data(.,'+AsItemList('checkLauContiguity/by_memberstate/'+region_unit/ZoneId+'/CheckPerVariant/'+variants/LabelText[inVariant]+'/IntersectedLAUS/FRAs_from_LAUs_ReadOnly/FRAname')+')';
+			attribute<string>	 MS:= ='union_data(.,'+AsItemList('checkLauContiguity/by_memberstate/'+region_unit/ZoneId+'/CheckPerVariant/'+variants/LabelText[inVariant]+'/IntersectedLAUS/FRAs_from_LAUs_ReadOnly/MS')+')';
+			attribute<uint32>	 FUA:= uint32(IsDefined(point_in_polygon(centroid_or_mid(Geometry), SourceData/FUAs_2021/Geometry)));
+		}
+		*/
+	}
+	
+	Template iterate_areas {
+		
+		parameter<string> inCountry:= 'AT';
+		
+		unit<uint32> LoadAreas:= = 'CatchmentPrep/Country_Catchments/'+inCountry+'/all_catchments_readonly';
+		unit<uint32> Settlements:= = 'CatchmentPrep/Country_Catchments/'+inCountry+'/Country_Settlements';
+		
+		unit<uint32> Areas:= LoadAreas {
+			attribute<LambertEA>		centroid:= centroid_or_mid(Geometry);
+			attribute<float32>	   		Pop:= float32(LoadAreas/Pop);
+			attribute<float32>	   		Area:= float32(area(Geometry, float64));
+			attribute<ipoint> 	   		iGeom (polygon):= Geometry[ipoint];
+			attribute<uint32>	   		hasFua:= uint32(FUA);
+			attribute<uint32>			hasExclv:=const(0,.,uint32);//uint32(exclv);
+			attribute<uint32>	   		in_fm:= pcount(FullMatrix/from_area);
+			
+			unit<uint32> NotFUAs:= subset(IsDefined(NodeRef)) {
+				attribute<NodeSet> NodeRef:= Areas/NodeRef[Nr_OrgEntity];
+			}
+		}
+		unit<uint32> Areas_Connection_Matrix:= polygon_connectivity(Areas/iGeom) {
+			attribute<upoint> 		sorted_id:= point(min_elem(F1, F2), max_elem(F1, F2), upoint);
+		}
+			
+		unit<uint32> FullMatrix: expr = "	
+			dijkstra_m('bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);cut(OrgZone_max_imp);od:OrgZone_rel,DstZone_rel,impedance'
+				, Network/impedance, Network/F1, Network/F2, !Network/IsOneDirection, Areas/NotFUAs/NodeRef, Areas/NotFUAs/NodeRef, matrix_max_time)", keepdata = "True" {
+			attribute<Areas> from_area:= 	Areas/NotFUAs/Nr_OrgEntity[OrgZone_rel];
+			attribute<Areas> to_area:= 		Areas/NotFUAs/Nr_OrgEntity[DstZone_rel];
+			attribute<upoint>uni_id:=		point(from_area, to_area, upoint);
+			attribute<float32>	Eucl_Km:	expr = "float32(dist(Areas/centroid[from_area], Areas/centroid[to_area])) / 1000f";		
+			attribute<bool>	 sel:=			IsDefined(from_area) && IsDefined(to_area) && from_area <> to_area;
+		}
+		unit<uint32> SelMatrix:= subset(FullMatrix/sel), KeepData = "True" {
+			attribute<Areas> 	from:= 		FullMatrix/from_area[Nr_OrgEntity];
+			attribute<Areas> 	to:= 		FullMatrix/to_area[Nr_OrgEntity];
+			attribute<FullMatrix>inversion:=rlookup(point(to, from, upoint), FullMatrix/uni_id);
+			attribute<upoint>	sorted_id:=	point(min_elem(from, to), max_elem(from, to), upoint);
+			attribute<float32>	conn:= 		float32(IsDefined(rlookup(sorted_id, Areas_Connection_Matrix/sorted_id)));
+			attribute<float32>	dist:= 		min_elem(FullMatrix/Eucl_km[Nr_OrgEntity], FullMatrix/Eucl_km[inversion]);
+			attribute<float32>	min:= 		float32(convert(min_elem(FullMatrix/Impedance[Nr_OrgEntity], FullMatrix/Impedance[inversion]), min_f));
+		}
+		
+		container init {
+			unit<uint32> NewAreas:= Areas;
+			unit<uint32> NewMatrix:= SelMatrix;
+			parameter<bool> unfinished:= False;
+		
+			container Collect {
+				attribute<IterAreas> FRAid (Settlements):= point_in_polygon(Settlements/Geometry, IterAreas/Geometry);
+				unit<uint32> IterAreas:= NewAreas {
+					attribute<LambertEA> Geometry (polygon):= iGeom[LambertEA];
+					attribute<string>	 Name:= MakeDefined(Settlements/Label[max_index(Settlements/Pop, FRAid)], 'None');
+					attribute<string>	 Category:= const('not tracked',.,string); //MakeDefined(Settlements/Category[max_index(Settlements/Pop, FRAid)], 'None');
+					attribute<float32>	 Pop:= NewAreas/Pop;
+					attribute<uint16>	 Iter:= const(0,.,uint16);
+					attribute<bool>		 iter_unfinished:= const(True,.,bool);
+					attribute<uint32>	 FUA:= hasFUA;
+					attribute<uint32>	 Exclv:= hasExclv;
+					attribute<uint32>	fconns:= uint32(sum(NewMatrix/conn, NewMatrix/from));
+					attribute<uint32>	tconns:= uint32(sum(NewMatrix/conn, NewMatrix/to));
+					attribute<float32>	min_t:=	MakeDefined(min_elem(min(NewMatrix/min, NewMatrix/from), min(NewMatrix/min, NewMatrix/to)), -1f);
+					attribute<float32>  max_t:= MakeDefined(max_elem(max(NewMatrix/min, NewMatrix/from), max(NewMatrix/min, NewMatrix/to)), -1f);
+					attribute<uint32> 	n_f:=	pcount(NewMatrix/from) - sum(uint32(NewMatrix/from = NewMatrix/to), NewMatrix/from);
+					attribute<uint32> 	n_t:=	pcount(NewMatrix/to);
+				}
+			}
+		}
+		
+		Container ResultsByVariant:= for_each_ne(variants/LabelText, 'genResultsByVariant('+string(id(variants))+')') {
+			container button {
+				parameter<bool> runAll:= True, explicitsuppliers = "= AsList(variants/LabelText+'/storeAreas/AreaCll',';')";
+				//parameter<bool> run_mint_variants:= True, explicitsuppliers = "= AsList(variants/min_time_h > 0f ? variants/LabelText+'/storeAreas/AreaCll' : '',';')";
+				//parameter<bool> run_24052023_variants:= True, explicitsuppliers = "= variants/LabelText[12]+'/storeAreas/AreaCll;' + variants/LabelText[13]+'/storeAreas/AreaCll;'";
+			}
+		}
+		
+		Template genResultsByVariant {
+			parameter<variants> inVariant;
+			parameter<float32>	ideal_pop:= variants/ideal_pop_M[inVariant] * 1000f * 1000f;
+			parameter<float32>  max_time:= float32(variants/max_time_h[inVariant]);
+			parameter<float32>	min_time:= float32(variants/min_time_h[inVariant]);
+			parameter<tt_aggregation_method> tt_agg:= variants/agg_m[inVariant];
+			
+			container Accumulate_Areas:= loop(AreaAccumulator, uint16(min_elem(#Areas, 100)));
+			
+			parameter<string> settlements_refname:= 'v4'; //='Analyses/Settlements_Per_Continent/'+Continent_name+'/select/refname'; // usual to pass varying setttlement definitions.
+			parameter<string> filepath:= '%LocalDataProjDir%/Functional_Rural_Areas/'+settlements_refname+'/Base_'+inThreshold+path_addition+'/'+variants/LabelText[inVariant]+'/'+inCountry;
+			
+			container StoreAreas {
+				unit<uint32> AreaCll:= subset(Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/iter_unfinished), StorageName = "=filepath+'.dbf'" {
+					attribute<LambertEA> Geometry (polygon):= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/Geometry[Nr_OrgEntity], StorageName = "=filepath+'.shp'";
+					attribute<string>	 Name:= replace(Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/Name[Nr_OrgEntity], ' / ', ', ') ;
+					attribute<string>	 Category:= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/Category[Nr_OrgEntity];
+					attribute<float32>	 Pop:= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/Pop[Nr_OrgEntity];
+					attribute<uint16>	 Iter:= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/Iter[Nr_OrgEntity];
+					attribute<uint32>	 Def:= uint32(Iter = max(Iter));
+					attribute<uint32>	 FUA:= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/FUA[Nr_OrgEntity];
+					attribute<uint32>	 Exclv:= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/Exclv[Nr_OrgEntity];
+					attribute<uint32>	 fconns:= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/fconns[Nr_OrgEntity];
+					attribute<uint32>	 tconns:= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/tconns[Nr_OrgEntity];
+					//attribute<float32>	 min_t:=  Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/min_t[Nr_OrgEntity];
+					//attribute<float32>   max_t:=  Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/max_t[Nr_OrgEntity];
+					attribute<uint32> 	 n_f:=	  Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/n_f[Nr_OrgEntity];
+					attribute<uint32> 	 n_t:=	  Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/n_t[Nr_OrgEntity];
+				}
+				unit<uint32> AreaCll_ReadOnly: StorageName = "= propValue(AreaCll, 'StorageName')", storagereadonly = "True", storagetype = "gdal.vect" {
+					attribute<LambertEA> Geometry (polygon);
+					attribute<string>	 Name;
+					attribute<float32>	 Pop;
+					attribute<uint16>	 Iter;
+					attribute<uint32>	 Def;
+					attribute<uint32>	 FUA;
+					attribute<uint32>	 Exclv;
+				}
+				unit<uint32> AreaCll_ReadOnly_Def:= subset(AreaCll_ReadOnly/Def = 1) {
+					attribute<LambertEA> Geometry (polygon):= AreaCll_ReadOnly/Geometry[Nr_OrgEntity];
+					attribute<string>	 Name:= AreaCll_ReadOnly/Name[Nr_OrgEntity];
+					attribute<string>	 Category:= AreaCll_ReadOnly/Category[Nr_OrgEntity];
+					attribute<float32>	 Pop:= AreaCll_ReadOnly/Pop[Nr_OrgEntity];
+					attribute<uint16>	 Iter:= AreaCll_ReadOnly/Iter[Nr_OrgEntity];
+					attribute<uint32>	 Def:= AreaCll_ReadOnly/Def[Nr_OrgEntity];
+					attribute<uint32>	 FUA:= AreaCll_ReadOnly/FUA[Nr_OrgEntity];
+					attribute<uint32>	 Exclv:= AreaCll_ReadOnly/Exclv[Nr_OrgEntity];
+					attribute<ipoint>	 iGeom (polygon):= Geometry[ipoint];
+				}
+				parameter<uint32> 	nr_zones:= #AreaCll_ReadOnly_Def;
+				parameter<uint32>	nr_fra:= nr_zones - sum(AreaCll_ReadOnly_Def/FUA) - sum(uint32(AreaCll_ReadOnly_Def/Pop < 1f));
+				parameter<uint32> 	nr_fra_idealpop:= nr_zones - sum(AreaCll_ReadOnly_Def/FUA) - sum(uint32(AreaCll_ReadOnly_Def/Pop < ideal_pop));
+			}
+		}
+		
+		Template AreaAccumulator {
+			parameter<uint16> NrIter;
+			container CurrValue:= init;
+			container NextValue {
+				unit<uint32> PrevAreas:= CurrValue/NewAreas {
+					attribute<float32> 		wpop:= 			ideal_pop / max_elem(Pop, 1f);
+					//attribute<float32> 		intscore:=		wpop * (ideal_time^dist_decay);
+					attribute<bool>			eval:=			= eval_rule, Descr = "Additional criterion to which pair needs to adhere - eg min size criterion";
+					attribute<float32> 		fhighscore:= 	max(PrevMatrix/score, PrevMatrix/from);
+					attribute<float32> 		thighscore:= 	max(PrevMatrix/score, PrevMatrix/to);
+					attribute<PrevMatrix> 	fsel:= 			max_index(PrevMatrix/score, PrevMatrix/from), Descr = "Index of highest scoring pair in which this zone is the origin";
+					//attribute<PrevMatrix> 	tsel:= 			max_index(PrevMatrix/score, PrevMatrix/to), Descr = "Index of higest scoring pair in which this zone is the destination";
+					attribute<PrevAreas>	bestZone:=		PrevMatrix/to[fsel], Descr = "Destination id of the best matching zone";
+					attribute<bool>			match:=			bestZone[bestZone] = id(.), Descr = "Is this zone also the best for the destination zone?";
+					attribute<bool>			tmergesel:=		match && eval, Descr = "mutual match + ";
+					attribute<PrevAreas>	newId:=			tmergesel ? min_elem(id(.), bestZone) : id(.);
+					attribute<NewAreas> 	newRef:=		rlookup(newId, NewAreas/Values);
+				}
+				unit<uint32> PrevMatrix:= CurrValue/NewMatrix {
+					//attribute<float32> 	score:= 	float32(from < to) * conn * float32(min < max_time) * PrevAreas/wpop[from] * PrevAreas/wpop[to] * (min^dist_decay);
+					attribute<float32>	random:= 	rnd_uniform(0, ., range(float32, 0f, 0.1f));
+					attribute<float32>	noFUAs:=	float32(max_elem(PrevAreas/hasFua[from], PrevAreas/hasFua[to]) = 0);
+					attribute<float32>	noExclvs:= 	float32(max_elem(PrevAreas/hasExclv[from], PrevAreas/hasExclv[to]) = 0);
+					attribute<float32>	score:= 	noFUAs * noExclvs * float32(from <> to) * conn * float32(min < max_time) * (maxwpop) * (min[float32]^dist_decay) * float32(maxwpop > 1f || min < min_time); 
+					attribute<float32>	maxwpop:=	max_elem(PrevAreas/wpop[from], PrevAreas/wpop[to]);
+					attribute<float32>	pop:=		PrevAreas/Pop[from] + PrevAreas/Pop[to];
+					//attribute<bool>	   	best:= 		IsDefined(invert(PrevAreas/fsel)) && IsDefined(invert(PrevAreas/tsel));
+					attribute<NewAreas>	newfrom:= 	PrevAreas/newRef[from];
+					attribute<NewAreas> newto:=		PrevAreas/newRef[to];
+					attribute<upoint>	newpoints:= point(newfrom, newto, upoint);
+					attribute<NewMatrix>nm_id:=		rlookup(newpoints, NewMatrix/Values);
+					attribute<bool>	biggest_from:= 	from = NewAreas/biggestprev[newfrom];
+					attribute<bool>	biggest_to:= 	to = NewAreas/biggestprev[newto];
+					attribute<float32>	biggest_dist:= biggest_from && biggest_to ? dist : -1f;
+					attribute<float32>	biggest_min:= biggest_from && biggest_to ? min : -1f;
+					
+				}
+				attribute<NewAreas> FRAid (Settlements):= point_in_polygon(Settlements/Geometry, NewAreas/Geometry);
+				unit<uint32> NewAreas:= unique(PrevAreas/newId), DialogData="iGeom", DialogType = "map" {
+					attribute<ipoint>	iGeom (polygon):= partitioned_union_polygon(PrevAreas/iGeom, PrevAreas/newRef);
+					attribute<LambertEA> Geometry (polygon):= iGeom[LambertEA];
+					attribute<string>	 Label:= hasExclv < 1 ? MakeDefined(Settlements/Label[max_index(Settlements/Pop, FRAid)], 'None') : 'Exclaves '+inCountry;
+					attribute<string>	 Category:= const('not tracked',.,string);//MakeDefined(Settlements/Category[max_index(Settlements/Pop, FRAid)], 'None');
+					attribute<float32>	Pop:=	sum(PrevAreas/Pop, PrevAreas/newRef);
+					attribute<uint16>	Iter:= const(NrIter+1w,.,uint16);
+					attribute<bool>		iter_unfinished:= const(unfinished,.,bool);
+					attribute<uint32>	hasFUA:= uint32(max(PrevAreas/hasFua, PrevAreas/newRef));
+					attribute<uint32>	hasExclv:= uint32(max(PrevAreas/hasExclv, PrevAreas/newRef));
+					attribute<uint32>	fconns:= uint32(sum(NewMatrix/conn, NewMatrix/from));
+					attribute<uint32>	tconns:= uint32(sum(NewMatrix/conn, NewMatrix/to));
+					attribute<float32>	min_t:=	MakeDefined(min_elem(min(NewMatrix/min, NewMatrix/from), min(NewMatrix/min, NewMatrix/to)), -1f);
+					attribute<float32>  max_t:= MakeDefined(max_elem(max(NewMatrix/min, NewMatrix/from), max(NewMatrix/min, NewMatrix/to)), -1f);
+					attribute<uint32> 	n_f:=	pcount(NewMatrix/from) - sum(uint32(NewMatrix/from = NewMatrix/to), NewMatrix/from);
+					attribute<uint32> 	n_t:=	pcount(NewMatrix/to);
+					attribute<PrevAreas>biggestprev:= max_index(PrevAreas/Pop, PrevAreas/newRef);
+				}
+				unit<uint32> Areas_Connection_Matrix:= polygon_connectivity(NewAreas/iGeom) {
+					attribute<upoint> 		sorted_id:= point(min_elem(F1, F2), max_elem(F1, F2), upoint);
+					attribute<SelMatrix> 	sm_id:= rlookup(sorted_id, NewMatrix/sorted_id);
+				}
+				unit<uint32> NewMatrix:= unique(PrevMatrix/newpoints) {
+					attribute<NewAreas> from:= pointCol(Values);
+					attribute<NewAreas> to:= pointRow(Values);
+					attribute<upoint>	uni_id:=	point(from, to, upoint);
+					attribute<upoint>	sorted_id:=	point(min_elem(from, to), max_elem(from, to), upoint);
+					//attribute<float32>  dist:= 	max(PrevMatrix/dist, PrevMatrix/nm_id);
+					attribute<float32>  mean_dist:= 	sum(PrevMatrix/pop * PrevMatrix/dist, PrevMatrix/nm_id) / sum(PrevMatrix/pop, PrevMatrix/nm_id);
+					attribute<float32> 	biggest_dist:= max(PrevMatrix/biggest_dist, PrevMatrix/nm_id);
+					//attribute<float32>  min:= 	max(PrevMatrix/min, PrevMatrix/nm_id);
+					attribute<float32>  mean_min:= 	sum(PrevMatrix/pop * PrevMatrix/min, PrevMatrix/nm_id) / sum(PrevMatrix/pop, PrevMatrix/nm_id);
+					attribute<float32> 	biggest_min:= max(PrevMatrix/biggest_min, PrevMatrix/nm_id);
+					attribute<float32>	dist:= 	switch(case(tt_agg = 0, mean_dist), case(tt_agg = 1 && biggest_dist > 0f, biggest_dist), mean_dist);
+					attribute<float32>	min:= 	switch(case(tt_agg = 0, mean_min), case(tt_agg = 1 && biggest_min > 0f, biggest_min), mean_min);
+					attribute<float32>	conn:= 		float32(IsDefined(rlookup(sorted_id, Areas_Connection_Matrix/sorted_id)));
+				}
+				parameter<bool> unfinished:= max(pcount(PrevAreas/newRef)) > 1;
+				container Collect {
+					unit<uint32> IterAreas:= union_unit(CurrValue/Collect/IterAreas, NewAreas) {
+						attribute<LambertEA> Geometry (polygon):= union_data(., CurrValue/Collect/IterAreas/Geometry, NewAreas/Geometry);
+						attribute<string>	 Name:= union_data(., CurrValue/Collect/IterAreas/Name, NewAreas/Label);
+						attribute<string>	 Category:= union_data(., CurrValue/Collect/IterAreas/Category, NewAreas/Category);
+						attribute<float32>	 Pop:= union_data(., CurrValue/Collect/IterAreas/Pop, NewAreas/Pop);
+						attribute<uint16>	 Iter:= union_data(., CurrValue/Collect/IterAreas/Iter, NewAreas/Iter);
+						attribute<bool>		 iter_unfinished:= union_data(., CurrValue/Collect/IterAreas/iter_unfinished, NewAreas/iter_unfinished);
+						attribute<uint32>	 FUA:= union_data(., CurrValue/Collect/IterAreas/FUA, NewAreas/hasFUA);
+						attribute<uint32>	 Exclv:= union_data(., CurrValue/Collect/IterAreas/Exclv, NewAreas/hasExclv);
+						attribute<uint32>	fconns:= union_data(., CurrValue/Collect/IterAreas/fconns, NewAreas/fconns);
+						attribute<uint32>	tconns:= union_data(., CurrValue/Collect/IterAreas/tconns, NewAreas/tconns);
+						attribute<float32>	min_t:=	union_data(., CurrValue/Collect/IterAreas/min_t, NewAreas/min_t);
+						attribute<float32>  max_t:= union_data(., CurrValue/Collect/IterAreas/max_t, NewAreas/max_t);
+						attribute<uint32> 	n_f:=	union_data(., CurrValue/Collect/IterAreas/n_f, NewAreas/n_f);
+						attribute<uint32> 	n_t:=	union_data(., CurrValue/Collect/IterAreas/n_t, NewAreas/n_t);
+					}
+				}
+			}
+		
+			
+		}
+	}
+
+}
