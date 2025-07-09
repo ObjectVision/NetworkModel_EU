@@ -176,6 +176,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<bool>			   IsOneDirection	:= collect_by_cond(., f_unchanged && t_unchanged, ../IsOneDirection);
 					attribute<uint32>		   F1				:= collect_by_cond(., f_unchanged && t_unchanged, ../F1);
 					attribute<uint32>		   F2				:= collect_by_cond(., f_unchanged && t_unchanged, ../F2);
+					attribute<Roads>		   org_roads_id		:= collect_by_cond(., f_unchanged && t_unchanged, ../Nr_OrgEntity);
 				}
 				unit<uint32> changed_links:= select(!isconnector && (!f_unchanged || !t_unchanged)) {
 					attribute<BaseProjection>  geometry (arc)	:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../geometry);
@@ -187,6 +188,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<uint32>		   org_F2			:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../F2);
 					attribute<uint32>		   F1				:= f_notchanged ? org_F1 : location_connectors/F2[rlookup(first_point(geometry), location_connectors/cutpoint)];
 					attribute<uint32>		   F2				:= t_notchanged ? org_F2 : location_connectors/F2[rlookup(last_point(geometry), location_connectors/cutpoint)];
+					attribute<Roads>		   org_roads_id		:= collect_by_cond(.,  !isconnector && (!f_unchanged || !t_unchanged), ../Nr_OrgEntity);
 					
 					unit<uint32> sel_nulls:= select(isnull(F1) || isnull(F2)) {
 						attribute<BaseProjection>  geometry (arc)   := collect_by_cond(., isnull(F1) || isnull(F2), ../geometry);
@@ -209,6 +211,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<uint32>  		   F_node				:= union_data(.,LinkSet_Calc/unchanged_links/F1,			LinkSet_Calc/changed_links/F1, 				LinkSet_Calc/location_connectors/F1);
 				attribute<uint32>  		   T_node				:= union_data(.,LinkSet_Calc/unchanged_links/F2,			LinkSet_Calc/changed_links/F2, 				LinkSet_Calc/location_connectors/F2);
 				attribute<bool>            IsOD_connection_road := union_data(.,const(False,LinkSet_Calc/unchanged_links,bool),const(False,LinkSet_Calc/changed_links,bool),const(True,LinkSet_Calc/location_connectors,bool));
+				attribute<Roads>		   org_roads_id		    := union_data(., LinkSet_Calc/unchanged_links/org_roads_id, LinkSet_Calc/changed_links/org_roads_id,	const(0 / 0, LinkSet_Calc/location_connectors, Roads));
 			}
 			
 			unit<uint32> LinkSet_Read: StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'", StorageReadOnly = "True"
@@ -219,6 +222,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<uint32>  		   F_node;
 				attribute<uint32>  		   T_node;
 				attribute<bool>            IsOD_connection_road;
+				attribute<Roads>		   org_roads_id;
 			}
 			
 			unit<uint32> LinkSet := LinkSet_Read
@@ -286,7 +290,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<uint32> nrofarc_na_iter := ='union_data(., '+AsList('OptimiseNetwork/'+name+'/IntermediateLinkSet/count_arcs', ',')+')'; 
 			}
 			
-			unit<uint32> LinkSet_src     := CreateInitialWorkingNetwork/LinkSet;
+			unit<uint32> LinkSet_src     := CreateInitialWorkingNetwork/LinkSet {attribute<LinkSet_src> ItmLinkSet_rel:= id(.);}
 			unit<uint32> NodeSet_src     := CreateInitialWorkingNetwork/NodeSet
 			{
 //				attribute<BaseProjection_ip> geometry      := CreateInitialWorkingNetwork/NodeSet/geometry;
@@ -334,6 +338,9 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<BaseProjection> geometry:= org_rel->geometry;
 				}
 			}
+			unit<uint32> ChangesTracker_Write := LinkSet_src, StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'" {
+				attribute<LastLinkSet> FinalLinkSet_rel:= OptimiseNetwork/LastIter/OrgLinkSet/ItmLinkSet_rel;
+			}
 			
 			unit<uint32> FinalLinkSet_Read: StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalLinkSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'", StorageReadOnly = "True"
 			{
@@ -355,6 +362,9 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<..>                          SeqNr   := value(id(.) % nrofrows(..), ..);
 					attribute<uint32>                      Ordinal := id(.) / nrofrows(..);
 				}
+			}
+			unit<uint32> ChangesTracker_Read:= LinkSet_src, StorageName = "= propvalue(ChangesTracker_Write, 'StorageName')", StorageReadOnly = "True" {
+				attribute<FinalLinkSet> FinalLinkSet_rel;
 			}
 			unit<uint32> FinalLinkSet := FinalLinkSet_Read
 			{
@@ -414,6 +424,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				parameter<string> IterName;
 				///
 				unit<uint32> PrevIntermediateLinkSet := =IterName != 'Iter_0' ? Iter/prevname[rlookup(IterName, Iter/name)]+'/IntermediateLinkSet' : 'LinkSet_src';
+				unit<uint32> PrevOrgLinkSet:= =IterName != 'Iter_0' ? Iter/prevname[rlookup(IterName, Iter/name)]+'/OrgLinkSet' : 'LinkSet_src';
 				
 				unit<uint32> UniqueLocations := NetwerkSpec/UniqueLocations
 				{
@@ -432,10 +443,20 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<bool>                            IsFinalLink                    := !IsPartOfJunctionFreeSection;
 					attribute<bool>                            IsOneDirection                 := PrevIntermediateLinkSet/IsOneDirection;
 					
+					attribute<UnchangedLinkSet>				   UnchangedLink_rel			  := invert(UnchangedLinkSet/org_rel);
+					attribute<LinksInsideJunctionFreeSection>  LinksInsideJFS_rel			  := invert(LinksInsideJunctionFreeSection/org_rel);
+					attribute<ConnectorLink>				   ConnectorLink_rel			  := invert(ConnectorLink/org_rel);
+					attribute<JunctionFreeSection>			   JFS_rel						  := MakeDefined(LinksInsideJunctionFreeSection/JunctionFreeSection_rel[LinksInsideJFS_rel], ConnectorLink/JunctionFreeSection_rel[ConnectorLink_rel]);
+					attribute<LinkSet_cleanedforJFS>		   LinkSet_cleanedforJFS_rel	  := MakeDefined(UnchangedLink_rel[uint32], JFS_rel[uint32] + #UnchangedLinkSet)[LinkSet_cleanedforJFS];
+					attribute<IntermediateLinkSet>			   ItmLinkSet_rel				  := LinkSet_cleanedforJFS/ItmLinkSet_rel[LinkSet_cleanedforJFS_rel];
+					
 					// For visualisation
 					attribute<BaseProjection_ip>               geometry (arc)                 := PrevIntermediateLinkSet/geometry[BaseProjection_ip];
 				}
-				
+				unit<uint32> OrgLinkSet:= PrevOrgLinkSet {
+					attribute<LinkSet> PrevLinkSet_rel:= PrevOrgLinkSet/ItmLinkSet_rel;
+					attribute<IntermediateLinkSet> ItmLinkSet_rel:= LinkSet/ItmLinkSet_rel[PrevLinkSet_rel];
+				}
 				unit<uint32> NodeSet  := NodeSet_src
 				{
 					attribute<uint32>                          NrConnectedLinks               := pcount(LinkSet/F1) + pcount(LinkSet/F2);
@@ -466,6 +487,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<NodeSet>                         F2                             := collect_by_cond(LinksInsideJunctionFreeSection, LinkSet/IsInsideJunctionFreeSection, LinkSet/F2); 
 					attribute<bool>                            IsOneDirection                 := collect_by_cond(LinksInsideJunctionFreeSection, LinkSet/IsInsideJunctionFreeSection, LinkSet/IsOneDirection); 
 					attribute<JunctionFreeSection>             JunctionFreeSection_rel        := NodeSet/JunctionFreeSection_rel[F1];
+					
+					attribute<LinkSet>						   org_rel						  := collect_by_cond(LinksInsideJunctionFreeSection, LinkSet/IsInsideJunctionFreeSection, id(LinkSet));
 					
 					//For visualisation
 					attribute<BaseProjection_ip>                  geometry  (arc)                :=  collect_by_cond(LinksInsideJunctionFreeSection, LinkSet/IsInsideJunctionFreeSection, LinkSet/geometry);
@@ -583,7 +606,9 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					
 					attribute<Nodeset_x_NodeSet>               Nodeset_x_NodeSet_rel          := combine_data(Nodeset_x_NodeSet, min_elem(F1, F2), max_elem(F1,F2));
 					attribute<Find_DuplicateLinks>             Find_DuplicateLinks_rel        := rlookup(Nodeset_x_NodeSet_rel, Find_DuplicateLinks/values);
-
+					
+					attribute<IntermediateLinkSet> 			   ItmLinkSet_rel				  := invert(IntermediateLinkSet/org_rel);
+					
 					//After clean up, the reduced road could collapse into a road which is duplicate.
 					unit<uint32> Find_DuplicateLinks := unique(Nodeset_x_NodeSet_rel)
 					{
@@ -607,11 +632,13 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				}
 				
 				//Verwijder links naar dead ends (if F1 or F2 occurs only once in all F1/F2, and not being OD-location)
-				unit<uint32> IntermediateLinkSet := select(!LinkSet_cleanedforJFS/ToBeOmitted)
+				unit<uint32> IntermediateLinkSet := select_with_org_rel(!LinkSet_cleanedforJFS/ToBeOmitted)
 				{
-					attribute<NodeSet> F1 := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/F1);
-					attribute<NodeSet> F2 := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/F2);
-		
+					//attribute<NodeSet> F1 := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/F1);
+					//attribute<NodeSet> F2 := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/F2);
+					attribute<NodeSet> F1:= org_rel -> F1;
+					attribute<NodeSet> F2:= org_rel -> F2;
+					
 					attribute<s_f>     Impedance      := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/impedance);
 					attribute<km>      LengthKm       := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/LengthKm);
 					attribute<bool>    IsOneDirection := collect_by_cond(., !LinkSet_cleanedforJFS/ToBeOmitted, LinkSet_cleanedforJFS/IsOneDirection);

@@ -107,18 +107,21 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
  				{
 					//// checks
 					// #punten per sequence in org moet oneven zijn.
-					parameter<bool> Check_ModuloIsEen           := all(LastOrdinalNr % 2 == 0);
+					//parameter<bool> Check_ModuloIsEen           := all(LastOrdinalNr % 2 == 0);
+					attribute<bool> ModuloIsEen (src):= LastOrdinalNr % 2 == 0;
+					attribute<bool> Circle (src):= first(seq2points/point, seq2points/sequence_rel) = last(seq2points/point, seq2points/sequence_rel);
 					// geen dubbele punten binnen sequence rel
 					// er mogen geen punten zijn die wel in de org zitten en niet in clean. 
 					attribute<uint32> aantal_punten_per_sequence (src) := pcount(seq2points/sequence_rel);
-				
+					
+					
 					attribute<uint32>     LastOrdinalNr       (src)   := last(seq2points/ordinal, seq2points/sequence_rel);
-					attribute<uint32>     LastRelevantOrdinal (src)   := LastOrdinalNr / 2, IntegrityCheck = "Check_ModuloIsEen";
+					attribute<uint32>     LastRelevantOrdinal (src)   := ModuloIsEen && Circle ? LastOrdinalNr / 2 : LastOrdinalNr;//, IntegrityCheck = "Check_ModuloIsEen";
 					
 					unit<uint32> seq2points := sequence2points(src/geometry)
 					{
 						// attribute<bool>       IsLastRelevantOrdinal := LastRelevantOrdinal == Ordinal;
-						attribute<bool>       IsRelevant          := Ordinal <= LastRelevantOrdinal[sequence_rel]; //links are doubled, we only want one-way links.
+						attribute<bool>       IsRelevant          := Ordinal <= LastRelevantOrdinal[sequence_rel]; //links are doubled, we only want one-way links. CJC: modification, only cutting when it is certain the link is two-way. 
 
 						unit<uint32> CleanUpPoints := select_with_attr_by_cond(seq2points, seq2points/IsRelevant)
 						{
