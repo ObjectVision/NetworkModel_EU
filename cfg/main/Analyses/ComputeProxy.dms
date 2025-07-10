@@ -14,8 +14,8 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 		attribute<Geometries/Base_grid_1km> grid_rel:= grid_domain_rel;
 	}
 	unit<uint32> countries:= /SourceData/RegionalUnits/Country/subset;
-	container country_ODs:= for_each_ne(countries/ISO3_CODE, 'doCountrySel('+string(id(countries))+')');
-	container country_proxy:= for_each_ne(countries/ISO3_CODE, 'getProxyResults(country_ODs/'+countries/ISO3_CODE+'/country_sel, '+quote(countries/ISO3_CODE)+')'); 
+	container country_ODs:= for_each_ne(countries/CNTR_ID, 'doCountrySel('+string(id(countries))+')');
+	container country_proxy:= for_each_ne(countries/CNTR_ID, 'getProxyResults(country_ODs/'+countries/CNTR_ID+'/country_sel, '+quote(countries/CNTR_ID)+')'); 
 	
 	Template doCountrySel {
 		parameter<countries> inCountry;	
@@ -255,6 +255,8 @@ Template Calc_perDecayFunction_T_OV
 		attribute<float32> avnetdi:= makedefined(Exports/avnetdi[org_rel], 0f), storagename = "= filepath+'/av_di.tif'";
 		attribute<float32> flow:= flows_to_grid/lines_to_grid/flow[float32], storagename = "= filepath+'/flow.tif'";
 	}
+	parameter<bool> store1:= True, explicitsuppliers = "Exports/LinkFlow_Write;exportgrid/D_i;exportgrid/avnetdi;";
+	parameter<bool> store2:= True, explicitsuppliers = "exportgrid/flow;";
 	
 }//*/
 Template lines_grid_constructor {

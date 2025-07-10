@@ -13,7 +13,7 @@
 	parameter<bool>     Use_Country_OD_selection       := CountryFolder <> 'EU';//True; // TRUE FALSE  //Country is currently defined as Finland
 	parameter<string>   PopVersie                      := '2021_Ardeco'; //2021_v1_0 2018
 	parameter<string>   Roads_path                     := '%NetworkModelDataDir%/Infrastructure/TomTom/'+CountryFolder+'/NW2021_SP_streets_subset.fss';
-	parameter<string>   CountryFolder                  := 'Amsterdam';//Netherlands';// Amsterdam Finland EU //Use_Country_OD_selection ?  'Amsterdam' : 'EU'; 
+	parameter<string>   CountryFolder                  := 'Netherlands';//Netherlands';// Amsterdam Finland EU //Use_Country_OD_selection ?  'Amsterdam' : 'EU'; 
 	parameter<string>   OD_SelectionCountry            := CountryFolder == 'Amsterdam' ?  'Netherlands' : CountryFolder == 'Netherlands' ? 'Netherlands' : CountryFolder == 'Finland' ? 'Finland' : 'EU';
 
 	container Advanced
