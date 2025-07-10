@@ -220,7 +220,7 @@ Template Calc_perDecayFunction_T_OV
 	/// ====== EXPORT ============
 	/// =================================
 	
-	parameter<string> filepath:= '%LocalDataProjDir%/Distances_Travelled_Proxy/'+ModelParameters/PopVersie+'/'+region_name+'/'+distdecay_functions/LabelText[infunc];
+	parameter<string> filepath:= '%LocalDataProjDir%/Distances_Travelled_Proxy/'+ModelParameters/PopVersie+'/'+distdecay_functions/LabelText[infunc]+'/'+region_name;
 	
 	container Exports
 	{
