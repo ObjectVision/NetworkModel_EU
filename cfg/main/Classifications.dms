@@ -16,6 +16,26 @@ container Classifications: Using = "Units"
 		{
 			attribute<string> Label : ['Not Applicable', 'Motorway, Freeway, or Other Major Road', 'Major Road Less Important than a Motorway', 'Other Major Road','Secondary Road','Local Connecting Road','Local Road of High Importance','Local Road','Local Road of Minor Importance','Other Road'];
 			attribute<string> name := AsItemName(label);
+			attribute<RegioRoadCategory> RRC_rel: [0, 1, null, null, 2, 2, 3, 3, 3, 3];
+			container V := for_each_nedv(name, String(ID(.))+'[..]', void, .);
+			
+		/* From the DG REGIO report (https://ec.europa.eu/regional_policy/sources/work/road-2022/road-infrastructure-2022.pdf)
+			Motorways and other main roads: motorways, main
+			roads, roads of major importance and major roads that are
+			at least dual carriageways, i.e. with at least two lanes going
+			each way.
+			Ý Secondary roads: roads of major importance and major
+			roads that are single carriageways, secondary roads and
+			local connecting roads.
+			Ý Local roads: local roads of high importance, local roads,
+			local roads of minor importance and other roads.
+			
+			NULL values to be filled in the streets section, depend on nr of lanes
+		*/
+		}
+		unit<uint8> RegioRoadCategory : nrofrows = 4 {
+			attribute<string> Label : ['Not Applicable', 'Motorways and other main roads', 'Secondary roads', 'Local roads'];
+			attribute<string> name := AsItemName(label);
 			container V := for_each_nedv(name, String(ID(.))+'[..]', void, .);
 		}
 	}
