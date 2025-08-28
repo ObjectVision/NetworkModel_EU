@@ -245,6 +245,7 @@ Template Calc_perDecayFunction_T_OV
 	container flows_to_grid {
 		unit<uint32> Roads:= select(!LinkSet_Src/IsOD_connection_road && isdefined(Exports/LinkFlow_links_in)) {
 			attribute<BaseProjection> geometry (arc):= collect_by_cond(., !LinkSet_Src/IsOD_connection_road && isdefined(Exports/LinkFlow_links_in), LinkSet_Src/geometry);
+			attribute<Classifications/TomTom/RegioRoadCategory> RRC_rel:= collect_by_cond(., !LinkSet_Src/IsOD_connection_road && isdefined(Exports/LinkFlow_links_in), LinkSet_Src/RRC_rel);
 			attribute<float64> flows:= collect_by_cond(., !LinkSet_Src/IsOD_connection_road && isdefined(Exports/LinkFlow_links_in), Exports/LinkFlow_links_in);
 		}
 		container lines_to_grid:= lines_grid_constructor(25d, Roads, Roads/geometry);
@@ -254,25 +255,33 @@ Template Calc_perDecayFunction_T_OV
 		attribute<float32> D_i:= makedefined(Exports/D_i[org_rel], 0f), storagename = "= filepath+'/pot_ai.tif'";
 		attribute<float32> avnetdi:= makedefined(Exports/avnetdi[org_rel], 0f), storagename = "= filepath+'/av_di.tif'";
 		attribute<float32> flow:= flows_to_grid/lines_to_grid/flow[float32], storagename = "= filepath+'/flow.tif'";
+		
+		container by_category:= for_each_nedva(flows_to_grid/lines_to_grid/catg/name, 
+			'flows_to_grid/lines_to_grid/per_category/'+flows_to_grid/lines_to_grid/catg/name+'[float32]', exportgrid, float32, filepath+'/flow_'+flows_to_grid/lines_to_grid/catg/name+'.tif');
 	}
 	parameter<bool> store1:= True, explicitsuppliers = "Exports/LinkFlow_Write;exportgrid/D_i;exportgrid/avnetdi;";
-	parameter<bool> store2:= True, explicitsuppliers = "exportgrid/flow;";
+	parameter<bool> store2:= True, explicitsuppliers = "exportgrid/flow;exportgrid/by_category;";
 	
 }//*/
 Template lines_grid_constructor {
 	parameter<float64> sample_res;
 	unit<uint32> in_set;
 	attribute<BaseProjection> lines_to_sample (in_set, arc);
+	unit<uint8> catg:= Classifications/TomTom/RegioRoadCategory;
 	unit<uint32> segments:= arc2segm(lines_to_sample) {
 		attribute<float64> length_km:= dist(point, nextpoint)[float64] / 1000d;
 		attribute<float64> flows_pkm:= in_set/flows[SequenceNr] * length_km;
+		attribute<catg>	   catg_rel:= in_set/RRC_rel[SequenceNr];
 		attribute<uint32>  nsamples:= pcount(samples/SequenceNr);
 	}
 	unit<uint32> samples:= dyna_point_with_ends(segments/point, segments/nextpoint, sample_res) {
 		attribute<exportgrid> grid_rel:= point[exportgrid];
 		attribute<float64> 	weighted_flowspkm:= (segments/flows_pkm / float64(segments/nsamples))[SequenceNr];
+		attribute<catg>		catg_rel:= segments/catg_rel[SequenceNr];
 	}
 	attribute<float64> flow (exportgrid):= sum(samples/weighted_flowspkm, samples/grid_rel);
+	
+	container per_category:= for_each_nedv(catg/name, 'sum(samples/weighted_flowspkm * float64(samples/catg_rel == catg/V/'+catg/name+'), samples/grid_rel)', exportgrid, float64);
 	
 }
 /* version made by Chris Jacobs-Crisioni (no auto-function trip distribution) 

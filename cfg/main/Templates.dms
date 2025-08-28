@@ -61,7 +61,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<bool>               IsOneDirection       := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRoads/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRoads/IsOneDirection);
 				attribute<km_hr>              KPH                  := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRoads/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRoads/KPH);
 				attribute<Bool >              Connectable          := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRoads/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRoads/Connectable);
-				
+				attribute<RegioRoadCategory>  RRC_rel			   := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRoads/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRoads/RRC_rel);
 				attribute<uint64>             F_JNCTID             := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRoads/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRoads/F_JNCTID);
 				attribute<uint64>             T_JNCTID             := collect_by_cond(.,Roads_with_unconnected_subnetworks_w_CarRoads/IsCarRoad, Roads_with_unconnected_subnetworks_w_CarRoads/T_JNCTID);
 				
@@ -97,6 +97,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<bool>               IsOneDirection := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/IsOneDirection);
 				attribute<km_hr>              KPH            := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/KPH);
 				attribute<Bool >              Connectable    := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/Connectable);
+				attribute<RegioRoadCategory>  RRC_rel		 := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/RRC_rel);
 				attribute<uint64>			  F_JnctId		 := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/F_JnctId);
 				attribute<uint64>			  T_JnctId		 := collect_by_cond(.,Roads_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/T_JnctId);
 				
@@ -140,10 +141,11 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<BaseProjection>  geometry(arc);
 				attribute<km_hr>           KPH                  := MakeDefined(arc_rel->KPH, ModelParameters/Advanced/CarDefaultSpeed_low);
 				attribute<bool>            IsOneDirection       := Makedefined(arc_rel->IsOneDirection, false);
+				attribute<RegioRoadCategory> RRC_rel			:= MakeDefined(arc_rel->RRC_rel, RegioRoadCategory/V/Simulated_connectors);
 				attribute<uint32>		   F1					:= arc_rel->F1[uint32];
 				attribute<uint32>		   F2					:= arc_rel->F2[uint32];
 				attribute<bool>			   isconnector			:= isnull(arc_rel);
-				attribute<bool>			   f_unchanged_is			:= first_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F1];
+				attribute<bool>			   f_unchanged_is		:= first_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F1];
 				attribute<bool>			   f_unchanged          := point_isNearby(first_point(geometry), first_point(arc_rel->geometry), 1d); //point(1d, 1d, dpoint));
 				attribute<bool>			   t_unchanged_is		:= last_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F2];
 				attribute<bool>			   t_unchanged          := point_isNearby(last_point(geometry), last_point(arc_rel->geometry), 1d);//point(1d, 1d, BaseProjection));
@@ -152,6 +154,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<BaseProjection>  geometry (arc):= collect_by_cond(., isconnector, ../geometry);
 					attribute<km_hr>		   KPH				:= const(ModelParameters/Advanced/CarDefaultSpeed_low,.,km_hr);
 					attribute<bool>			   IsOneDirection	:= const(false,.,bool);
+					attribute<RegioRoadCategory> RRC_rel		:= const(RegioRoadCategory/V/Simulated_connectors,.,RegioRoadCategory);
 					attribute<BaseProjection>  od_point:= first_point(geometry);
 					attribute<BaseProjection>  cutpoint:= last_point(geometry);
 					attribute<UniqueLocations> ul_id:= rlookup(od_point, UniqueLocations/geometry);
@@ -174,6 +177,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<BaseProjection>  geometry (arc)	:= collect_by_cond(., f_unchanged && t_unchanged, ../geometry);
 					attribute<km_hr>		   KPH				:= collect_by_cond(., f_unchanged && t_unchanged, ../KPH);
 					attribute<bool>			   IsOneDirection	:= collect_by_cond(., f_unchanged && t_unchanged, ../IsOneDirection);
+					attribute<RegioRoadCategory> RRC_rel		:= collect_by_cond(., f_unchanged && t_unchanged, ../RRC_rel);
 					attribute<uint32>		   F1				:= collect_by_cond(., f_unchanged && t_unchanged, ../F1);
 					attribute<uint32>		   F2				:= collect_by_cond(., f_unchanged && t_unchanged, ../F2);
 					attribute<Roads>		   org_roads_id		:= collect_by_cond(., f_unchanged && t_unchanged, ../Nr_OrgEntity);
@@ -182,6 +186,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<BaseProjection>  geometry (arc)	:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../geometry);
 					attribute<km_hr>		   KPH				:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../KPH);
 					attribute<bool>			   IsOneDirection	:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../IsOneDirection);
+					attribute<RegioRoadCategory> RRC_rel		:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../RRC_rel);
 					attribute<bool>			   f_notchanged		:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../f_unchanged);
 					attribute<bool>			   t_notchanged		:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../t_unchanged);
 					attribute<uint32>		   org_F1			:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../F1);
@@ -208,6 +213,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<BaseProjection>  geometry(arc)		:= union_data(.,LinkSet_Calc/unchanged_links/geometry, 		LinkSet_Calc/changed_links/geometry, 		LinkSet_Calc/location_connectors/geometry);
 				attribute<km_hr>           KPH                  := union_data(.,LinkSet_Calc/unchanged_links/KPH, 			LinkSet_Calc/changed_links/KPH, 			LinkSet_Calc/location_connectors/KPH);
 				attribute<bool>            IsOneDirection       := union_data(.,LinkSet_Calc/unchanged_links/IsOneDirection,LinkSet_Calc/changed_links/IsOneDirection, 	LinkSet_Calc/location_connectors/IsOneDirection);
+				attribute<RegioRoadCategory> RRC_rel    		:= union_data(.,LinkSet_Calc/unchanged_links/RRC_rel,		LinkSet_Calc/changed_links/RRC_rel, 		LinkSet_Calc/location_connectors/RRC_rel);
 				attribute<uint32>  		   F_node				:= union_data(.,LinkSet_Calc/unchanged_links/F1,			LinkSet_Calc/changed_links/F1, 				LinkSet_Calc/location_connectors/F1);
 				attribute<uint32>  		   T_node				:= union_data(.,LinkSet_Calc/unchanged_links/F2,			LinkSet_Calc/changed_links/F2, 				LinkSet_Calc/location_connectors/F2);
 				attribute<bool>            IsOD_connection_road := union_data(.,const(False,LinkSet_Calc/unchanged_links,bool),const(False,LinkSet_Calc/changed_links,bool),const(True,LinkSet_Calc/location_connectors,bool));
@@ -219,6 +225,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<BaseProjection>  geometry(arc);
 				attribute<km_hr>           KPH;
 				attribute<bool>            IsOneDirection;
+				attribute<RegioRoadCategory> RRC_rel;
 				attribute<uint32>  		   F_node;
 				attribute<uint32>  		   T_node;
 				attribute<bool>            IsOD_connection_road;

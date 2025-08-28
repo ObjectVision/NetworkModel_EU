@@ -33,8 +33,8 @@ container Classifications: Using = "Units"
 			NULL values to be filled in the streets section, depend on nr of lanes
 		*/
 		}
-		unit<uint8> RegioRoadCategory : nrofrows = 4 {
-			attribute<string> Label : ['Not Applicable', 'Motorways and other main roads', 'Secondary roads', 'Local roads'];
+		unit<uint8> RegioRoadCategory : nrofrows = 5 {
+			attribute<string> Label : ['Not Applicable', 'Motorways and other main roads', 'Secondary roads', 'Local roads', 'Simulated connectors'];
 			attribute<string> name := AsItemName(label);
 			container V := for_each_nedv(name, String(ID(.))+'[..]', void, .);
 		}
