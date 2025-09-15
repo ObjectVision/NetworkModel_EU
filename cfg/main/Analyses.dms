@@ -45,6 +45,18 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 			unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
 			unit<ipoint> Base_grid    := = 'Geometries/Base_grid_'+ModelParameters/OrgGridsize;
 			
+			unit<spoint>       potRange            := range(spoint, point_yx(-int16(120), -int16(120)), point_yx(int16(120) + int16(1), int16(120) + int16(1)))
+			{
+				attribute<float32> 	distMatr          := Sqr(Float32(pointrow(ID(.)))) + Sqr(Float32(pointcol(ID(.))));
+				attribute<km>  		EuclideanDistMatr := Sqrt(distMatr)[km];
+				attribute<float32>	Weight			  := float32(EuclideanDistMatr <= 120[km] ? EuclideanDistMatr + 0[km]: 0[km]);
+				attribute<float32> 	inrange			  := float32(EuclideanDistMatr <= 120[km]);
+			}
+			
+			attribute<float32> dist_weighted_pop (Base_grid):= potential(float32(Base_grid/Select_criterium) * float32(Base_grid/Population), potRange/Weight);
+			attribute<float32> pop_in_dist (Base_grid):= potential(float32(Base_grid/Select_criterium) * float32(Base_grid/Population ), potRange/inrange);
+			attribute<km> 	   avg_dist_pop (Base_grid):= (dist_weighted_pop / pop_in_dist)[km];
+			
 			Container Tests_alpha
 			{
 				unit<uint64> a_default :=
@@ -197,7 +209,8 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 				
 			// attribute<min_f> Avg_Traveltime_To_PopulatedCells    (NetwerkSpec/OrgDomain) := MakeDefined(convert(Numerator_Di/D_i[s_f] / Denominator_Di/D_i, min_f), 0[min_f]);
 			attribute<s_f> Avg_Traveltime_To_PopulatedCells    (NetwerkSpec/OrgDomain) := Numerator_Di/D_i[s_f] / Denominator_Di/D_i;
-			// attribute<min_f> Avg_Traveltime_To_PopulatedCells_grid           (Base_grid) := Avg_Traveltime_To_PopulatedCells[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Avg_traveltime_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
+			attribute<min_f> Avg_Traveltime_To_PopulatedCells_grid           (Base_grid) := convert(Avg_Traveltime_To_PopulatedCells, min_f)[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Avg_traveltime_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
+			attribute<km_hr> Avg_Speed_To_PopulatedCells_grid           (Base_grid) := avg_dist_pop / Avg_Traveltime_To_PopulatedCells_grid[hr_f], StorageName = "='%LocalDataProjDir%/Output/Avg_speed_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
 			
 			// parameter<string>  Generator                                         := 'Ready', ExplicitSuppliers = "Avg_Traveltime_To_PopulatedCells_grid";
 		}
