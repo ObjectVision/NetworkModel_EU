@@ -24,6 +24,13 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 			',SourceData/RegionalUnits/NUTS3/CalcCentroids' //Dest
 			',NetworkSetup/Pop_Weighted_NUTS_centroids/NetwerkSpec'
 		')';
+	container Pop_Weighted_LAU_housing_census_centroids := =
+		'Basic_OD_matrix_T('
+			'SourceData/RegionalUnits/LAU_2021_Housing/CalcCentroids/CalcCentroids'   //Org
+			',SourceData/RegionalUnits/LAU_2021_Housing/CalcCentroids/CalcCentroids' //Dest
+			',NetworkSetup/Pop_Weighted_LAU_housing_census_centroids/NetwerkSpec' //Network
+			',60[min_f]'
+		')';
 	
 	#include<LUISA2_variables.dms>
 	#include<Settlement_Hierarchies.dms>
@@ -276,6 +283,7 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 		unit<uint32>      Org;
 		unit<uint32>      Dest;
 		container         NetwerkSpec;
+		parameter<min_f>  timelimit:= 999999999[min_f];
 		///
 
 		container Basic_OD_matrix
@@ -284,13 +292,14 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 			unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
 			
 			unit<uint64> Dijkstra_fullOD := //calculation a full origin-destination matrix
-				dijkstra_m64('bidirectional;startPoint(Node_rel);endPoint(Node_rel);od:impedance,OrgZone_rel,DstZone_rel'
+				dijkstra_m64('bidirectional;startPoint(Node_rel);endPoint(Node_rel);cut(OrgZone_max_imp);od:impedance,OrgZone_rel,DstZone_rel'
 					, FinalLinkSet/impedance
 					, FinalLinkSet/F1
 					, FinalLinkSet/F2
 					
 					, FinalNodeSet/OrgNode_rel
 					, FinalNodeSet/DestNode_rel
+					, convert(timelimit, s_f)
 				)
 			{
 				attribute<string> impedance_min := string(round(impedance / 60d)); //Convert the impedance from seconds to minutes, round it off, and store it as a string value.

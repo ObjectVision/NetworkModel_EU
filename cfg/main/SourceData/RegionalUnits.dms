@@ -97,6 +97,45 @@ container RegionalUnits : using = "geometries"
 		
 		
 	}
+	unit<uint32> LAU_2021_Housing: StorageName = "%NetworkModelDataDir%/Regions/LAU2021_housing_census.shp"
+	, StorageType = "gdal.vect"
+	, StorageReadOnly = "true"
+	{
+		attribute<LambertEA> Geometry (poly);
+		attribute<string> Label:= Gisco_id;
+		
+		unit<uint32> CalcCentroids := .
+		{
+			attribute<float64> W          := sum(Population/pop, Population/LAU_rel);
+			
+			attribute<float64> Weighted_X := sum(Population/x * Population/pop, Population/LAU_rel);
+			attribute<float64> Weighted_Y := sum(Population/y * Population/pop, Population/LAU_rel);
+			
+			attribute<float64> mean_X     := Weighted_X / W;
+			attribute<float64> mean_Y     := Weighted_y / W;
+			 
+			attribute<LambertEA> weighted_centroid0            := point(mean_X, mean_Y, LambertEA);
+			attribute<bool>      IsWeighted_centroid_in_nuts3  := IsDefined(point_in_polygon(weighted_centroid0, LAU_2021_Housing/geometry));
+			attribute<LambertEA> weighted_centroid             := IsWeighted_centroid_in_nuts3 ? weighted_centroid0 : centroid_or_mid(LAU_2021_Housing/geometry);
+			attribute<LambertEA> geometry                      := weighted_centroid;
+			
+			attribute<spoint>                              Base_grid_1km_spoint_rel ;
+			
+			unit<uint64> Population := SourceData/Locations/wPopulation
+			{
+				attribute<LAU_2021_Housing>   LAU_rel := point_in_polygon(geometry, LAU_2021_Housing/geometry);
+				attribute<float64> x         := pointcol(geometry);
+				attribute<float64> y         := pointrow(geometry);
+				attribute<float64> pop       := SourceData/Locations/wPopulation/Population[float64];
+			}
+			
+			unit<uint32> Export_NUTS3_Centroids := CalcCentroids
+			{
+				attribute<LambertEA> geometry     := CalcCentroids/geometry;
+				attribute<string>    NUTS_CODE    := CalcCentroids/NUTS_CODE;
+			}
+		}
+	}
 	
 	unit<uint32> Country_Split := split_partitioned_union_polygon(Country/geometry[BaseProjection_ip], id(Country))
 	{
