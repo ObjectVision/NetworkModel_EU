@@ -1,18 +1,16 @@
 container NetworkSetup : using = "units;Geography;SourceData;Classifications"
 {
-	unit<uint32> Populated_grid  := ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
-
 	// container Base_Analysis := =
 		// 'Call_CreateNetwork_T('
 			// 'Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
 			// ',Populated_grid' //Dest
 			// ',''PopRaster'''
 		// ')';
-		
+
 	container School_Analysis := =
 		'Call_CreateNetwork_T('
-			'Populated_grid'   //Org
-			',SourceData/Locations/Schools/within_StudyArea/uq_school_cells' //Dest
+			 'Analyses/Org'   //Org
+			',Analyses/Dest'  //Dest
 			',''Schools'''
 		')';
 
