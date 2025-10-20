@@ -7,7 +7,7 @@ container Geometries
 	unit<dpoint> WebMercator_base : SpatialReference = "EPSG:3857";
 	unit<dpoint> rdc_meter_base   : SpatialReference = "EPSG:28992";
 	unit<dpoint> BaseProjection    := LambertEA;
-	unit<ipoint> BaseProjection_ip := gridset(BaseProjection, point(1d, 1d), point(0d, 0d), ipoint);
+	unit<ipoint> BaseProjection_ip := gridset(BaseProjection, point_xy(1d, 1d), point_xy(0d, 0d), ipoint);
 	
 	unit<uint32> selection_polygon : nrofrows = 1, Using = "units"
 	{
@@ -45,10 +45,10 @@ container Geometries
 		
 		container Extent := ='Extent_'+ModelParameters/CountryFolder;
 		
-		parameter<BaseProjection> top_left     := point(Extent/x_min, Extent/y_max, BaseProjection); 
-		parameter<BaseProjection> top_right    := point(Extent/x_max, Extent/y_max, BaseProjection);
-		parameter<BaseProjection> bottom_left  := point(Extent/x_min, Extent/y_min, BaseProjection);
-		parameter<BaseProjection> bottom_right := point(Extent/x_max, Extent/y_min, BaseProjection);
+		parameter<BaseProjection> top_left     := point_xy(Extent/x_min, Extent/y_max, BaseProjection); 
+		parameter<BaseProjection> top_right    := point_xy(Extent/x_max, Extent/y_max, BaseProjection);
+		parameter<BaseProjection> bottom_left  := point_xy(Extent/x_min, Extent/y_min, BaseProjection);
+		parameter<BaseProjection> bottom_right := point_xy(Extent/x_max, Extent/y_min, BaseProjection);
 		
 		unit<uint32> point_set : nrofrows = 5
 		{
@@ -68,7 +68,7 @@ container Geometries
 		attribute<Base_grid_10km>     grid_10k_rel   := id(.)[Base_grid_10km];
 		attribute<Base_grid_50km>     grid_50k_rel   := id(.)[Base_grid_50km];
 		attribute<.>                  id             := id(.);
-		attribute<BaseProjection>     point          := id[BaseProjection] + point(0.5d * 1000d, -0.5d * 1000d, BaseProjection);
+		attribute<BaseProjection>     point          := id[BaseProjection] + point_xy(0.5d * 1000d, -0.5d * 1000d, BaseProjection);
 		attribute<bool>               IsEU           := IsDefined(point_in_polygon(point, SourceData/RegionalUnits/NUTS/geometry));
 		//attribute<bool>				  IsEFTA		 := 
 		attribute<SourceData/RegionalUnits/Country/subset> Country_rel:= point_in_polygon(point, SourceData/RegionalUnits/Country/subset/geometry);
@@ -79,7 +79,7 @@ container Geometries
 		attribute<Base_grid_1km_spoint> Base_grid_1km_spoint_rel     := point[Base_grid_1km_spoint];
 		attribute<bool>                 Select_criterium             := =ModelParameters/Use_Country_OD_selection ? 'isDefined(id) && IsCountry' : 'isDefined(id) && IsEU';
 		
-		unit<uint32>                    id_key           := range(uint32, 0, #.);
+		unit<uint32>                    id_key           := range(uint32, 0, uint32(#.));
 		attribute<uint32>               id_rel           := value(uint32(pointrow(id(.))) * uint32(nr_cols) + uint32(pointcol(id(.))), id_key);
 			
 		parameter<int32> nr_cols := int32(max(pointcol(id(.))) - min(pointcol(id(.))));
@@ -121,16 +121,16 @@ container Geometries
 		////
 		unit<dpoint> proto_base_grid  := gridset(
 												 BaseProjection                                                         // the baseunit in which the coordinates of the coordinate system are expressed;
-												,GetProjectionFactor(Base_grid_1km) * point(Gridsize[float64], Gridsize[float64], BaseProjection)     // the size of the grid cells in both X and Y directions, expressed in the base unit;
+												,GetProjectionFactor(Base_grid_1km) * point_xy(Gridsize[float64], Gridsize[float64], BaseProjection)     // the size of the grid cells in both X and Y directions, expressed in the base unit;
 												,GetProjectionOffSet(Base_grid_1km)                                     // the offset, the coordinates of the top left coordinate, expressed in the base unit;
 												,BaseProjection                                                         // the value type of the resulting domain unit (in earlier versions the value type was configured as string, this is not supported anymore)
 											);
 		
-		unit<ipoint> Base_grid  := range(proto_base_grid, point(0i,0i,ipoint), (upperbound(Base_grid_1km) + point(Gridsize[int32] - 1i, Gridsize[int32] -1i)) / point(Gridsize[int32],Gridsize[int32],ipoint) ), DialogData = "BaseProjection"
+		unit<ipoint> Base_grid  := range(proto_base_grid, point_xy(0i,0i,ipoint), (upperbound(Base_grid_1km) + point_xy(Gridsize[int32] - 1i, Gridsize[int32] -1i)) / point_xy(Gridsize[int32],Gridsize[int32],ipoint) ), DialogData = "BaseProjection"
 		{
 			attribute<int32>            rownr            := pointRow(id(.));
 			attribute<bool>             uneven           := mod(rownr, 2i) > 0i;
-			attribute<BaseProjection>   point            := mapping(Base_grid, BaseProjection) + point(0.5d * Gridsize[float64] * 1000d, -0.5d * Gridsize[float64] * 1000d, BaseProjection);
+			attribute<BaseProjection>   point            := mapping(Base_grid, BaseProjection) + point_xy(0.5d * Gridsize[float64] * 1000d, -0.5d * Gridsize[float64] * 1000d, BaseProjection);
 			attribute<Base_grid_1km_spoint> Base_grid_1km_spoint_rel     := point[Base_grid_1km_spoint];
 			attribute<bool>             IsEU             := IsDefined(point_in_polygon(point, SourceData/RegionalUnits/NUTS/geometry));
 			attribute<bool>             IsCountry        := IsDefined(point_in_polygon(point, SourceData/RegionalUnits/Country/subset/geometry));
@@ -138,7 +138,7 @@ container Geometries
 
 			attribute<bool>             Select_criterium := =ModelParameters/Use_Country_OD_selection ? 'IsCountry' : 'IsEU';
 			
-			unit<uint32>                id_key           := range(uint32, 0, #.);
+			unit<uint32>                id_key           := range(uint32, 0, uint32(#.));
 			attribute<uint32>           id_rel           := value(uint32(pointrow(id(.))) * uint32(nr_cols) + uint32(pointcol(id(.))), id_key);
 			
 			parameter<int32> nr_cols := int32(max(pointcol(id(.))) - min(pointcol(id(.))));

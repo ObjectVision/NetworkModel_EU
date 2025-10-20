@@ -9,7 +9,7 @@ container Infrastructure : using = "geometries;units"
 		,	StorageReadOnly = "True"
 		,	SyncMode        = "AllTables"
 		,	DialogType      = "Map"
-		,	DialogData      = "LambertEA"	
+		,	DialogData      = "LambertEA"
 		{
 			attribute<BaseProjection>              geometry    (arc);
 		}
@@ -32,7 +32,7 @@ container Infrastructure : using = "geometries;units"
 
 	container OSM
 	{	
-		parameter<string> file_date := '20211004';
+		parameter<string> file_date := ModelParameters/OSM_file_date;
 		parameter<string> dir       := '%NetworkModelDataDir%/Infrastructure/OSM/'+file_date;
 		parameter<string> date      := 'latest';
 		unit<uint32>      Regios    := ModelParameters/Advanced/OSM_Regios;
@@ -57,27 +57,14 @@ container Infrastructure : using = "geometries;units"
 			,	StorageType     = "gdal.vect"
 			,	StorageReadOnly = "True"
 			,	DialogType = "Map"
-			,	DialogData = "geometry_bp"	
+			,	DialogData = "geometry_bp"
 			{
 				attribute<wgs84_base>        geometry    (arc);
 				attribute<BaseProjection>    geometry_bp (arc)   := convert(geometry, BaseProjection);
 
 				attribute<string>            fclass;
 				attribute<int32>             maxspeed;
-				
-				// attribute<BaseProjection> reproject           (arc) := convert(points2sequence(dms_order_to_epsg_order/point_xy, dms_order_to_epsg_order/Sequence_rel), BaseProjection);
-				// attribute<BaseProjection> arcs_geodms_ordered (arc) := points2sequence(epsg_order_to_dms_order/point_yx, epsg_order_to_dms_order/Sequence_rel);
 			}
-			
-			// unit<uint32> dms_order_to_epsg_order := sequence2points(Read_Roads_shp/geometry)
-			// {
-				// attribute<wgs84_base> point_xy := point(PointRow(point), PointCol(point))[wgs84_base];
-			// }
-
-			// unit<uint32> epsg_order_to_dms_order := sequence2points(Read_Roads_shp/reproject)
-			// {
-				// attribute<BaseProjection> point_yx := point(PointRow(point), PointCol(point))[BaseProjection];
-			// }		
 			
 			unit<uint32> Make_Roads_fss := Read_Roads_shp
 			,   StorageName = "='%LocalDataDir%/NetworkModel_EU/RegionFiles/'+Regio+'/Roads_'+file_date+'.fss'"
@@ -94,7 +81,7 @@ container Infrastructure : using = "geometries;units"
 				attribute<BaseProjection>              geometry (arc);
 				attribute<string>                      fclass;
 				attribute<km_hr>                       maxspeed;
-				attribute<classifications/OSM/wegtype> wegtype                   := rlookup(fclass, classifications/OSM/wegtype/name);  
+				attribute<classifications/OSM/wegtype> wegtype                                                        := rlookup(fclass, classifications/OSM/wegtype/name);  
 				
 				attribute<km_hr>                       maxspeed_edit00                                                := maxspeed != 0[km_hr] && IsDefined(maxspeed) && maxspeed < 140[km_hr]  ? maxspeed : rjoin(wegtype, id(classifications/OSM/wegtype), rth_maxspeed_per_wegtype_Defined);
 				attribute<km_hr>                       maxspeed_edit0                                                 := wegtype == classifications/OSM/wegtype/v/motorway && maxspeed_edit00 < 80[km_hr] ? rjoin(wegtype, id(classifications/OSM/wegtype), rth_maxspeed_per_wegtype_Defined) : maxspeed_edit00;
@@ -133,25 +120,4 @@ container Infrastructure : using = "geometries;units"
 			attribute<classifications/OSM/wegtype>  wegtype            := ='union_data(., '+AsList('Merge_Roads_perCountry/'+Regios/Countries/name+'/Merge_CountryRegion_Roads/wegtype', ',')+')';
 		}
 	}
-		
-	
-	
-	
-	
- 	// unit<uint32> Infra_Unchecked := Prepare_Roads/Merge_Countries
- 	// unit<uint32> Infra_Unchecked := Prepare_Railroads/Read_Railroads_fss
-/*  	unit<uint32> Infra_Unchecked := TomTom/Streets_fss
-	{
-		// attribute<BaseProjection>      geometry (arc) := Prepare_Roads/Merge_Countries/geometry;
-		// attribute<km_hr>               MaxSpeed       := Prepare_Roads/Merge_Countries/MaxSpeed;
-		// attribute<BaseProjection>      geometry (arc) := Prepare_Railroads/Read_Railroads_fss/geometry;
-		// attribute<km_hr>               MaxSpeed       := Prepare_Railroads/Read_Railroads_fss/MaxSpeed;
-		attribute<BaseProjection>      geometry (arc) := TomTom/Streets_fss/geometry;
-		attribute<km_hr>               MaxSpeed       := const(ModelParameters/Advanced/CarDefaultSpeed,.);
-		parameter<int16>               PenWidth       := 3s, DialogType = "PenWidth";
-		
-		container Connectiveness := Templates/Check_Connectiveness_T(Infra_Unchecked, nodeset, f1, f2);
-	}
- */	
-	// unit<uint32> Infra := TomTom/Streets_fss;
 }
