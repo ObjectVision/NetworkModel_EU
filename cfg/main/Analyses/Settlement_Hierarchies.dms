@@ -1,4 +1,4 @@
-Container Settlement_Hierarchies: using = "Geometries;SourceData;" {
+Container Settlement_Hierarchies: using = "geography;SourceData;" {
 	
 	unit<uint32> Centres_Thresholds: nrofrows = 25 
 	{
@@ -46,7 +46,7 @@ Container Settlement_Hierarchies: using = "Geometries;SourceData;" {
 		attribute<string>         ZoneId:= const('Baltics',.,string);
 	}
 	
-	unit<ipoint> pop21_grid := Geometries/Base_grid_1km 
+	unit<ipoint> pop21_grid := geography/Base_grid_1km 
 	{
 		attribute<Settlements_v4> SettId     := poly2grid(Settlements_v4/Geometry, .);
 		attribute<Settlements_v5> SettId_v5  := poly2grid(Settlements_v5/Geometry, .);

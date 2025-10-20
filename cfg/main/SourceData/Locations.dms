@@ -1,0 +1,100 @@
+container Locations : using = "geography;units"
+{
+	unit<ipoint> Population_2011_Ardeco
+	: StorageName = "%NetworkModelDataDir%/Population/pop_2011_1km_ARDECO.tif"
+	, StorageType = "gdal.grid"
+	, StorageReadOnly = "True"
+	, DialogData = "BaseProjection"
+	, DialogType = "map"
+	, Descr = "JRC GeoStat 2011 1000m grid: Ardeco scaled to national totals"
+	{
+		attribute<uint16> GridData;
+		attribute<uint16> ReadData (Base_Grid_1km);
+	}
+	unit<ipoint> Population_2021_Ardeco
+	: StorageName = "%NetworkModelDataDir%/Population/pop_2021_1km_ARDECO.tif"
+	, StorageType = "gdal.grid"
+	, StorageReadOnly = "True"
+	, DialogData = "BaseProjection"
+	, DialogType = "map"
+	, Descr = "JRC GeoStat 2021 1000m grid (v2): Ardeco scaled to national totals"
+	{
+		attribute<uint32>  GridData;
+		attribute<uint32>  ReadData       (Base_Grid_1km);
+		// attribute<float64> LocalPotential (Base_Grid_1km)  := ='potential(ReadData[float64], Geography/Distmatrices/Impl/pot5000m/potRange/rev_dist_scaled)';
+	}
+
+	unit<ipoint> Population := = 'Population_'+string(ModelParameters/PopVersie); 
+	
+	unit<uint64> wPopulation := select_with_org_rel(Population/ReadData > 0[uint32])
+	{
+		attribute<BaseProjection> geometry         := org_rel[BaseProjection];
+		attribute<uint32>         Population       := collect_by_cond(., Locations/Population/ReadData > 0[uint32], Locations/Population/ReadData);
+		attribute<float64>        LocalPopulation  := collect_by_cond(., Locations/Population/ReadData > 0[uint32], Locations/Population/LocalPopulation);
+	}
+	
+	unit<ipoint> Population_2021_Male
+	: StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-M_2021_V2.tiff"
+	, StorageType = "gdal.grid"
+	, StorageReadOnly = "True"
+	, DialogData = "BaseProjection"
+	, DialogType = "map"
+	, Descr = "JRC GeoStat 2021 1000m grid (v2): Male Population"
+	{
+		attribute<uint16> GridData;
+		attribute<uint16> ReadData (Base_Grid_1km);
+	}
+
+	unit<ipoint> Population_2021_Female
+	: StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-F_2021_V2.tiff"
+	, StorageType = "gdal.grid"
+	, StorageReadOnly = "True"
+	, DialogData = "BaseProjection"
+	, DialogType = "map"
+	, Descr = "JRC GeoStat 2021 1000m grid (v2): Female Population"
+	{
+		attribute<uint16> GridData;
+		attribute<uint16> ReadData (Base_Grid_1km);
+	}
+
+	unit<ipoint> Population_2021_0_15_year
+	: StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-Y_LT15_2021_V2.tiff"
+	, StorageType = "gdal.grid"
+	, StorageReadOnly = "True"
+	, DialogData = "BaseProjection"
+	, DialogType = "map"
+	, Descr = "JRC GeoStat 2021 1000m grid (v2): Population under 15"
+	{
+		attribute<uint16> GridData;
+		attribute<uint16> ReadData (Base_Grid_1km);
+	}
+	
+	unit<uint32> Schools 
+	: StorageName = "%NetworkModelDataDir%/Locations/schools_eu.csv"
+	, StorageType = "gdal.vect"
+	, StorageReadOnly = "True"
+	{
+		attribute<wgs84_base>     geometry_wgs := point_xy(float64(lon), float64(lat), wgs84_base);
+		attribute<BaseProjection> geometry     := geometry_wgs[BaseProjection];
+		
+		attribute<bool>           IsStudyArea  := IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry));
+		
+		unit<uint32> within_StudyArea := select_with_org_rel(IsStudyArea)
+		{
+			attribute<BaseProjection>       geometry                     := org_rel -> geometry;
+			attribute<Base_grid>            Base_grid_rel                := geometry[Base_grid];
+			attribute<float32>              LocalPopulation              := rjoin(Base_grid_rel, Analyses/Populated_grid/Base_grid_rel, Analyses/Populated_grid/LocalPopulation);
+			attribute<uq_school_cells>      uq_school_cells_rel          := rlookup(Base_grid_rel, uq_school_cells/values);
+			
+			unit<uint32> uq_school_cells := unique(Base_grid_rel)
+			{
+				attribute<BaseProjection> geometry               := ='rjoin(values, Base_grid/points/Base_grid_rel, Base_grid/points/geometry)';
+				attribute<float32>        count_schools_per_cell := float32(pcount(uq_school_cells_rel));
+				attribute<float32>        LocalPopulation        := ../LocalPopulation[invert(uq_school_cells_rel)];
+			}
+			
+			unit<ipoint> Base_grid := ='/Geography/Base_grid_'+ModelParameters/OrgGridsize;
+		}
+	}
+	
+}

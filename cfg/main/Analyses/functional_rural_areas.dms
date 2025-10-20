@@ -1,4 +1,4 @@
-container Functional_Rural_Areas: using = "Units;Geometries;SourceData/RegionalUnits;" {
+container Functional_Rural_Areas: using = "Units;geography;SourceData/RegionalUnits;" {
 	
 	//parameter<float32> 	matrix_max_time:= max(variants/max_time_h);
 	parameter<s_f> 		matrix_max_time:= convert(max(variants/max_time_h), s_f);
@@ -68,8 +68,8 @@ container Functional_Rural_Areas: using = "Units;Geometries;SourceData/RegionalU
 			attribute<LambertEA> centroid:= centroid_or_mid(Geometry);
 			attribute<EUplus>	 EU_plus_rel:= point_in_polygon(centroid, EUplus/Geometry);
 		}
-		unit<ipoint> grid:= Geometries/Base_grid_1km {
-		//unit<spoint> grid:= Geometries/Base_grid_1km_spoint { // test to see if errors yielded in process with Continental_EU are not a consequence of grid definition
+		unit<ipoint> grid:= geography/Base_grid_1km {
+		//unit<spoint> grid:= geography/Base_grid_1km_spoint { // test to see if errors yielded in process with Continental_EU are not a consequence of grid definition
 			attribute<read_def> results_rel:= poly2grid(read_def/Geometry, .);	
 			attribute<EUplus> 	country_rel:= poly2grid(EUplus/Geometry, .);	
 			attribute<bool>		domestic:= read_def/EU_plus_rel[results_rel] = country_rel;

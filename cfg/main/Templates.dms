@@ -1,4 +1,4 @@
-container Templates: Using = "Units;Classifications;geometries;Classifications/TomTom"
+container Templates: Using = "Units;Classifications;geography;Classifications/TomTom"
 {
 	Template CreateNetwork_T
 	{

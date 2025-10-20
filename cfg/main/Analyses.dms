@@ -1,22 +1,119 @@
-container Analyses: Using = "Units;Classifications;geometries;sourcedata" 
+container Analyses: Using = "Units;Classifications;geography;sourcedata" 
 {  
-	unit<uint32> Dest_populated_grid := ='select_with_attr_by_cond(Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points, Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
-	//unit<uint32> Dest_populated_grid := ='collect_by_cond(Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points, Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
+	unit<uint32> Populated_grid := ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
 
-	container Base_Analysis_Traveltime := =
-		'Avg_Traveltime_To_PopulatedCells_T('
-			'Geometries/Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
-			',Dest_populated_grid' //Dest
-			',NetworkSetup/Base_Analysis/NetwerkSpec'
-		')';
+	// container Base_Analysis_Traveltime := =
+		// 'Avg_Traveltime_To_PopulatedCells_T('
+			// 'Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
+			// ',Populated_grid' //Dest
+			// ',NetworkSetup/Base_Analysis/NetwerkSpec'
+		// ')';
 		
-	container Base_Analysis_Distance := =
-		'Avg_Distance_To_PopulatedCells_T('
-			'Geometries/Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
-			',Dest_populated_grid' //Dest
-			',NetworkSetup/Base_Analysis/NetwerkSpec'
-		')';
+	// container Base_Analysis_Distance := =
+		// 'Avg_Distance_To_PopulatedCells_T('
+			// 'Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
+			// ',Populated_grid' //Dest
+			// ',NetworkSetup/Base_Analysis/NetwerkSpec'
+		// ')';
 	
+	unit<uint32> Org          := Populated_grid;
+	unit<uint32> Dest         := /SourceData/Locations/Schools/within_StudyArea/uq_school_cells;
+	container    NetwerkSpec  := /NetworkSetup/School_Analysis/NetwerkSpec;
+	unit<uint32> FinalLinkSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
+	unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
+	
+	unit<uint64> AllocateKidsToSchools :=
+		impedance_matrix_od64(
+			'bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);limit(OrgZone_max_mass,DstZone_mass);alternative(link_imp):alt_imp;od:OrgZone_rel,DstZone_rel,impedance'
+			, FinalLinkSet/LengthKM
+			, FinalLinkSet/F1
+			, FinalLinkSet/F2
+			
+			, !FinalLinkSet/IsOneDirection //link flag
+			, FinalNodeSet/OrgNode_rel
+			, FinalNodeSet/DestNode_rel
+			, 5d , 1d                      //limit (org max mass, dest mss)
+			, FinalLinkSet/Impedance       //alt imp
+		)
+	{
+		unit<uint64> OD := .;
+		
+		parameter<float32> MinDist                  := 0.001f,       Descr = "Minimum distance to be used between i and j, to avoid zero distances.";
+		parameter<s_f>     MinTime                  := 1[s_f],       Descr = "Minimum traveltime to be used between i and j, to avoid zero time.";
+		parameter<float32> α                        := 1f,           Descr = "Scale factor in distance-decay function f(c)=Alpha*c^Beta.";
+		parameter<float32> β                        := -2f,          Descr = "Distance-decay exponent (<0) controlling sensitivity to distance.";
+		parameter<float32> PotRadiusKm              := 2.5f,         Descr = "Radius for local potential (km), used for finding kids around schools. Hack because we do not know the actual capacity per school"; 
+		parameter<float32> γ                        := 1.0f,         Descr = "Capacity sensitivity, strength of feedback in destination reweighting: 0 -> round 2 = round 1; 0.5-1.0 -> mild correction towards capacity; 2-3 -> strong aggresive correction; >4 -> instabile possible oscillating";
+		parameter<float32> W_floor                  := 0.25f,        Descr = "Lower bound for destination weight to prevent collapse.";
+		parameter<float32> W_ceiling                := 4.0f,         Descr = "Upper bound for destination weight to limit over-attraction.";
+		parameter<float32> UK_k                     := exp(-1.138f), Descr = "Scale term from UK school-size power law.";
+		parameter<float32> UK_theta                 := 0.233f,       Descr = "Exponent from UK school-size power law (sublinear scaling).";
+		parameter<uint8>   NumberOfIterations       := 5b,           Descr = "Number of iterations for balancing assignment."
+		
+		attribute<float32> SchoolCount_j     (Dest) := Dest/count_schools_per_cell                                        , Descr = "Number of school facilities on destination cell j";
+		attribute<float32> Pop_i              (Org) := float32(Org/Population)                                            , Descr = "Eligible student population in origin cell i";
+		attribute<float32> LocalPotential_j  (Dest) := sum(Pop_i[OrgZone_rel] * float32(d_ij <= PotRadiusKm), DstZone_rel), Descr = "Eligible student population within PotRadiusKm of destination j.";
+		attribute<float32> CapTarget_j       (Dest) := UK_k * pow(max_elem(LocalPotential_j, 1f), UK_theta)               , Descr = "Exogenous expected capacity per facility at destination j";
+	
+		attribute<float32> d_ij                     := max_elem(value(impedance, float32), MinDist)                       , Descr = "Distance between i and j"; 
+		attribute<s_f>     t_ij                     := max_elem(alt_imp, MinTime)                                         , Descr = "Traveltime between i and j based on shortest travel path";
+		attribute<float32> ClosestDist_i      (Org) := min(d_ij, OrgZone_rel)                                             , Descr = "Distance from origin i to its nearest school (min over j)";
+		attribute<float32> c_ij                     := max_elem(d_ij - ClosestDist_i[OrgZone_rel], MinDist)               , Descr = "'Extra' distance beyond the nearest option"; 
+		attribute<float32> Deterrence_ij            := α * c_ij^β                                                         , Descr = "Distance-decay weight based on surplus distance.";
+		
+		//Inital round 
+		attribute<float32> DestWeight_j_init (Dest) := const(1f, Dest)                                                    , Descr = "Initial destination weight";
+		attribute<float32> A_i_r0             (Org) := 1f / sum(DestWeight_j_init[DstZone_rel] * Deterrence_ij, OrgZone_rel), Descr = "Round-1 origin balancing factor A_i.";
+		attribute<float32> F_ij_r0                  := Pop_i[OrgZone_rel] * A_i_r0[OrgZone_rel] * DestWeight_j_init[DstZone_rel] * Deterrence_ij, Descr = "Round-1 flow from origin i to destination j.";
+		attribute<float32> Assignment_j_r0   (Dest) := sum(F_ij_r0, DstZone_rel)                                          , Descr = "Round-1 assignment to destination j.";
+		attribute<float32> MeanSize_j_r0     (Dest) := Assignment_j_r0 / SchoolCount_j                                    , Descr = "Round-1 realized mean size per facility at j.";
+
+		// Final outputs
+		attribute<float32> FinalSize_j       (Dest) := Iters/LastIter/MeanSize_j                                          , Descr = "Final mean size per facility.";
+		attribute<float32> F_ij                     := Iters/LastIter/F_ij                                                , Descr = "Final OD allocation";
+		attribute<float32> CatchmentShare_ij        := F_ij / max_elem(Pop_i[OrgZone_rel], 1f)                            , Descr = "Final share of origin i to destination j.";
+	
+	
+		container Iters :=
+			for_each_ne(
+				Iter/name
+				,'Iter_T('+quote(Iter/PrevName)+')'
+			), Descr = ""
+		{
+			container Iter_0
+			{
+				attribute<float32> MeanSize_j (Dest) := OD/MeanSize_j_r0;
+			}
+			container LastIter := =last(Iter/name);
+		}
+		
+		unit<UInt8> Iter := cat_range(1b, NumberOfIterations + 1b)
+		{
+			attribute<String> name        := 'Iter_'+string(id(.));
+			attribute<Bool>   IsFirstIter := id(.) == 1b;
+			attribute<String> PrevName    := IsFirstIter ? 'Iter_0' : name[id(.) - min_elem( id(.), 1b)];
+			attribute<String> Label       := name;
+		}
+
+		Template Iter_T
+		{
+			parameter<string> PrevIterName;
+			container PrevIter := =PrevIterName;
+			///
+			attribute<float32> MeanSize_j_Prev   (Dest) := PrevIter/MeanSize_j;
+			
+			attribute<float32> CapRatio_j        (Dest) := MeanSize_j_Prev / max_elem(CapTarget_j, 1f)                                          , Descr = "Load relative to target capacity (previous iter).";
+			attribute<float32> DestWeight_j_adj  (Dest) := min_elem(max_elem(pow(max_elem(CapRatio_j, 1e-3f), -γ), W_floor), W_ceiling)         , Descr = "Adjusted destination weight (oversubscribed -> lower weight).";
+			attribute<float32> A_i                (Org) := 1f / sum(DestWeight_j_adj[DstZone_rel] * Deterrence_ij, OrgZone_rel)                 , Descr = "Origin balancing factor.";
+			attribute<float32> F_ij                (OD) := Pop_i[OrgZone_rel] * A_i[OrgZone_rel] * DestWeight_j_adj[DstZone_rel] * Deterrence_ij, Descr = "Rebalanced flow.";
+			attribute<float32> Assignment_j        (Dest) := sum(F_ij, DstZone_rel)                                                             , Descr = "Assignment to destination j";
+			attribute<float32> MeanSize_j        (Dest) := Assignment_j / float32(SchoolCount_j)                                                , Descr = "Mean size per facility";
+		}
+	}
+
+	
+	
+
 
 	Template Avg_Traveltime_To_PopulatedCells_T
 	{
@@ -24,14 +121,14 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 		unit<uint32>      Dest;
 		container         NetwerkSpec;
 		///
-		parameter<uint32> maxSqrDist   := 120 * 120; //km blokken
-		parameter<s_f> MaxTravelTime_sec   := convert(ModelParameters/MaxTravelTime, s_f);
+		parameter<uint32> maxSqrDist          := 120 * 120; //km blokken
+		parameter<s_f>    MaxTravelTime_sec   := convert(ModelParameters/MaxTravelTime, s_f);
 		
 		container Indicator
 		{
 			unit<uint32> FinalLinkSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
 			unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
-			unit<ipoint> Base_grid    := = 'Geometries/Base_grid_'+ModelParameters/OrgGridsize;
+			unit<ipoint> Base_grid    := = 'Base_grid_'+ModelParameters/OrgGridsize;
 			
 			unit<spoint>       potRange            := range(spoint, point_yx(-int16(120), -int16(120)), point_yx(int16(120) + int16(1), int16(120) + int16(1)))
 			{
@@ -161,7 +258,6 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 				attribute<s_f> Avg_Traveltime_To_PopulatedCells_new    (NetwerkSpec/OrgDomain) := OrgZone_SumImp;
 			}	
 				
-				
 			unit<uint64> Numerator_Di :=
 				impedance_matrix_od64('bidirectional(link_flag);startPoint(Node_rel,OrgZone_loc);endPoint(Node_rel,DstZone_loc);cut(OrgZone_max_imp);euclid(maxSqrDist);interaction(v_i,w_j,dist_decay):D_i'
 					, FinalLinkSet/impedance
@@ -188,19 +284,15 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 					, FinalNodeSet/OrgNode_rel, NetwerkSpec/OrgLocations_spoint //startPoint(Node_rel,OrgZone_loc)
 					, FinalNodeSet/DestNode_rel, NetwerkSpec/destLocations_spoint //endPoint(Node_rel,DstZone_loc)
 					, MaxTravelTime_sec //cut impedance
-					// , convert(ModelParameters/MaxTravelTime, s_f) //cut impedance
 					, maxSqrDist
 					, 1.0 // v_i
 					, NetwerkSpec/DestDomain/Population[float64] // w_j
 					, 0.0 // dist_deacy
 				), KeepData = "True";
 				
-			// attribute<min_f> Avg_Traveltime_To_PopulatedCells    (NetwerkSpec/OrgDomain) := MakeDefined(convert(Numerator_Di/D_i[s_f] / Denominator_Di/D_i, min_f), 0[min_f]);
 			attribute<s_f> Avg_Traveltime_To_PopulatedCells      (NetwerkSpec/OrgDomain) := Numerator_Di/D_i[s_f] / Denominator_Di/D_i;
 			attribute<min_f> Avg_Traveltime_To_PopulatedCells_grid           (Base_grid) := convert(Avg_Traveltime_To_PopulatedCells, min_f)[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Avg_traveltime_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'", StorageType = "gdalwrite.grid";
 			attribute<km_hr> Avg_Speed_To_PopulatedCells_grid                (Base_grid) := avg_dist_pop / Avg_Traveltime_To_PopulatedCells_grid[hr_f], StorageName = "='%LocalDataProjDir%/Output/Avg_speed_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'", StorageType = "gdalwrite.grid";
-			
-			// parameter<string>  Generator                                         := 'Ready', ExplicitSuppliers = "Avg_Traveltime_To_PopulatedCells_grid";
 		}
 	}
 	 
@@ -216,7 +308,7 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 		{
 			unit<uint32> FinalLinkSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
 			unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
-			unit<ipoint> Base_grid    := = 'Geometries/Base_grid_'+ModelParameters/OrgGridsize;
+			unit<ipoint> Base_grid    := = 'geography/Base_grid_'+ModelParameters/OrgGridsize;
 			
 			unit<uint64> Numerator_Di :=
 				impedance_matrix_od64('bidirectional(link_flag);startPoint(Node_rel,OrgZone_loc);endPoint(Node_rel,DstZone_loc);cut(OrgZone_max_imp);euclid(maxSqrDist);alternative(link_imp);interaction(v_i,w_j,dist_decay):D_i'

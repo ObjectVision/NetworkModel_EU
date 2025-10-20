@@ -1,14 +1,21 @@
-container NetworkSetup : using = "units;geometries;SourceData;Classifications"
+container NetworkSetup : using = "units;Geography;SourceData;Classifications"
 {
-	unit<uint32> Dest_populated_grid := ='select_with_attr_by_cond(Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points, Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
+	unit<uint32> Populated_grid  := ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
 
-	container Base_Analysis := =
+	// container Base_Analysis := =
+		// 'Call_CreateNetwork_T('
+			// 'Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
+			// ',Populated_grid' //Dest
+			// ',''PopRaster'''
+		// ')';
+		
+	container School_Analysis := =
 		'Call_CreateNetwork_T('
-			'Geometries/Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
-			',Dest_populated_grid' //Dest
-			',''PopRaster'''
+			'Populated_grid'   //Org
+			',SourceData/Locations/Schools/within_StudyArea/uq_school_cells' //Dest
+			',''Schools'''
 		')';
-	
+
 	Template Call_CreateNetwork_T
 	{
 		unit<uint32>      Org;
@@ -26,7 +33,7 @@ container NetworkSetup : using = "units;geometries;SourceData;Classifications"
 		
 		
 		parameter<string> Generator_Network1         := 'Ready', ExplicitSuppliers = "NetwerkSpec/CreateInitialWorkingNetwork/LinkSet_Write";
-		parameter<string> Generator_Network2         := 'Ready', ExplicitSuppliers = "NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet_Write;NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet_Write;/NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/ChangesTracker_Write;";
+		parameter<string> Generator_Network2         := 'Ready', ExplicitSuppliers = "NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet_Write;NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet_Write;NetwerkSpec/CreateMoreEfficientNetwork/ChangesTracker_Write;";
 		parameter<string> Export_Cleaned_RoadNetwork := 'Ready', explicitsuppliers = "NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkset/store/store";
 	}
 }

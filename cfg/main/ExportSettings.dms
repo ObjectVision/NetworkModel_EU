@@ -1,0 +1,72 @@
+container ExportSettings
+{
+	container GitImpl
+	{
+		parameter<String> PD                := expand(., '%projDir%');
+		parameter<String> DOS_PD            := replace(PD, '/', '\\');
+
+		parameter<String> SwitchDriveCmd    := substr(DOS_PD, 0, 2);
+		parameter<String> CdCmd             := 'cd '+DOS_PD;
+		parameter<String> DescrCmd          := 'git describe --all > git.txt'; //hoofdletter gevoelig, alles moet lowercase zijn!
+		parameter<String> StatusCmd         := 'git status >> git.txt';
+		parameter<String> HashCmd           := 'git rev-parse HEAD >> git.txt';
+		parameter<String> RevisionInfoCmds  := SwitchDriveCmd + ' && ' + CdCmd + ' && ' + DescrCmd + ' && ' + StatusCmd + ' && ' + HashCmd;
+		parameter<UInt32> WriterCode        := exec_ec(Expand(., '%env:ComSpec%'), '/c ' + RevisionInfoCmds, PD);
+
+		parameter<String> RevisionInfo_temp : StorageName = "%ProjDir%/git.txt", StorageType = "str";
+		parameter<String> ErrorMsg          := 'Error '+string(GitImpl/WriterCode)+' while producing %ProjDir%/git.txt';
+	}
+
+	container MetaInfo
+	{
+		parameter<String> Filename : ='%storageBasename%.xml';
+		parameter<String> FileType : ='xml'; // default is 'ini' but ini files cannot be used well to store multi-line properties such as error messages of inproperly configured properties
+		
+		container Contents
+		{
+			container Software
+			{
+				parameter<String> GeoDMSVersion := string(GeoDmsMajorVersionNumber()) + '.' +  string(GeoDmsMinorVersionNumber())  +'.'  +  string(GeoDmsPatchNumber());
+			}
+			
+			container Config
+			{
+				parameter<String> FullName := '=PropValue(this, '+Quote('FullName')+')';
+				parameter<String> Expr     := '=PropValue(this, '+Quote('Expr'    )+')';
+				parameter<String> RunFile  := expand(.,'%configDir%')+'.dms';
+			}
+			
+			container Environment
+			{
+				parameter<String> Processor    := expand(., '%env:PROCESSOR_idENTIFIER%');
+				parameter<String> User         := expand(., '%env:USERNAME%');
+				parameter<String> Computername := expand(., '%env:COMPUTERNAME%');
+			}
+			
+			container Git
+			{
+				parameter<String> RevisionInfo  :=  = (GitImpl/WriterCode==0) ? 'GitImpl/RevisionInfo_temp' : 'GitImpl/ErrorMsg';
+			}
+
+			container Parameters
+			{
+				parameter<string>   OrgGridsize                    := ModelParameters/OrgGridsize;
+				parameter<string>   DestGridsize                   := ModelParameters/DestGridsize;
+				parameter<string>   MaxTravelTime                  := string(ModelParameters/MaxTravelTime);
+				parameter<string>   UseStreetTypeSubset            := string(ModelParameters/UseStreetTypeSubset);
+				parameter<string>   Street_OD_ConnectabletSelectie := ModelParameters/Street_OD_ConnectabletSelectie;
+				parameter<string>   StreetTypeSubsetSelectie       := ModelParameters/StreetTypeSubsetSelectie;
+				parameter<string>   NumberOfItersForNetworkCleanUp := string(ModelParameters/NumberOfItersForNetworkCleanUp);
+				parameter<string>   Use_Country_OD_selection       := string(ModelParameters/Use_Country_OD_selection);
+				parameter<string>   Roads_path                     := ModelParameters/Roads_path;
+				parameter<string>   CountryFolder                  := ModelParameters/CountryFolder;
+				parameter<string>   MaxCarSpeed                    := string(ModelParameters/Advanced/MaxCarSpeed);
+				parameter<string>   MaxCarSpeed_limit              := string(ModelParameters/Advanced/MaxCarSpeed_limit);
+				parameter<string>   CarDefaultSpeed                := string(ModelParameters/Advanced/CarDefaultSpeed);
+				parameter<string>   CarDefaultSpeed_low            := string(ModelParameters/Advanced/CarDefaultSpeed_low);
+				parameter<string>   ConnectorLinkSpeed             := string(ModelParameters/Advanced/ConnectorLinkSpeed);
+				parameter<string>   Ferry_Speed                    := string(ModelParameters/Advanced/Ferry_Speed);
+			}
+		}
+	}
+}

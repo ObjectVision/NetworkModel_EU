@@ -1,4 +1,4 @@
-container LUISA2_variables: Using = "Geometries;SourceData;" {
+container LUISA2_variables: Using = "geography;SourceData;" {
 	
 	parameter<s_f>     MaxTraveltime := (60[min_f])[s_f];
 	parameter<km>      Self_Distance := 0.23[km]; //de theoretische gemiddelde 0.23 km die je moet reizen om een random bestemming binnen je eigen 1km grid cel te bereiken. Volgens Lewis.

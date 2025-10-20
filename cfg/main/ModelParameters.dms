@@ -1,10 +1,10 @@
 ﻿container ModelParameters : using = "units"
 {   
-	parameter<uint32>   Org_Gridsize                   := 1; // 1 5 10 50
-	parameter<uint32>   Dest_Gridsize                  := 1; // 1 5 10 50
+	parameter<uint32>   Org_Gridsize                   := 10; // 1 5 10 50
+	parameter<uint32>   Dest_Gridsize                  := 10; // 1 5 10 50
 	parameter<string>   OrgGridsize                    := string(Org_Gridsize)+'km'; // '1km' 5km 10km 50km
 	parameter<string>   DestGridsize                   := string(Dest_Gridsize)+'km'; // '1km'5km 10km 50km
-	parameter<min_f>    MaxTravelTime                  := 240[min_f];
+	parameter<min_f>    MaxTravelTime                  := 120[min_f];
 	parameter<bool>     UseStreetTypeSubset            := TRUE; // TRUE FALSE
 	parameter<string>   Street_OD_ConnectabletSelectie := 'FuncRoadClass/V/Motorway_Freeway_or_Other_Major_Road';
 	parameter<string>   StreetTypeSubsetSelectie       := 'FuncRoadClass/V/Local_Road_of_Minor_Importance';    //7 FuncRoadClass/V/Local_Road   8 FuncRoadClass/V/Secondary_Road Local_Road_of_Minor_Importance  Local_Road_of_High_Importance 
@@ -75,11 +75,3 @@
 		}
 	}
 }
-
-// FORward
-// F 602 T 924
-// F 924 T 603
-
-// backward
-// F275 T912
-// F912 T 450

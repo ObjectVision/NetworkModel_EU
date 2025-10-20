@@ -1,4 +1,4 @@
-Container TomTom : Using = "Units;geometries;classifications/tomtom"
+Container TomTom : Using = "Units;geography;classifications/tomtom"
 {
 	container Generates
 	{
@@ -50,7 +50,7 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 			attribute<BaseProjection>     Geometry;
 			attribute<uint64>             JNCTID;
 			
-			attribute<bool>               IsWithinStudyArea := IsDefined(point_in_polygon(geometry, Geometries/selection_polygon/result/geometry));
+			attribute<bool>               IsWithinStudyArea := IsDefined(point_in_polygon(geometry, geography/selection_polygon/result/geometry));
 		}
 	
 		container Make_Streets

@@ -1,4 +1,4 @@
-container RegionalUnits : using = "geometries"
+container RegionalUnits : using = "geography"
 { 
 	unit<uint32> NUTS 
 	: StorageName = "%NetworkModelDataDir%/Regions/Nuts0.shp"
@@ -63,7 +63,25 @@ container RegionalUnits : using = "geometries"
 		attribute<bool>      IsEFTA          := EFTA_STAT == 'T'; 
 		attribute<bool>      IsCC            := CC_STAT == 'T'; 
 		attribute<bool>      IsTerritory       := strcount(SVRG_UN, 'Territory') > 0; 
-		unit<uint32> Subset := select_with_attr_by_cond(.,(ModelParameters/Use_Country_OD_selection ? name_engl == /ModelParameters/OD_SelectionCountry : IsEu || IsEFTA));
+		unit<uint32> Subset := select_with_attr_by_cond(.,(ModelParameters/Use_Country_OD_selection ? name_engl == /ModelParameters/OD_SelectionCountry : IsEu || IsEFTA))
+		{
+			attribute<LambertEA>    geometry_BB (poly, BoundingBox) := points2sequence(BoundingBox/point_set/point, BoundingBox/point_set/Sequence_rel, BoundingBox/point_set/ordinal);
+			
+			unit<UInt32> BoundingBox : NrOfRows = 1
+			{
+				parameter<LambertEA> bottom_left  := first(lower_bound(geometry));
+				parameter<LambertEA> top_right    := first(upper_bound(geometry));
+				parameter<LambertEA> top_left     := point_xy(Get_X(bottom_left),Get_Y(top_right), LambertEA);
+				parameter<LambertEA> bottom_right := point_xy(Get_X(top_right),Get_Y(bottom_left), LambertEA);
+				
+				unit<UInt32> point_set    : NrOfRows = 5
+				{
+					attribute<LambertEA> point        := union_data(., top_left, top_right, bottom_right, bottom_left, top_left);
+					attribute<..>        Sequence_rel := const(0, .);
+					attribute<.>         ordinal      := id(.);
+				}
+			}
+		}
 	}
 	
 	unit<uint32> Country_Split := geos_split_union_polygon(Country/geometry, id(Country))
@@ -73,7 +91,7 @@ container RegionalUnits : using = "geometries"
 		attribute<bool>      IsEU                := Country/IsEU[part_rel];
 		attribute<bool>      IsEFTA              := Country/IsEFTA[part_rel];
 		attribute<bool>      IsTerritory         := Country/IsTerritory[part_rel];
-		attribute<bool>      IsWithinStudyArea   := IsDefined(point_in_polygon(centroid, Geometries/selection_polygon/geometry));
+		attribute<bool>      IsWithinStudyArea   := IsDefined(point_in_polygon(centroid, geography/selection_polygon/geometry));
 		attribute<string>    name                := Country/name_engl[part_rel];
 	}
 

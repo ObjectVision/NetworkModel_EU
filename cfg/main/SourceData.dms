@@ -1,39 +1,6 @@
-container SourceData: Using = "Units;Classifications;geometries"
+container SourceData: Using = "Units;Classifications;geography"
 {
 	#include<RegionalUnits.dms>
 	#include<Infrastructure.dms>
-	
-	container Locations
-	{
-		unit<ipoint> Population_2011_Ardeco
-		: StorageName = "%NetworkModelDataDir%/Population/pop_2011_1km_ARDECO.tif"
-		, StorageType = "gdal.grid"
-		, StorageReadOnly = "True"
-		, DialogData = "BaseProjection"
-		, DialogType = "map"
-		, Descr = "JRC GeoStat 2011 1000m grid: Ardeco scaled to national totals"
-		{
-			attribute<uint16> GridData;
-			attribute<uint16> ReadData (Base_Grid_1km);
-		}
-		unit<ipoint> Population_2021_Ardeco
-		: StorageName = "%NetworkModelDataDir%/Population/pop_2021_1km_ARDECO.tif"
-		, StorageType = "gdal.grid"
-		, StorageReadOnly = "True"
-		, DialogData = "BaseProjection"
-		, DialogType = "map"
-		, Descr = "JRC GeoStat 2021 1000m grid (v2): Ardeco scaled to national totals"
-		{
-			attribute<uint16> GridData;
-			attribute<uint16> ReadData (Base_Grid_1km);
-		}
-
-		unit<ipoint> Population := = 'Population_'+string(ModelParameters/PopVersie); 
-		
-		unit<uint64> wPopulation := select_with_org_rel(Population/ReadData > 0[uint16])
-		{
-			attribute<BaseProjection> geometry    := org_rel[BaseProjection];
-			attribute<uint16>         Population  := collect_by_cond(., Locations/Population/ReadData > 0[uint16], Locations/Population/ReadData);
-		}
-	}
+	#include<Locations.dms>
 }

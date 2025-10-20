@@ -1,4 +1,4 @@
-container ComputeProxy: Using = "Units;geometries;SourceData;"
+container ComputeProxy: Using = "Units;geography;SourceData;"
 {
 	parameter<s_f>     MaxTraveltime := (60[min_f])[s_f];
 	parameter<km>      Self_Distance := 0.23[km]; //de theoretische gemiddelde 0.23 km die je moet reizen om een random bestemming binnen je eigen 1km grid cel te bereiken. Volgens Lewis.
@@ -11,7 +11,7 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 	
 	unit<uint32> od_points:= NetworkSetup/Base_Analysis/NetwerkSpec/DestDomain {
 		attribute<FinalNodeSet> DestNode_rel:= FinalNodeSet/DestNode_rel;
-		attribute<Geometries/Base_grid_1km> grid_rel:= grid_domain_rel;
+		attribute<geography/Base_grid_1km> grid_rel:= grid_domain_rel;
 	}
 	unit<uint32> countries:= /SourceData/RegionalUnits/Country/subset;
 	container country_ODs:= for_each_ne(countries/CNTR_ID, 'doCountrySel('+string(id(countries))+')');
@@ -23,7 +23,7 @@ container ComputeProxy: Using = "Units;geometries;SourceData;"
 			attribute<FinalNodeSet> DestNode_rel:= od_points/DestNode_rel[org_rel];
 			attribute<BaseProjection> Geometry:= od_points/Geometry[org_rel];
 			attribute<uint32>		Population:= od_points/Population[org_rel];
-			attribute<Geometries/Base_grid_1km> grid_rel:= od_points/grid_rel[org_rel];
+			attribute<geography/Base_grid_1km> grid_rel:= od_points/grid_rel[org_rel];
 		}
 	}
 	
@@ -250,7 +250,7 @@ Template Calc_perDecayFunction_T_OV
 		}
 		container lines_to_grid:= lines_grid_constructor(25d, Roads, Roads/geometry);
 	}
-	unit<ipoint> exportgrid:= /Geometries/Base_grid_1km {
+	unit<ipoint> exportgrid:= /geography/Base_grid_1km {
 		attribute<inOD_points> org_rel:= invert(inOD_points/grid_rel);
 		attribute<float32> D_i:= makedefined(Exports/D_i[org_rel], 0f), storagename = "= filepath+'/pot_ai.tif'";
 		attribute<float32> avnetdi:= makedefined(Exports/avnetdi[org_rel], 0f), storagename = "= filepath+'/av_di.tif'";
