@@ -52,42 +52,7 @@ container RegionalUnits : using = "geometries"
 			}
 		}
 	}
-	unit<uint32> FUA_2021:= union_unit(FUA_2021_20250626, FUA_provisional_add) 
-	{
-		attribute<LambertEA> geometry (poly) := union_data(., FUA_2021_20250626/geometry, FUA_provisional_add/geometry);
-		attribute<string>    CNTR_CODE       := union_data(., FUA_2021_20250626/CNTR_CODE, FUA_provisional_add/CNTR_CODE);
-		attribute<string>    FUA_ID          := union_data(., FUA_2021_20250626/Sheet1_FUA, FUA_provisional_add/FUA_ID);
-		attribute<string>    FUA_Name        := union_data(., FUA_2021_20250626/Sheet1_F_1, FUA_provisional_add/FUA_Name);
-		attribute<string>    Label           := FUA_ID;
-		
-		unit<uint32> export := FUA_2021
-		, storagename = "%NetworkModelDataDir%/Regions/export/FUA_2021_provisional.shp" 
-		, storagetype = "gdalwrite.vect"
-		{
-			attribute<LambertEA> Geometry (poly) := FUA_2021/Geometry;
-			attribute<string>    CNTR_CODE       := FUA_2021/CNTR_CODE;
-			attribute<string>    FUA_ID          := FUA_2021/FUA_ID;
-			attribute<string>    FUA_Name        := FUA_2021/FUA_Name;
-			attribute<string>    Source          := id(.) < #FUA_2021_20250626 ? 'ESTAT FUAs 202506' : 'ESTAT provisional FUAs aug 2024';
-		}
-	}
-	unit<uint32> FUA_provisional_add:= select_with_attr_by_cond(FUA_provisional, FUA_provisional/add);
-	unit<uint32> FUA_provisional
-	: StorageName = "%NetworkModelDataDir%/Regions/FUA_2021_provisional.shp"
-	, StorageType = "gdal.vect"
-	, StorageReadOnly = "true"
-	{
-		attribute<LambertEA> geometry (poly);
-		attribute<bool>      add:= CNTR_CODE='IT';// || CNTR_CODE='CH' || CNTR_CODE='NO'; // CH and NO already present in new FUA file
-	}
 	
-	unit<uint32> FUA_2021_20250626
-	: StorageName = "%NetworkModelDataDir%/Regions/FUA_2021.shp"
-	, StorageType = "gdal.vect"
-	, StorageReadOnly = "true"
-	{
-		attribute<LambertEA> geometry (poly);
-	}
 	unit<uint32> Country 
 	: StorageName = "%NetworkModelDataDir%/Regions/CNTR_RG_01M_2020_3035.shp"
 	, StorageType = "gdal.vect"
@@ -99,46 +64,6 @@ container RegionalUnits : using = "geometries"
 		attribute<bool>      IsCC            := CC_STAT == 'T'; 
 		attribute<bool>      IsTerritory       := strcount(SVRG_UN, 'Territory') > 0; 
 		unit<uint32> Subset := select_with_attr_by_cond(.,(ModelParameters/Use_Country_OD_selection ? name_engl == /ModelParameters/OD_SelectionCountry : IsEu || IsEFTA));
-	}
-	unit<uint32> LAU_2021_Housing
-	: StorageName = "%NetworkModelDataDir%/Regions/LAU2021_housing_census.shp"
-	, StorageType = "gdal.vect"
-	, StorageReadOnly = "true"
-	{
-		attribute<LambertEA> Geometry (poly);
-		attribute<string>    Label:= Gisco_id;
-		
-		unit<uint32> CalcCentroids := .
-		{
-			attribute<float64> W          := sum(Population/pop, Population/LAU_rel);
-			
-			attribute<float64> Weighted_X := sum(Population/x * Population/pop, Population/LAU_rel);
-			attribute<float64> Weighted_Y := sum(Population/y * Population/pop, Population/LAU_rel);
-			
-			attribute<float64> mean_X     := Weighted_X / W;
-			attribute<float64> mean_Y     := Weighted_y / W;
-			 
-			attribute<LambertEA> weighted_centroid0            := point_xy(mean_X, mean_Y, LambertEA);
-			attribute<bool>      IsWeighted_centroid_in_nuts3  := IsDefined(point_in_polygon(weighted_centroid0, LAU_2021_Housing/geometry));
-			attribute<LambertEA> weighted_centroid             := IsWeighted_centroid_in_nuts3 ? weighted_centroid0 : centroid_or_mid(LAU_2021_Housing/geometry);
-			attribute<LambertEA> geometry                      := weighted_centroid;
-			
-			attribute<spoint>    Base_grid_1km_spoint_rel;
-			
-			unit<uint64> Population := SourceData/Locations/wPopulation
-			{
-				attribute<LAU_2021_Housing> LAU_rel   := point_in_polygon(geometry, LAU_2021_Housing/geometry);
-				attribute<float64>          x         := pointcol(geometry);
-				attribute<float64>          y         := pointrow(geometry);
-				attribute<float64>          pop       := SourceData/Locations/wPopulation/Population[float64];
-			}
-			
-			unit<uint32> Export_NUTS3_Centroids := CalcCentroids
-			{
-				attribute<LambertEA> geometry     := CalcCentroids/geometry;
-				attribute<string>    NUTS_CODE    := CalcCentroids/NUTS_CODE;
-			}
-		}
 	}
 	
 	unit<uint32> Country_Split := geos_split_union_polygon(Country/geometry, id(Country))

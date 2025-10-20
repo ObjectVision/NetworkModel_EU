@@ -9,20 +9,6 @@ container NetworkSetup : using = "units;geometries;SourceData;Classifications"
 			',''PopRaster'''
 		')';
 	
-	//Analysis for Felipe
-	container Pop_Weighted_NUTS_centroids := =
-		'Call_CreateNetwork_T('
-			'SourceData/RegionalUnits/NUTS3/CalcCentroids'   //Org
-			',SourceData/RegionalUnits/NUTS3/CalcCentroids' //Dest
-			',''PopW_NUTS'''
-		')';
-	container Pop_Weighted_LAU_housing_census_centroids := =
-		'Call_CreateNetwork_T('
-			'SourceData/RegionalUnits/LAU_2021_Housing/CalcCentroids'   //Org
-			',SourceData/RegionalUnits/LAU_2021_Housing/CalcCentroids' //Dest
-			',''PopW_LAU_housing_census'''
-		')';
-	
 	Template Call_CreateNetwork_T
 	{
 		unit<uint32>      Org;
