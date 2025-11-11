@@ -6,8 +6,8 @@ container NetworkModel_EU
 		parameter<string> Step_2_Streets_fss                   := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Streets_fss";
 		parameter<string> Step_3_Streets_fss_selection         := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Streets_fss_selection";
 		
-		parameter<string> Step_4_Create_InitialLinkSet         := 'Ready', ExplicitSuppliers = "/NetworkSetup/Base_Analysis/NetwerkSpec/CreateInitialWorkingNetwork/LinkSet_Write";
-		parameter<string> Step_5_Create_FinalNode_and_LinkSet  := 'Ready', ExplicitSuppliers = "/NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet_Write;/NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet_Write";
+		parameter<string> Step_4_Create_InitialLinkSet         := 'Ready', ExplicitSuppliers = "/NetworkSetup/School_Analysis/Generator_Network1";
+		parameter<string> Step_5_Create_FinalNode_and_LinkSet  := 'Ready', ExplicitSuppliers = "/NetworkSetup/School_Analysis/Generator_Network2";
 	}
 	
 	#include<ModelParameters.dms>

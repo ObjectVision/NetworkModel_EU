@@ -70,12 +70,15 @@ container Locations : using = "geography;units"
 	}
 	
 	unit<uint32> Schools 
-	: StorageName = "%NetworkModelDataDir%/Locations/schools_eu.csv"
+	: StorageName = "%NetworkModelDataDir%/Locations/EU_schools_fixed2.csv"
 	, StorageType = "gdal.vect"
 	, StorageReadOnly = "True"
 	{
 		attribute<wgs84_base>     geometry_wgs := point_xy(float64(lon), float64(lat), wgs84_base);
 		attribute<BaseProjection> geometry     := geometry_wgs[BaseProjection];
+		
+		// attribute<uint32>         Schoollevel     := 
+		attribute<uint32>         SchoolLevel_rel := rlookup(Schoollevel, id(Schoollevel));
 		
 		attribute<bool>           IsStudyArea  := IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry));
 		

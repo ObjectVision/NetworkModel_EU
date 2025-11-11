@@ -39,4 +39,23 @@ container Classifications: Using = "Units"
 			container V := for_each_nedv(name, String(ID(.))+'[..]', void, .);
 		}
 	}
+	
+	unit<uint8> SchoolLevel := cat_range(0b, 9b)
+	{
+		attribute<string> label : 
+		[
+			  'Pre-Primary education'          //0  kleuter
+			, 'Primary education'              //1  basis
+			, 'Lower secondary education'      //2  middelbaar
+			, 'Upper secondary education'      //3  middelbaar
+			, 'Post secondary education'       //4  praktisch?
+			, 'Short-cycle tertiary education' //5  praktisch?
+			, 'Bachelors or equivalent level'  //6  uni
+			, 'Masters or equivalent level'    //7  uni
+			, 'Doctoral or equivalent level'   //8  uni
+			
+		];
+		attribute<string> name := AsItemName(label);
+		container V := for_each_nedv(name, String(ID(.))+'[..]', void, .);
+	}
 }
