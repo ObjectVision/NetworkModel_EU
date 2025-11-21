@@ -68,7 +68,8 @@ container Geography : using = "units"
 		attribute<Base_grid_10km>     grid_10k_rel   := id(.)[Base_grid_10km];
 		attribute<Base_grid_50km>     grid_50k_rel   := id(.)[Base_grid_50km];
 		attribute<.>                  id             := id(.);
-		attribute<BaseProjection>     point          := id[BaseProjection] + point_xy(0.5d * 1000d, -0.5d * 1000d, BaseProjection);
+		parameter<BaseProjection>     center_delta   := point_xy(0.5d * 1000d, -0.5d * 1000d, BaseProjection);
+		attribute<BaseProjection>     point          := id[BaseProjection] + center_delta;
 		attribute<bool>               IsEU           := IsDefined(point_in_polygon(point, SourceData/RegionalUnits/NUTS/geometry));
 		//attribute<bool>				  IsEFTA		 := 
 		attribute<SourceData/RegionalUnits/Country/subset> Country_rel:= point_in_polygon(point, SourceData/RegionalUnits/Country/subset/geometry);
@@ -88,6 +89,7 @@ container Geography : using = "units"
 		unit<uint32> points := select_uint32(Select_criterium)
 		{
 			attribute<BaseProjection>       geometry          := collect_by_cond(., ../Select_criterium, ../point);
+			attribute<..>                   Base_grid_rel     := geometry[..];
 			attribute<SourceData/RegionalUnits/Country/subset> Country_rel:= collect_by_cond(., ../Select_criterium, ../Country_rel);
 			attribute<Base_grid_1km_spoint> Base_grid_1km_spoint_rel := collect_by_cond(., ../Select_criterium, ../Base_grid_1km_spoint_rel); 
 			attribute<ipoint>               id                := collect_by_cond(., ../Select_criterium, ../id);

@@ -89,9 +89,12 @@ container Locations : using = "geography;units"
 			attribute<float32>              LocalPopulation              := rjoin(Base_grid_rel, Analyses/Populated_grid/Base_grid_rel, Analyses/Populated_grid/LocalPopulation);
 			attribute<uq_school_cells>      uq_school_cells_rel          := rlookup(Base_grid_rel, uq_school_cells/values);
 			
-			unit<uint32> uq_school_cells := unique(Base_grid_rel)
+			unit<uint32> uq_school_cells := unique(./Base_grid_rel)
 			{
-				attribute<BaseProjection> geometry               := ='rjoin(values, Base_grid/points/Base_grid_rel, Base_grid/points/geometry)';
+				attribute<Base_grid>      Base_grid_rel := values;
+				
+				attribute<BaseProjection> geometry               := values[BaseProjection] + Base_grid/center_delta;
+				
 				attribute<float32>        count_schools_per_cell := float32(pcount(uq_school_cells_rel));
 				attribute<float32>        LocalPopulation        := ../LocalPopulation[invert(uq_school_cells_rel)];
 			}

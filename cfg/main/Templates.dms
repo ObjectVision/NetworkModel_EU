@@ -24,7 +24,7 @@ container Templates: Using = "Units;Classifications;geography;Classifications/To
 		attribute<BaseProjection>                      OrgLocations          (OrgDomain) := orgDomain/geometry;
 		attribute<BaseProjection>                      destLocations        (DestDomain) := destDomain/geometry;
 		attribute<spoint>                              OrgLocations_spoint   (OrgDomain) := orgDomain/Base_grid_1km_spoint_rel ;
-		attribute<spoint>                              destLocations_spoint (DestDomain) := destDomain/Base_grid_1km_spoint_rel ;
+		attribute<ipoint>                              destLocations_spoint (DestDomain) := destDomain/Base_grid_rel ;
 		
 		unit<uint32> Locations := union_unit(orgDomain, destDomain)
 		{
