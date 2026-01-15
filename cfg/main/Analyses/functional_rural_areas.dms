@@ -10,16 +10,18 @@ container Functional_Rural_Areas: using = "Units;Geometries;SourceData/RegionalU
 		attribute<string> LabelText: ['mean', 'biggest_centres'];
 	}
 	
-	unit<uint32> variants: NrOfRows = 5{
+	unit<uint32> variants: NrOfRows = 11{
 		attribute<string>  LabelText:= 'idealpop'+replace(string(ideal_pop_M), '.', '')+'_maxt'+string(max_time_h)+(min_time_h > 0d ? '_mint'+string(min_time_h) : '') + (agg_m > 0 ? '_agg_' + tt_aggregation_method/LabelText[agg_m] : '');
-		attribute<float32> ideal_pop_M: [0.025, 0.05, 0.025, 0.05, 0.05];
-		attribute<min_f> max_time_h:  [60, 60, 120, 120, 45];
-		attribute<min_f> min_time_h:  [30, 30, 30,  30, 20];
+		attribute<float32> ideal_pop_M: [0.025, 0.05, 0.025, 0.05, 0.025, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05];
+		attribute<min_f> max_time_h:  [60, 60, 60, 60, 120, 120, 120, 120, 120, 120, 45];
+		attribute<min_f> min_time_h:  [20, 20, 30, 30, 30,  30, 35, 40, 45, 60, 20];
 		attribute<tt_aggregation_method> agg_m:= (id(.)>#.)[tt_aggregation_method];
 	}	
 	
 	container gen_eu_cb:= Prepare_Functional_Areas_T(/Analyses/Create_Catchments/get_catchments_m15_a);
+	container gen_eu_cb_nofua:= Prepare_Functional_Areas_T(/Analyses/Create_Catchments/get_catchments_m15_a_nofua_exclusion, '_nofua');
 	container gen_eu_dom:= Prepare_Functional_Areas_T(/Analyses/Create_Catchments/get_catchments_m15_d);
+	container gen_eu_dom_10m:= Prepare_Functional_Areas_T(/Analyses/Create_Catchments/get_catchments_m10_d);
 	container gen_eu_dom_nofua:= Prepare_Functional_Areas_T(/Analyses/Create_Catchments/get_catchments_m15_d, '/without_fua_territory');
 	container gen_eu_dom_10m_nofua:= Prepare_Functional_Areas_T(/Analyses/Create_Catchments/get_catchments_m10_d_nofua_exclusion, '/10m_without_fua_territory');
 	container gen_eu_dom_15m_nofua:= Prepare_Functional_Areas_T(/Analyses/Create_Catchments/get_catchments_m15_d_nofua_exclusion, '/15m_without_fua_territory');
@@ -52,8 +54,8 @@ container Functional_Rural_Areas: using = "Units;Geometries;SourceData/RegionalU
 		parameter<string> settlements_refname:= ='iterate_by_Memberstates/'+first(region_unit/ZoneId)+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/settlements_refname';
 		parameter<string> filepath:= '%LocalDataProjDir%/Functional_Rural_Areas/'+settlements_refname+'/Base_'+inThreshold+'/'+variants/LabelText[inVariant]+'/mozaik_';		
 		
-		unit<uint32> StoreDef:= ='union_unit('+AsItemList('iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def')+')', StorageName = "=filepath+'.dbf'" {
-			attribute<LambertEA> Geometry (polygon):= ='union_data(.,'+AsItemList('iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def/Geometry')+')', StorageName = "=filepath+'.shp'";
+		unit<uint32> StoreDef:= ='union_unit('+AsItemList('iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def')+')', StorageName = "=filepath+path_addition+'.dbf'" {
+			attribute<LambertEA> Geometry (polygon):= ='union_data(.,'+AsItemList('iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def/Geometry')+')', StorageName = "=filepath+path_addition+'.shp'";
 			attribute<string>	 Name:= ='union_data(.,'+AsItemList('iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def/Name')+')';
 			attribute<string>	 Category:= ='union_data(.,'+AsItemList('iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def/Category')+')';
 			attribute<float32>	 Pop:= ='union_data(.,'+AsItemList('iterate_by_Memberstates/'+region_unit/ZoneId+'/ResultsByVariant/'+variants/LabelText[inVariant]+'/storeAreas/AreaCll_ReadOnly_Def/Pop')+')';
@@ -194,7 +196,7 @@ container Functional_Rural_Areas: using = "Units;Geometries;SourceData/RegionalU
 			
 			container Accumulate_Areas:= loop(AreaAccumulator, uint16(min_elem(#Areas, 100)));
 			
-			parameter<string> settlements_refname:= 'v4'; //='Analyses/Settlements_Per_Continent/'+Continent_name+'/select/refname'; // usual to pass varying setttlement definitions.
+			parameter<string> settlements_refname:= 'v5'; //='Analyses/Settlements_Per_Continent/'+Continent_name+'/select/refname'; // usual to pass varying setttlement definitions.
 			parameter<string> filepath:= '%LocalDataProjDir%/Functional_Rural_Areas/'+settlements_refname+'/Base_'+inThreshold+path_addition+'/'+variants/LabelText[inVariant]+'/'+inCountry;
 			
 			container StoreAreas {

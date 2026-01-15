@@ -52,21 +52,7 @@ container RegionalUnits : using = "geometries"
 			}
 		}
 	}
-	unit<uint32> FUA_2021:= union_unit(FUA_2021_20250626, FUA_provisional_add) {
-		attribute<LambertEA> geometry (poly):= union_data(., FUA_2021_20250626/geometry, FUA_provisional_add/geometry);
-		attribute<string> CNTR_CODE:= union_data(., FUA_2021_20250626/CNTR_CODE, FUA_provisional_add/CNTR_CODE);
-		attribute<string> FUA_ID:= union_data(., FUA_2021_20250626/Sheet1_FUA, FUA_provisional_add/FUA_ID);
-		attribute<string> FUA_Name:= union_data(., FUA_2021_20250626/Sheet1_F_1, FUA_provisional_add/FUA_Name);
-		attribute<string> Label:= FUA_ID;
-		
-		unit<uint32> export:= FUA_2021, storagename = "%NetworkModelDataDir%/Regions/export/FUA_2021_provisional.dbf" {
-			attribute<LambertEA> Geometry (poly):= FUA_2021/Geometry, storagename = "%NetworkModelDataDir%/Regions/export/FUA_2021_provisional.shp";
-			attribute<string> CNTR_CODE:= FUA_2021/CNTR_CODE;
-			attribute<string> FUA_ID:= FUA_2021/FUA_ID;
-			attribute<string> FUA_Name:= FUA_2021/FUA_Name;
-			attribute<string> Source:= id(.) < #FUA_2021_20250626 ? 'ESTAT FUAs 202506' : 'ESTAT provisional FUAs aug 2024';
-		}
-	}
+	unit<uint32> FUA_2021:= FUA_2021_20251113;
 	unit<uint32> FUA_provisional_add:= select_with_attr_by_cond(FUA_provisional, FUA_provisional/add);
 	unit<uint32> FUA_provisional
 	: StorageName = "%NetworkModelDataDir%/Regions/FUA_2021_provisional.shp"
@@ -78,6 +64,13 @@ container RegionalUnits : using = "geometries"
 	}
 	unit<uint32> FUA_2021_20250626
 	: StorageName = "%NetworkModelDataDir%/Regions/FUA_2021.shp"
+	, StorageType = "gdal.vect"
+	, StorageReadOnly = "true"
+	{
+		attribute<LambertEA> geometry (poly);
+	}
+	unit<uint32> FUA_2021_20251113
+	: StorageName = "%NetworkModelDataDir%/Regions/FUA_2021_def_202511.shp"
 	, StorageType = "gdal.vect"
 	, StorageReadOnly = "true"
 	{

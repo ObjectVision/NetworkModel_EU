@@ -68,15 +68,15 @@ Container Settlement_Hierarchies: using = "Geometries;SourceData;" {
 		
 		//attribute<NetworkRef/FinalNodeSet> Org_NodeId:= NetworkRef/FinalNodeSet/OD_nodes/org_rel[connect(NetworkRef/FinalNodeSet/OD_nodes/Geometry, centroid)];
 	}
-	unit<uint32> Settlements_v4_Benelux:= select_with_attr_by_cond(Settlements_v4, Settlements_v4/CNTR_CODE = 'NL' || Settlements_v4/CNTR_CODE = 'BE' || Settlements_v4/CNTR_CODE = 'LU')	 {
-		parameter<string> refname:= propvalue(., 'name');
-	}
-	unit<uint32> Settlements_v4_Baltics:= select_with_attr_by_cond(Settlements_v4, Settlements_v4/CNTR_CODE = 'LT' || Settlements_v4/CNTR_CODE = 'LV' || Settlements_v4/CNTR_CODE = 'EE')	 {
-		parameter<string> refname:= propvalue(., 'name');
-	}
+	//unit<uint32> Settlements_v4_Benelux:= select_with_attr_by_cond(Settlements_v4, Settlements_v4/CNTR_CODE = 'NL' || Settlements_v4/CNTR_CODE = 'BE' || Settlements_v4/CNTR_CODE = 'LU')	 {
+	//	parameter<string> refname:= propvalue(., 'name');
+	//}
+	//unit<uint32> Settlements_v4_Baltics:= select_with_attr_by_cond(Settlements_v4, Settlements_v4/CNTR_CODE = 'LT' || Settlements_v4/CNTR_CODE = 'LV' || Settlements_v4/CNTR_CODE = 'EE')	 {
+	//	parameter<string> refname:= propvalue(., 'name');
+	//}
 	container Establish_Settlement_Hierarchies:= Settlement_Hierarchy_T(Settlements_v5, Settlements_v5, NetworkRef);
-	container Establish_Settlement_Hierarchies_Benelux:= Settlement_Hierarchy_T(Settlements_v4_Benelux, Settlements_v4_Benelux, NetworkRef);
-	container Establish_Settlement_Hierarchies_Baltics:= Settlement_Hierarchy_T(Settlements_v4_Baltics, Settlements_v4_Baltics, NetworkRef);
+	//container Establish_Settlement_Hierarchies_Benelux:= Settlement_Hierarchy_T(Settlements_v4_Benelux, Settlements_v4_Benelux, NetworkRef);
+	//container Establish_Settlement_Hierarchies_Baltics:= Settlement_Hierarchy_T(Settlements_v4_Baltics, Settlements_v4_Baltics, NetworkRef);
 	
 	Template Settlement_Hierarchy_T
 	{

@@ -23,12 +23,14 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 			'SourceData/RegionalUnits/NUTS3/CalcCentroids'   //Org
 			',SourceData/RegionalUnits/NUTS3/CalcCentroids' //Dest
 			',NetworkSetup/Pop_Weighted_NUTS_centroids/NetwerkSpec'
+			',NetworkSetup/Pop_Weighted_NUTS_centroids/ProjName'
 		')';
 	container Pop_Weighted_LAU_housing_census_centroids := =
 		'Basic_OD_matrix_T('
 			'SourceData/RegionalUnits/LAU_2021_Housing/CalcCentroids/CalcCentroids'   //Org
 			',SourceData/RegionalUnits/LAU_2021_Housing/CalcCentroids/CalcCentroids' //Dest
 			',NetworkSetup/Pop_Weighted_LAU_housing_census_centroids/NetwerkSpec' //Network
+			',NetworkSetup/Pop_Weighted_LAU_housing_census_centroids/ProjName' //projectname
 			',60[min_f]'
 		')';
 	
@@ -43,7 +45,8 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 		unit<uint32>      Dest;
 		container         NetwerkSpec;
 		///
-		parameter<uint32> maxSqrDist   := 120 * 120; //km blokken
+		parameter<uint32> MaxDist	   := ModelParameters/MaxDistanceKm;
+		parameter<uint32> maxSqrDist   := MaxDist * MaxDist; //km blokken
 		parameter<s_f> MaxTravelTime_sec   := convert(ModelParameters/MaxTravelTime, s_f);
 		
 		container Indicator
@@ -52,12 +55,12 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 			unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
 			unit<ipoint> Base_grid    := = 'Geometries/Base_grid_'+ModelParameters/OrgGridsize;
 			
-			unit<spoint>       potRange            := range(spoint, point_yx(-int16(120), -int16(120)), point_yx(int16(120) + int16(1), int16(120) + int16(1)))
+			unit<spoint>       potRange            := range(spoint, point_yx(-int16(MaxDist), -int16(MaxDist)), point_yx(int16(MaxDist) + int16(1), int16(MaxDist) + int16(1)))
 			{
 				attribute<float32> 	distMatr          := Sqr(Float32(pointrow(ID(.)))) + Sqr(Float32(pointcol(ID(.))));
 				attribute<km>  		EuclideanDistMatr := Sqrt(distMatr)[km];
-				attribute<float32>	Weight			  := float32(EuclideanDistMatr <= 120[km] ? EuclideanDistMatr + 0[km]: 0[km]);
-				attribute<float32> 	inrange			  := float32(EuclideanDistMatr <= 120[km]);
+				attribute<float32>	Weight			  := float32(EuclideanDistMatr <= MaxDist[km] ? EuclideanDistMatr + 0[km]: 0[km]);
+				attribute<float32> 	inrange			  := float32(EuclideanDistMatr <= MaxDist[km]);
 			}
 			
 			attribute<float32> dist_weighted_pop (Base_grid):= potential(float32(Base_grid/Select_criterium) * float32(Base_grid/Population), potRange/Weight);
@@ -194,7 +197,7 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 					, maxSqrDist
 					, 1.0 // v_i
 					, NetwerkSpec/DestDomain/Population[float64] // w_j
-					, -1.0 // dist_deacy
+					, -1.0 // dist_deacy (set to minus 1 explicitly, interaction function evaluates as -- )
 				), KeepData = "True";
 				
 			unit<uint64> Denominator_Di :=
@@ -211,7 +214,7 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 					, maxSqrDist
 					, 1.0 // v_i
 					, NetwerkSpec/DestDomain/Population[float64] // w_j
-					, 0.0 // dist_deacy
+					, 0.0 // dist_deacy (none, just sum all people within 120km/90min)
 				), KeepData = "True";
 				
 			// attribute<min_f> Avg_Traveltime_To_PopulatedCells    (NetwerkSpec/OrgDomain) := MakeDefined(convert(Numerator_Di/D_i[s_f] / Denominator_Di/D_i, min_f), 0[min_f]);
@@ -219,7 +222,10 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 			attribute<min_f> Avg_Traveltime_To_PopulatedCells_grid           (Base_grid) := convert(Avg_Traveltime_To_PopulatedCells, min_f)[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Avg_traveltime_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
 			attribute<km_hr> Avg_Speed_To_PopulatedCells_grid           (Base_grid) := avg_dist_pop / Avg_Traveltime_To_PopulatedCells_grid[hr_f], StorageName = "='%LocalDataProjDir%/Output/Avg_speed_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
 			
-			// parameter<string>  Generator                                         := 'Ready', ExplicitSuppliers = "Avg_Traveltime_To_PopulatedCells_grid";
+			attribute<float64>  Transport_Performance_Num	   (Base_grid):= Denominator_Di/D_i[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Transport_Performance_numerator_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
+			attribute<float64>  Transport_Performance_Denom	   (Base_grid):= pop_in_dist[float64], StorageName = "='%LocalDataProjDir%/Output/Transport_Performance_denominator_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
+			attribute<km> avg_euclid_popdist 				   (Base_grid):= avg_dist_pop, StorageName = "='%LocalDataProjDir%/Output/avg_euclid_dist_pop-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
+			parameter<string>  Generator         := 'Ready', ExplicitSuppliers = "Avg_Traveltime_To_PopulatedCells_grid;Transport_Performance_Num;";
 		}
 	}
 	 
@@ -229,7 +235,8 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 		unit<uint32>      Dest;
 		container         NetwerkSpec;
 		///
-		parameter<uint32> maxSqrDist := 120 * 120; //km blokken
+		parameter<uint32> MaxDist	   := ModelParameters/MaxDistanceKm;
+		parameter<uint32> maxSqrDist   := MaxDist * MaxDist; //km blokken
 		
 		container Indicator
 		{
@@ -283,6 +290,7 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 		unit<uint32>      Org;
 		unit<uint32>      Dest;
 		container         NetwerkSpec;
+		parameter<string> ProjName;
 		parameter<min_f>  timelimit:= 999999999[min_f];
 		///
 
@@ -303,6 +311,8 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 				)
 			{
 				attribute<string> impedance_min := string(round(impedance / 60d)); //Convert the impedance from seconds to minutes, round it off, and store it as a string value.
+				attribute<string> from:= org/label[OrgZone_rel];
+				attribute<string> to:= dest/label[DstZone_rel];
 				
 				unit<uint32> Matrix_Array := org
 				{
@@ -316,7 +326,7 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 				}
 
 				unit<uint32> Matrix_met_header := union_unit(Header, Matrix_Array) //This unit can easily be exported to csv and used in other applications.
-				, StorageName  = "%LocalDataProjDir%/Export/NUTS3_PopWeighted_Centroids_OD_matrix_20230804.csv"
+				, StorageName  = "= '%LocalDataProjDir%/Export/'+ProjName+'_OD_matrix.csv'"
 				, StorageType  = "gdalwrite.vect"
 				{
 					attribute<string> org_name := union_data(., const('',Header), Matrix_Array/org_name);

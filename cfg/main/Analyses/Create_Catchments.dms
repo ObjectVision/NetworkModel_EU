@@ -11,6 +11,14 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 			, NetworkSetup/Base_Analysis/NetwerkSpec/OrgDomain, EUplus, EUplus_sep_units
 			, NetworkRef, 'L_15m_a', 0f, TRUE
 		);
+	container get_catchments_m15_a_nofua_exclusion:= Prepare_Catchments_T(Establish_Settlement_Hierarchies/Hierarchies_ReadOnly
+			, NetworkSetup/Base_Analysis/NetwerkSpec/OrgDomain, EUplus, EUplus_sep_units
+			, NetworkRef, 'L_15m_a', 0f, FALSE
+		);
+	container get_catchments_m10_d:= Prepare_Catchments_T(Establish_Settlement_Hierarchies/Hierarchies_ReadOnly
+			, NetworkSetup/Base_Analysis/NetwerkSpec/OrgDomain, Countries, country_sep_units
+			, NetworkRef, 'L_10m_d', 0f, TRUE
+		);
 	container get_catchments_m15_d:= Prepare_Catchments_T(Establish_Settlement_Hierarchies/Hierarchies_ReadOnly
 			, NetworkSetup/Base_Analysis/NetwerkSpec/OrgDomain, Countries, country_sep_units
 			, NetworkRef, 'L_15m_d', 0f, TRUE
