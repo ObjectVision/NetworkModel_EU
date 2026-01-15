@@ -65,7 +65,7 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 			attribute<min_f>              MINUTES   (GPKG/Streets)      := GPKG/Streets/MINUTES[min_f];
 			attribute<km_hr>              KPH       (GPKG/Streets)      := GPKG/Streets/KPH[km_hr];
 			attribute<Directions>         Direction (GPKG/Streets)      := MakeDefined(rlookup(GPKG/Streets/Oneway, Directions/code), 0[Directions]); // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer)
-			attribute<uint8>			  Lanes 	(GPKG/Streets)      := GPKG/Streets/Lanes[uint8];
+			attribute<uint8>              Lanes     (GPKG/Streets)      := GPKG/Streets/Lanes[uint8];
 		}
 		
 		container Read_Streets_container
@@ -85,7 +85,7 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 			attribute<m>                  METERS      (domain);
 			attribute<min_f>              MINUTES     (domain);
 			attribute<Directions>         Direction   (domain);
-			attribute<uint8>			  Lanes		  (domain);
+			attribute<uint8>              Lanes       (domain);
 			
 			attribute<Junctions>          F_JNCT_rel                         (domain) := rlookup(F_JNCTID, Junctions/JNCTID);
 			attribute<bool>               Streets_IsJunctionWithinStudyArea  (domain ):= FSS/Junctions/IsWithinStudyArea[F_JNCT_rel];
@@ -171,7 +171,7 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 			attribute<min_f>              MINUTES        (domain);
 			attribute<km_hr>              KPH            (domain);
 			attribute<Directions>         Direction      (domain);
-			attribute<uint8>			  Lanes			 (domain);
+			attribute<uint8>              Lanes          (domain);
 			
 			parameter<uint32>             n;
 		}
@@ -189,16 +189,16 @@ Container TomTom : Using = "Units;geometries;classifications/tomtom"
 		attribute<m>                  METERS               := Selection/Read_Streets_selection/METERS;
 		attribute<min_f>              MINUTES              := Selection/Read_Streets_selection/MINUTES;
 		attribute<Directions>         Direction            := Selection/Read_Streets_selection/Direction; // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer) --> Comment van Chris
-		attribute<uint8>			  Lanes				   := Selection/Read_Streets_selection/Lanes; 
+		attribute<uint8>              Lanes                := Selection/Read_Streets_selection/Lanes; 
 		attribute<bool>               IsOneDirection       := Direction == Directions/v/backwards || Direction == Directions/v/forwards;
 		attribute<bool>               Connectable          := ='FRC_rel != '+ModelParameters/Street_OD_ConnectabletSelectie+' && !IsOneDirection';
 		
 		attribute<BaseProjection>     fromPoint            := first_point(geometry);
 		attribute<BaseProjection>     toPoint              := last_point(geometry);
 		
-		attribute<bool>				  DualCarriageWay	   := IsOneDirection ? Lanes > 1b : Lanes > 3b;
+		attribute<bool>               DualCarriageWay      := IsOneDirection ? Lanes > 1b : Lanes > 3b;
 		
-		attribute<RegioRoadCategory>  RRC_rel			   := makedefined(FuncRoadClass/RRC_rel[FRC_rel], DualCarriageWay ? RegioRoadCategory/V/Motorways_and_other_main_roads : RegioRoadCategory/V/Secondary_roads);
+		attribute<RegioRoadCategory>  RRC_rel              := makedefined(FuncRoadClass/RRC_rel[FRC_rel], DualCarriageWay ? RegioRoadCategory/V/Motorways_and_other_main_roads : RegioRoadCategory/V/Secondary_roads);
 		
 	}
 }

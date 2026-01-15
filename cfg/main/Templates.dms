@@ -12,7 +12,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 		unit<uint32> OrgDomain := OrgDomain0
 		{
 			attribute<UniqueLocations> UniqueLocations_rel := rlookup(ipoint(geometry), ipoint(UniqueLocations/geometry));
-			attribute<uint32>		   id_rel:= OrgDomain0/id_rel;
+			attribute<uint32>          id_rel:= OrgDomain0/id_rel;
 		}
 		
 		unit<uint32> DestDomain := DestDomain0
@@ -21,10 +21,10 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			attribute<uint32>		   id_rel:= DestDomain0/id_rel;
 		}
 		
-		attribute<BaseProjection>                      OrgLocations  (OrgDomain)      := orgDomain/geometry;
-		attribute<BaseProjection>                      destLocations (DestDomain)     := destDomain/geometry;
-		attribute<spoint>                              OrgLocations_spoint  (OrgDomain)      := orgDomain/Base_grid_1km_spoint_rel ;
-		attribute<spoint>                              destLocations_spoint (DestDomain)     := destDomain/Base_grid_1km_spoint_rel ;
+		attribute<BaseProjection>                      OrgLocations          (OrgDomain) := orgDomain/geometry;
+		attribute<BaseProjection>                      destLocations        (DestDomain) := destDomain/geometry;
+		attribute<spoint>                              OrgLocations_spoint   (OrgDomain) := orgDomain/Base_grid_1km_spoint_rel ;
+		attribute<spoint>                              destLocations_spoint (DestDomain) := destDomain/Base_grid_1km_spoint_rel ;
 		
 		unit<uint32> Locations := union_unit(orgDomain, destDomain)
 		{
@@ -40,9 +40,9 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			attribute<BaseProjection>               geometry       := values;
 			attribute<Locations>                    Locations_rel  := rlookup(geometry, Locations/geometry);
 			attribute<OrgDomain>                    OrgDomain_rel  := rlookup(geometry, OrgLocations);
-			attribute<uint32>						Org_id_rel	   := OrgDomain/id_rel[OrgDomain_rel];
+			attribute<uint32>                       Org_id_rel     := OrgDomain/id_rel[OrgDomain_rel];
 			attribute<DestDomain>                   DestDomain_rel := rlookup(geometry, DestLocations);
-			attribute<uint32>						Dest_id_rel	   := DestDomain/id_rel[DestDomain_rel];
+			attribute<uint32>                       Dest_id_rel    := DestDomain/id_rel[DestDomain_rel];
 			attribute<bool>                         IsOrg          := rjoin(geometry, Locations/geometry, Locations/IsOrg);
 			attribute<uint32>                       Population     := Locations/Population[Locations_rel];
 		}
@@ -103,11 +103,11 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				
 				unit<uint32> UqGeomPointSet:= select(Nodes_isConnected) 
 				{
-					attribute<BaseProjection> geometry := collect_by_cond(.,Nodes_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src/geometry);
-					attribute<uint64> JnctIds := collect_by_cond(.,Nodes_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src/JnctIds);
-					attribute<uint64> values := JnctIds;
-					attribute<bool>	  connectable:= any(../Connectable, F1) || any(../Connectable, F2);
-					attribute<uint32> conn_count:= pcount(F1) + pcount(F2);
+					attribute<BaseProjection>  geometry    := collect_by_cond(.,Nodes_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src/geometry);
+					attribute<uint64>          JnctIds     := collect_by_cond(.,Nodes_isConnected, Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src/JnctIds);
+					attribute<uint64>          values      := JnctIds;
+					attribute<bool>	           connectable := any(../Connectable, F1) || any(../Connectable, F2);
+					attribute<uint32>          conn_count  := pcount(F1) + pcount(F2);
 				}
 				attribute<UqGeomPointSet> F1 := rlookup(F_JnctId, UqGeomPointSet/values);
 				attribute<UqGeomPointSet> F2 := rlookup(T_JnctId, UqGeomPointSet/values);
@@ -138,51 +138,59 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			
 			unit<uint32> LinkSet_Calc := connect_ne(Roads/geometry, uint32(Roads/Connectable), UniqueLocations/geometry, const(0, UniqueLocations))
 			{
-				attribute<BaseProjection>  geometry(arc);
-				attribute<km_hr>           KPH                  := MakeDefined(arc_rel->KPH, ModelParameters/Advanced/CarDefaultSpeed_low);
-				attribute<bool>            IsOneDirection       := Makedefined(arc_rel->IsOneDirection, false);
-				attribute<RegioRoadCategory> RRC_rel			:= MakeDefined(arc_rel->RRC_rel, RegioRoadCategory/V/Simulated_connectors);
-				attribute<uint32>		   F1					:= arc_rel->F1[uint32];
-				attribute<uint32>		   F2					:= arc_rel->F2[uint32];
-				attribute<bool>			   isconnector			:= isnull(arc_rel);
-				attribute<bool>			   f_unchanged_is		:= first_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F1];
-				attribute<bool>			   f_unchanged          := point_isNearby(first_point(geometry), first_point(arc_rel->geometry), 1d); //point(1d, 1d, dpoint));
-				attribute<bool>			   t_unchanged_is		:= last_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F2];
-				attribute<bool>			   t_unchanged          := point_isNearby(last_point(geometry), last_point(arc_rel->geometry), 1d);//point(1d, 1d, BaseProjection));
+				attribute<BaseProjection>    geometry(arc);
+				attribute<km_hr>             KPH                  := MakeDefined(arc_rel->KPH, ModelParameters/Advanced/CarDefaultSpeed_low);
+				attribute<bool>              IsOneDirection       := Makedefined(arc_rel->IsOneDirection, false);
+				attribute<RegioRoadCategory> RRC_rel              := MakeDefined(arc_rel->RRC_rel, RegioRoadCategory/V/Simulated_connectors);
+				attribute<uint32>            F1                   := arc_rel->F1[uint32];
+				attribute<uint32>            F2                   := arc_rel->F2[uint32];
+				attribute<bool>              isconnector          := isnull(arc_rel);
+				attribute<bool>              f_unchanged_is       := first_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F1];
+				attribute<bool>              f_unchanged          := point_isNearby(first_point(geometry), first_point(arc_rel->geometry), 1d); //point(1d, 1d, dpoint));
+				attribute<bool>              t_unchanged_is       := last_point(geometry) == Roads/UqGeomPointSet/geometry[arc_rel->F2];
+				attribute<bool>              t_unchanged          := point_isNearby(last_point(geometry), last_point(arc_rel->geometry), 1d);//point(1d, 1d, BaseProjection));
 				
-				unit<uint32> location_connectors:= select(isconnector) {
-					attribute<BaseProjection>  geometry (arc):= collect_by_cond(., isconnector, ../geometry);
-					attribute<km_hr>		   KPH				:= const(ModelParameters/Advanced/CarDefaultSpeed_low,.,km_hr);
-					attribute<bool>			   IsOneDirection	:= const(false,.,bool);
-					attribute<RegioRoadCategory> RRC_rel		:= const(RegioRoadCategory/V/Simulated_connectors,.,RegioRoadCategory);
-					attribute<BaseProjection>  od_point:= first_point(geometry);
-					attribute<BaseProjection>  cutpoint:= last_point(geometry);
-					attribute<UniqueLocations> ul_id:= rlookup(od_point, UniqueLocations/geometry);
-					attribute<uint32> F1:= ul_id[uint32] + #Roads/UqGeomPointSet;
-					attribute<uint32> F2:= unique_cutpoints/suggested_node_id[rlookup(cutpoint, unique_cutpoints/Values)];
+				unit<uint32> location_connectors := select(isconnector) 
+				{
+					attribute<BaseProjection>    geometry (arc) := collect_by_cond(., isconnector, ../geometry);
+					attribute<km_hr>             KPH            := const(ModelParameters/Advanced/CarDefaultSpeed_low,.,km_hr);
+					attribute<bool>              IsOneDirection := const(false,.,bool);
+					attribute<RegioRoadCategory> RRC_rel        := const(RegioRoadCategory/V/Simulated_connectors,.,RegioRoadCategory);
+					attribute<BaseProjection>    od_point       := first_point(geometry);
+					attribute<BaseProjection>    cutpoint       := last_point(geometry);
+					attribute<UniqueLocations>   ul_id          := rlookup(od_point, UniqueLocations/geometry);
+					attribute<uint32>            F1             := ul_id[uint32] + #Roads/UqGeomPointSet;
+					attribute<uint32>            F2             := unique_cutpoints/suggested_node_id[rlookup(cutpoint, unique_cutpoints/Values)];
 					
-					// list connectable nodes to which the cutpoint may have snapped
-					unit<uint32> existing_connectable_nodes:= select_with_org_rel(Roads/UqGeomPointSet/Connectable) {
-						attribute<BaseProjection> 	Geometry:= org_rel->Geometry;
-						attribute<uint32>			conn_count:= org_rel->conn_count;
-						attribute<unique_cutpoints>	uc_rel:= rlookup(Geometry, unique_cutpoints/Values);
+					unit<uint32> existing_connectable_nodes := select_with_org_rel(Roads/UqGeomPointSet/Connectable) 
+					, Descr = "list connectable nodes to which the cutpoint may have snapped"
+					{
+						attribute<BaseProjection>   Geometry   := org_rel->Geometry;
+						attribute<uint32>           conn_count := org_rel->conn_count;
+						attribute<unique_cutpoints> uc_rel     := rlookup(Geometry, unique_cutpoints/Values);
 					}
-					// unique cutpoints (may have snapped to existing_connectable_nodes)
-					unit<uint32> unique_cutpoints:= unique(cutpoint) {
-						attribute<Roads/UqGeomPointSet> ecn_rel:= existing_connectable_nodes/org_rel[max_index(existing_connectable_nodes/conn_count, existing_connectable_nodes/uc_rel)];  //prefer the node location with the most connections.
-						attribute<uint32>	suggested_node_id:= makedefined(ecn_rel[uint32], #Roads/UqGeomPointSet + #UniqueLocations + id(.)[uint32]); // if not on a connectable existing node, identify as new node
+
+					unit<uint32> unique_cutpoints := unique(cutpoint)
+					, Descr = "unique cutpoints (may have snapped to existing_connectable_nodes)"
+					{
+						attribute<Roads/UqGeomPointSet> ecn_rel           := existing_connectable_nodes/org_rel[max_index(existing_connectable_nodes/conn_count, existing_connectable_nodes/uc_rel)];  //prefer the node location with the most connections.
+						attribute<uint32>               suggested_node_id := makedefined(ecn_rel[uint32], #Roads/UqGeomPointSet + #UniqueLocations + id(.)[uint32]); // if not on a connectable existing node, identify as new node
 					}
 				}
-				unit<uint32> unchanged_links:= select(f_unchanged && t_unchanged) {
+				
+				unit<uint32> unchanged_links:= select(f_unchanged && t_unchanged) 
+				{
 					attribute<BaseProjection>  geometry (arc)	:= collect_by_cond(., f_unchanged && t_unchanged, ../geometry);
 					attribute<km_hr>		   KPH				:= collect_by_cond(., f_unchanged && t_unchanged, ../KPH);
 					attribute<bool>			   IsOneDirection	:= collect_by_cond(., f_unchanged && t_unchanged, ../IsOneDirection);
 					attribute<RegioRoadCategory> RRC_rel		:= collect_by_cond(., f_unchanged && t_unchanged, ../RRC_rel);
 					attribute<uint32>		   F1				:= collect_by_cond(., f_unchanged && t_unchanged, ../F1);
 					attribute<uint32>		   F2				:= collect_by_cond(., f_unchanged && t_unchanged, ../F2);
-					attribute<Roads>		   org_roads_id		:= collect_by_cond(., f_unchanged && t_unchanged, ../Nr_OrgEntity);
+					attribute<Roads>		   org_roads_id		:= collect_by_cond(., f_unchanged && t_unchanged, ../arc_rel);
 				}
-				unit<uint32> changed_links:= select(!isconnector && (!f_unchanged || !t_unchanged)) {
+				
+				unit<uint32> changed_links:= select(!isconnector && (!f_unchanged || !t_unchanged)) 
+				{
 					attribute<BaseProjection>  geometry (arc)	:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../geometry);
 					attribute<km_hr>		   KPH				:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../KPH);
 					attribute<bool>			   IsOneDirection	:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../IsOneDirection);
@@ -193,9 +201,10 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<uint32>		   org_F2			:= collect_by_cond(., !isconnector && (!f_unchanged || !t_unchanged), ../F2);
 					attribute<uint32>		   F1				:= f_notchanged ? org_F1 : location_connectors/F2[rlookup(first_point(geometry), location_connectors/cutpoint)];
 					attribute<uint32>		   F2				:= t_notchanged ? org_F2 : location_connectors/F2[rlookup(last_point(geometry), location_connectors/cutpoint)];
-					attribute<Roads>		   org_roads_id		:= collect_by_cond(.,  !isconnector && (!f_unchanged || !t_unchanged), ../Nr_OrgEntity);
+					attribute<Roads>		   org_roads_id		:= collect_by_cond(.,  !isconnector && (!f_unchanged || !t_unchanged), ../arc_rel);
 					
-					unit<uint32> sel_nulls:= select(isnull(F1) || isnull(F2)) {
+					unit<uint32> sel_nulls:= select(isnull(F1) || isnull(F2)) 
+					{
 						attribute<BaseProjection>  geometry (arc)   := collect_by_cond(., isnull(F1) || isnull(F2), ../geometry);
 						attribute<BaseProjection>  fpoint			:= first_point(geometry);
 						attribute<BaseProjection>  tpoint			:= last_point(geometry);
@@ -205,10 +214,10 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 						attribute<bool>			   t_notchanged     := collect_by_cond(., isnull(F1) || isnull(F2), ../t_notchanged);
 					}
 				}
-				
 			}
 			
-			unit<uint32> LinkSet_Write := union_unit(LinkSet_Calc/unchanged_links, LinkSet_Calc/changed_links, LinkSet_Calc/location_connectors),	StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'"
+			unit<uint32> LinkSet_Write := union_unit(LinkSet_Calc/unchanged_links, LinkSet_Calc/changed_links, LinkSet_Calc/location_connectors)
+			,	StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'"
 			{
 				attribute<BaseProjection>  geometry(arc)		:= union_data(.,LinkSet_Calc/unchanged_links/geometry, 		LinkSet_Calc/changed_links/geometry, 		LinkSet_Calc/location_connectors/geometry);
 				attribute<km_hr>           KPH                  := union_data(.,LinkSet_Calc/unchanged_links/KPH, 			LinkSet_Calc/changed_links/KPH, 			LinkSet_Calc/location_connectors/KPH);
@@ -220,7 +229,9 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<Roads>		   org_roads_id		    := union_data(., LinkSet_Calc/unchanged_links/org_roads_id, LinkSet_Calc/changed_links/org_roads_id,	const(0 / 0, LinkSet_Calc/location_connectors, Roads));
 			}
 			
-			unit<uint32> LinkSet_Read: StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'", StorageReadOnly = "True"
+			unit<uint32> LinkSet_Read
+			: StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'"
+			, StorageReadOnly = "True"
 			{
 				attribute<BaseProjection>  geometry(arc);
 				attribute<km_hr>           KPH;
@@ -240,8 +251,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<NodeSet>         F1             := rlookup(F_node, NodeSet/Values); //node from the OD towards the network
 				attribute<NodeSet>         F2             := rlookup(T_node, NodeSet/Values); //network node to which the the OD is connected 
  
-				unit<uint32> PointSet := union_unit(., .);
-				unit<uint32> Subnetworks:= connected_parts(F1, F2);
+				unit<uint32> PointSet    := union_unit(., .);
+				unit<uint32> Subnetworks := connected_parts(F1, F2);
 			}
 
 			unit<uint32> NodeSet := unique(union_data(LinkSet/PointSet, LinkSet/F_node, LinkSet/T_node))
@@ -250,7 +261,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<bool>				OD_node:= any(LinkSet/IsOD_connection_road, LinkSet/F1);
 				attribute<BaseProjection> 	Geometry:= makedefined(first(first_point(LinkSet/Geometry), LinkSet/F1), first(last_point(LinkSet/Geometry), LinkSet/F2));
 				
-				unit<uint32> OD_nodes:= select_with_org_rel(OD_node) {
+				unit<uint32> OD_nodes:= select_with_org_rel(OD_node) 
+				{
 					attribute<BaseProjection> geometry:= org_rel->Geometry;
 				}
 			}
@@ -325,7 +337,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			}
 			
 			unit<uint32> LastLinkSet := OptimiseNetwork/LastIter/IntermediateLinkSet;
-			unit<uint32> FinalLinkSet_Write := LastLinkSet,	StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalLinkSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'" 
+			unit<uint32> FinalLinkSet_Write := LastLinkSet
+			,	StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalLinkSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'" 
 			{
 				attribute<FinalNodeSet_Calc> F1                   := invert(FinalNodeSet_Calc/org_rel)[LastLinkSet/F1];
 				attribute<FinalNodeSet_Calc> F2                   := invert(FinalNodeSet_Calc/org_rel)[LastLinkSet/F2];
@@ -335,21 +348,28 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<bool>              IsOD_connection_road := LastLinkSet/IsOD_connection_road;
 			}
 			
-			unit<uint32> FinalNodeSet : StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalNodeSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'", StorageReadOnly = "True"
+			unit<uint32> FinalNodeSet : StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalNodeSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'"
+			, StorageReadOnly = "True"
 			{
 				attribute<BaseProjection> geometry;
 				attribute<bool>			  OD_node;
 				attribute<.> OrgNode_rel  (OrgDomain)  := OD_nodes/org_rel[rlookup(OrgDomain/geometry,  OD_nodes/geometry)];
-				attribute<.> DestNode_rel (DestDomain) := OD_nodes/org_rel[rlookup(DestDomain/geometry, OD_nodes/geometry)];	
-				unit<uint32> OD_nodes:= select_with_org_rel(OD_node) {
+				attribute<.> DestNode_rel (DestDomain) := OD_nodes/org_rel[rlookup(DestDomain/geometry, OD_nodes/geometry)];
+				
+				unit<uint32> OD_nodes:= select_with_org_rel(OD_node) 
+				{
 					attribute<BaseProjection> geometry:= org_rel->geometry;
 				}
 			}
-			unit<uint32> ChangesTracker_Write := LinkSet_src, StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'" {
+			unit<uint32> ChangesTracker_Write := LinkSet_src
+			, StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'" 
+			{
 				attribute<LastLinkSet> FinalLinkSet_rel:= OptimiseNetwork/LastIter/OrgLinkSet/ItmLinkSet_rel;
 			}
 			
-			unit<uint32> FinalLinkSet_Read: StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalLinkSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'", StorageReadOnly = "True"
+			unit<uint32> FinalLinkSet_Read
+			: StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalLinkSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'"
+			, StorageReadOnly = "True"
 			{
 				attribute<FinalNodeSet> F1;
 				attribute<FinalNodeSet> F2;
@@ -370,9 +390,14 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<uint32>                      Ordinal := id(.) / nrofrows(..);
 				}
 			}
-			unit<uint32> ChangesTracker_Read:= LinkSet_src, StorageName = "= propvalue(ChangesTracker_Write, 'StorageName')", StorageReadOnly = "True" {
+			
+			unit<uint32> ChangesTracker_Read:= LinkSet_src
+			, StorageName = "= propvalue(ChangesTracker_Write, 'StorageName')"
+			, StorageReadOnly = "True" 
+			{
 				attribute<FinalLinkSet> FinalLinkSet_rel;
 			}
+			
 			unit<uint32> FinalLinkSet := FinalLinkSet_Read
 			{
 				attribute<bool>         IsOneDirection := FinalLinkSet_Read/IsOneDirection;
@@ -408,6 +433,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<bool>			  Is_inNL:= point_in_polygon(FirstPoint, RegionalUnits/country/subset/geometry) = 23 || point_in_polygon(LastPoint, RegionalUnits/country/subset/geometry) = 23;
 				
 				unit<uint32> Roads_NL:= select_with_attr_by_org_rel(.,Is_inNL);
+				
 				unit<uint32> Export_NL := Roads_NL
 				, StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/IN_NL/Network_Cleaned_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_'+expand(., '%DateTime%')+'.gpkg'"
 				, StorageType = "gdalwrite.vect"
@@ -417,7 +443,6 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<float32>        LengthKm           := float32(Roads_NL/LengthKm);
 					attribute<float32>        IsOneDir           := float32(Roads_NL/IsOneDirection);
 				}
-				
 				
 				container store 
 				{
@@ -671,30 +696,32 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 		
 		unit<uint32> Connected_Networks:= connected_parts(F1, F2) // Verzameling van alle netwerken, inclusief de subnetwerken.
 		{
-			attribute<uint32>   Nr_Nodes   := pcount(PartNr);
-			parameter<Connected_Networks> Main       := max_index(Nr_Nodes); // uitgangspunt: het netwerk met de meeste nodes is het relevante netwerk
-			attribute<bool>     IsConnected (NodeSet_domain) := PartNr == Main;
+			attribute<uint32>             Nr_Nodes                     := pcount(part_rel);
+			parameter<Connected_Networks> Main                         := max_index(Nr_Nodes); // uitgangspunt: het netwerk met de meeste nodes is het relevante netwerk
+			attribute<bool>               IsConnected (NodeSet_domain) := part_rel == Main;
 		}
 		
 		unit<uint32> reverse_directions:= select(!LinkSet_domain/IsOneDirection);
 		
 		// may require doubling of links with doubled directions...
-		unit<uint32> LinkSet_digraph:= union_unit(LinkSet_domain, reverse_directions) {
+		unit<uint32> LinkSet_digraph:= union_unit(LinkSet_domain, reverse_directions) 
+		{
 			attribute<NodeSet_domain> F1:= union_data(., ../F1, collect_by_cond(reverse_directions, !LinkSet_domain/IsOneDirection, ../F2));
 			attribute<NodeSet_domain> F2:= union_data(., ../F2, collect_by_cond(reverse_directions, !LinkSet_domain/IsOneDirection, ../F1));
 		}
 		
-		unit<uint32> Strongly_connected_Networks:= strongly_connected_components(LinkSet_digraph/F1, LinkSet_digraph/F2) {
-			attribute<uint32>   Nr_Nodes   := pcount(PartNr);
-			parameter<Strongly_connected_Networks> Main       := max_index(Nr_Nodes); 
-			attribute<bool>     IsConnected (NodeSet_domain) := PartNr == Main;
+		unit<uint32> Strongly_connected_Networks := strongly_connected_components(LinkSet_digraph/F1, LinkSet_digraph/F2)
+		{
+			attribute<uint32>                      Nr_Nodes                     := pcount(part_rel);
+			parameter<Strongly_connected_Networks> Main                         := max_index(Nr_Nodes); 
+			attribute<bool>                        IsConnected (NodeSet_domain) := part_rel == Main;
 		}
 		
-		attribute<bool> IsVerbonden (LinkSet_domain) := Connected_Networks/IsConnected[F1] && Connected_Networks/IsConnected[F2];
-		attribute<bool> IsSterkVerbonden (LinkSet_domain) := Strongly_connected_Networks/IsConnected[F1] && Strongly_connected_Networks/IsConnected[F2];
+		attribute<bool> IsVerbonden         (LinkSet_domain) := Connected_Networks/IsConnected[F1] && Connected_Networks/IsConnected[F2];
+		attribute<bool> IsSterkVerbonden    (LinkSet_domain) := Strongly_connected_Networks/IsConnected[F1] && Strongly_connected_Networks/IsConnected[F2];
 		
-		attribute<bool>	NodesVerbonden (NodeSet_domain):= Connected_Networks/IsConnected;
-		attribute<bool>	NodesSterkVerbonden (NodeSet_domain):= Strongly_connected_Networks/IsConnected;
+		attribute<bool>	NodesVerbonden      (NodeSet_domain) := Connected_Networks/IsConnected;
+		attribute<bool>	NodesSterkVerbonden (NodeSet_domain) := Strongly_connected_Networks/IsConnected;
 		
 		unit<uint32> NodesNotConnected := select_with_org_rel(!Connected_Networks/IsConnected)
 		{
@@ -714,12 +741,12 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 		attribute<NodeSet_domain> F2(LinkSet_domain);
 		///
 		
-		attribute<bool>                      IsVerbonden  (LinkSet_domain) := Networks/IsConnected[F1] && Networks/IsConnected[F2];
+		attribute<bool>  IsVerbonden  (LinkSet_domain) := Networks/IsConnected[F1] && Networks/IsConnected[F2];
 		unit<uint32> Networks:= connected_parts(LinkSet_domain/F1, LinkSet_domain/F2) // Verzameling van alle netwerken, inclusief de subnetwerken.
 		{
-			attribute<uint32>   Nr_Nodes   := pcount(PartNr);
-			parameter<Networks> Main       := max_index(Nr_Nodes); // uitgangspunt: het netwerk met de meeste nodes is het relevante netwerk
-			attribute<bool>     IsConnected   (NodeSet_domain) := PartNr == Main;
+			attribute<uint32>   Nr_Nodes                     := pcount(part_rel);
+			parameter<Networks> Main                         := max_index(Nr_Nodes); // uitgangspunt: het netwerk met de meeste nodes is het relevante netwerk
+			attribute<bool>     IsConnected (NodeSet_domain) := part_rel == Main;
 		}
 
 		unit<uint32> NodesNotConnected := select_with_org_rel(!Networks/Isconnected)

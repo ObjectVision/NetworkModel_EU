@@ -12,39 +12,50 @@ Container Settlement_Hierarchies: using = "Geometries;SourceData;" {
 	}
 	
 	container NetworkRef:= NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork;
-	unit<uint32> Countries:= select_with_attr_by_cond(RegionalUnits/Country, 
-		RegionalUnits/Country/IsEU ||  RegionalUnits/Country/IsEFTA && !RegionalUnits/Country/CNTR_ID = 'SJ' && !RegionalUnits/Country/CNTR_ID = 'IS') {
+	
+	unit<uint32> Countries:= select_with_attr_by_cond(RegionalUnits/Country, RegionalUnits/Country/IsEU ||  RegionalUnits/Country/IsEFTA && !RegionalUnits/Country/CNTR_ID = 'SJ' && !RegionalUnits/Country/CNTR_ID = 'IS') 
+	{
 		attribute<string> ZoneId:= CNTR_ID;
 		attribute<EU>	  EU_rel:= IsEU ? 0[EU] : 0 / 0;
 		attribute<EUplus> EUplus_rel:= IsEU || IsEFTA ? 0[EUplus] : 0 / 0;
 		attribute<Benelux>Benelux_rel:= ZoneId = 'NL' || ZoneId = 'BE' || ZoneId = 'LU' ? 0[Benelux] : 0 / 0;
 		attribute<Baltics>Baltics_rel:= ZoneId = 'LT' || ZoneId = 'LV' || ZoneId = 'EE' ? 0[Baltics] : 0 / 0;
 	}
-	unit<uint32> EUplus: nrofrows = 1 {
-		attribute<BaseProjection> Geometry (poly):= bg_union_polygon(Countries/Geometry[BaseProjection_ip], Countries/EUplus_rel)[BaseProjection];
-		attribute<string> ZoneId:= const('EUplus',.,string);
-	}
-	unit<uint32> EU: nrofrows = 1 {
-		attribute<BaseProjection> Geometry (poly):= bg_union_polygon(Countries/Geometry[BaseProjection_ip], Countries/EU_rel)[BaseProjection];
-		attribute<string> ZoneId:= const('EU',.,string);
-	}
-	unit<uint32> Benelux: nrofrows = 1 {
-		attribute<BaseProjection> Geometry (poly):= bg_union_polygon(Countries/Geometry[BaseProjection_ip], Countries/Benelux_rel)[BaseProjection];
-		attribute<string> ZoneId:= const('Benelux',.,string);
-	}
-	unit<uint32> Baltics: nrofrows = 1 {
-		attribute<BaseProjection> Geometry (poly):= bg_union_polygon(Countries/Geometry[BaseProjection_ip], Countries/Baltics_rel)[BaseProjection];
-		attribute<string> ZoneId:= const('Baltics',.,string);
+	
+	unit<uint32> EUplus: nrofrows = 1 
+	{
+		attribute<BaseProjection> Geometry (poly):= geos_union_polygon(Countries/Geometry, Countries/EUplus_rel)[BaseProjection];
+		attribute<string>         ZoneId:= const('EUplus',.,string);
 	}
 	
-	unit<ipoint> pop21_grid:= Geometries/Base_grid_1km {
-		attribute<Settlements_v4> SettId:= poly2grid(Settlements_v4/Geometry, .);
-		attribute<Settlements_v5> SettId_v5:= poly2grid(Settlements_v5/Geometry, .);
-		attribute<BaseProjection> Location:= id(.)[BaseProjection] + (GetProjectionFactor(.) / point(2d, 2d, dpoint))[BaseProjection];
-		attribute<BaseProjection> Pop_weight:= point(Locations/Population_2021_v2_0/ReadData, Locations/Population_2021_v2_0/ReadData, wpoint)[BaseProjection];
+	unit<uint32> EU: nrofrows = 1 
+	{
+		attribute<BaseProjection> Geometry (poly):= geos_union_polygon(Countries/Geometry, Countries/EU_rel)[BaseProjection];
+		attribute<string>         ZoneId:= const('EU',.,string);
 	}
 	
-	unit<uint32> Settlements_v4:=  Locations/Settlements_v4	 {
+	unit<uint32> Benelux: nrofrows = 1 
+	{
+		attribute<BaseProjection> Geometry (poly):= geos_union_polygon(Countries/Geometry, Countries/Benelux_rel)[BaseProjection];
+		attribute<string>         ZoneId:= const('Benelux',.,string);
+	}
+	
+	unit<uint32> Baltics: nrofrows = 1 
+	{
+		attribute<BaseProjection> Geometry (poly):= geos_union_polygon(Countries/Geometry, Countries/Baltics_rel)[BaseProjection];
+		attribute<string>         ZoneId:= const('Baltics',.,string);
+	}
+	
+	unit<ipoint> pop21_grid := Geometries/Base_grid_1km 
+	{
+		attribute<Settlements_v4> SettId     := poly2grid(Settlements_v4/Geometry, .);
+		attribute<Settlements_v5> SettId_v5  := poly2grid(Settlements_v5/Geometry, .);
+		attribute<BaseProjection> Location   := id(.)[BaseProjection] + (GetProjectionFactor(.) / point(2d, 2d, dpoint))[BaseProjection];
+		attribute<BaseProjection> Pop_weight := point(Locations/Population_2021_v2_0/ReadData, Locations/Population_2021_v2_0/ReadData, wpoint)[BaseProjection];
+	}
+	
+	unit<uint32> Settlements_v4:=  Locations/Settlements_v4	 
+	{
 		attribute<BaseProjection> centroid:= sum(pop21_grid/Location * pop21_grid/Pop_weight, pop21_grid/SettId) / sum(pop21_grid/Pop_weight, pop21_grid/SettId);
 		attribute<float32>		  population:= POPL[float32];
 		//attribute<string>		  CNTR_CODE:= Locations/Settlements_v4/CNTR_CODE;
@@ -56,7 +67,8 @@ Container Settlement_Hierarchies: using = "Geometries;SourceData;" {
 		
 		//attribute<NetworkRef/FinalNodeSet> Org_NodeId:= NetworkRef/FinalNodeSet/OD_nodes/org_rel[connect(NetworkRef/FinalNodeSet/OD_nodes/Geometry, centroid)];
 	}
-	unit<uint32> Settlements_v5:=  Locations/Settlements_v5	 {
+	unit<uint32> Settlements_v5:=  Locations/Settlements_v5	 
+	{
 		attribute<BaseProjection> centroid:= sum(pop21_grid/Location * pop21_grid/Pop_weight, pop21_grid/SettId_v5) / sum(pop21_grid/Pop_weight, pop21_grid/SettId_v5);
 		attribute<float32>		  population:= POPL[float32];
 		//attribute<string>		  CNTR_CODE:= Locations/Settlements_v4/CNTR_CODE;
@@ -77,6 +89,7 @@ Container Settlement_Hierarchies: using = "Geometries;SourceData;" {
 	container Establish_Settlement_Hierarchies:= Settlement_Hierarchy_T(Settlements_v5, Settlements_v5, NetworkRef);
 	//container Establish_Settlement_Hierarchies_Benelux:= Settlement_Hierarchy_T(Settlements_v4_Benelux, Settlements_v4_Benelux, NetworkRef);
 	//container Establish_Settlement_Hierarchies_Baltics:= Settlement_Hierarchy_T(Settlements_v4_Baltics, Settlements_v4_Baltics, NetworkRef);
+	
 	
 	Template Settlement_Hierarchy_T
 	{
@@ -106,7 +119,7 @@ Container Settlement_Hierarchies: using = "Geometries;SourceData;" {
 			attribute<float32>         population  := Org/population[org_rel];
 			attribute<Countries>       Country_rel := Org/Country_rel[org_rel];
 			attribute<string>          Label       := Org/Label[org_rel];
-			attribute<uint32>		   Type	   	   := Org/Type[org_rel];
+			attribute<uint32>          Type	       := Org/Type[org_rel];
 		}
 		
 		unit<uint64> OD_matrix :=
@@ -121,9 +134,9 @@ Container Settlement_Hierarchies: using = "Geometries;SourceData;" {
 				, convert(max(Centres_Thresholds/num), s_f) //cut impedance
 			) 
 		{
-			attribute<float32> pop_i:= Connected_Settlements/population[OrgZone_rel];
-			attribute<float32> pop_j:= Connected_Settlements/population[DstZone_rel];
-			attribute<bool> isDomestic:= Connected_Settlements/Country_rel[OrgZone_rel] = Connected_Settlements/Country_rel[DstZone_rel];
+			attribute<float32> pop_i      := Connected_Settlements/population[OrgZone_rel];
+			attribute<float32> pop_j      := Connected_Settlements/population[DstZone_rel];
+			attribute<bool>    isDomestic := Connected_Settlements/Country_rel[OrgZone_rel] = Connected_Settlements/Country_rel[DstZone_rel];
 		}
 			
 		parameter<string> filepath:= '%LocalDataProjDir%/Settlement_Hierarchy/'+Org/refname;

@@ -1,11 +1,12 @@
 Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 		
-	unit<uint32> country_sep_units:= bg_split_polygon(Countries/Geometry), descr = "separated polygons that entail a country.";
-	unit<uint32> EU_sep_units:= split_polygon(EU/Geometry[BaseProjection_ip]), descr = "separated polygons that entail the EU.";
-	unit<uint32> EUplus_sep_units:= split_polygon(EUplus/Geometry[BaseProjection_ip]), descr = "separated polygons that entail the EU, Norway and Switzerland.";
-	unit<uint32> Benelux_sep_units:= bg_split_polygon(Benelux/Geometry), descr = "separated polygons that entail the Benelux.";
-	unit<uint32> Baltics_sep_units:= bg_split_polygon(Baltics/Geometry), descr = "separated polygons that entail the Baltics.";
-	unit<uint32> AllSettlements:= Settlements_v4;
+	unit<uint32> country_sep_units := geos_split_polygon(Countries/Geometry), descr = "separated polygons that entail a country.";
+	unit<uint32> EU_sep_units      := geos_split_polygon(EU/Geometry), descr = "separated polygons that entail the EU.";
+	unit<uint32> EUplus_sep_units  := geos_split_polygon(EUplus/Geometry), descr = "separated polygons that entail the EU, Norway and Switzerland.";
+	unit<uint32> Benelux_sep_units := geos_split_polygon(Benelux/Geometry), descr = "separated polygons that entail the Benelux.";
+	unit<uint32> Baltics_sep_units := geos_split_polygon(Baltics/Geometry), descr = "separated polygons that entail the Baltics.";
+	
+	unit<uint32> AllSettlements    := Settlements_v4;
 	
 	container get_catchments_m15_a:= Prepare_Catchments_T(Establish_Settlement_Hierarchies/Hierarchies_ReadOnly
 			, NetworkSetup/Base_Analysis/NetwerkSpec/OrgDomain, EUplus, EUplus_sep_units
@@ -47,14 +48,15 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 		unit<uint32>          inCountries;
 		unit<uint32>          in_sep_units;
 		container             NetwerkSpec;
-		parameter<string> 	  threshold_sel_string;
+		parameter<string>     threshold_sel_string;
 		parameter<float32>    minPop:= 0f;
-		parameter<bool>		  FUA_exclusion:= False;
+		parameter<bool>       FUA_exclusion:= False;
 		
 		unit<uint32> FinalLinkSet := NetwerkSpec/FinalLinkSet;
 		unit<uint32> FinalNodeSet := NetwerkSpec/FinalNodeSet;
 	
-		unit<uint32> SelectedSettlements:= = 'select_with_org_rel(bool(inSettlements/'+threshold_sel_string+') && float32(inSettlements/Pop) >= minPop && (!FUA_exclusion || !inSettlements/inFUA))' {
+		unit<uint32> SelectedSettlements:= = 'select_with_org_rel(bool(inSettlements/'+threshold_sel_string+') && float32(inSettlements/Pop) >= minPop && (!FUA_exclusion || !inSettlements/inFUA))' 
+		{
 			attribute<inCountries> Country_rel:= point_in_polygon(inSettlements/point[org_rel], inCountries/Geometry);
 			attribute<BaseProjection> Geometry:= inSettlements/point[org_rel];
 			attribute<string>         Label   := inSettlements/Label[org_rel];
@@ -63,11 +65,12 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 		}
 		
 		
-		unit<uint32> Grids:= inGrids {
-			attribute<bool>		 	InFUA:= isdefined(point_in_polygon(inGrids/Geometry, RegionalUnits/FUA_2021/Geometry));
-			attribute<inCountries> 	Country_rel:= point_in_polygon(inGrids/Geometry, inCountries/geometry);
-			attribute<in_sep_units>  Sepunit_rel:= point_in_polygon(inGrids/Geometry, in_sep_units/geometry[BaseProjection]);
-			attribute<bool> 		restrict_in_country:= !FUA_exclusion || isdefined(Country_rel);
+		unit<uint32> Grids:= inGrids 
+		{
+			attribute<bool>          InFUA               := isdefined(point_in_polygon(inGrids/Geometry, RegionalUnits/FUA_2021/Geometry));
+			attribute<inCountries>   Country_rel         := point_in_polygon(inGrids/Geometry, inCountries/geometry);
+			attribute<in_sep_units>  Sepunit_rel         := point_in_polygon(inGrids/Geometry, in_sep_units/geometry[BaseProjection]);
+			attribute<bool>          restrict_in_country := !FUA_exclusion || isdefined(Country_rel);
 		}
 		
 		//attribute<BaseProjection>  inGrids_centroid_wgs    (inGrids) := inGrids/centroid;
@@ -98,8 +101,10 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 			for_each_ne(
 				inCountries/ZoneId
 				, 'Create_Country_Catchments_T('+string(id(inCountries))+', True)'
-			) {
-			container gen {
+			) 
+		{
+			container gen 
+			{
 				attribute<bool> button (inCountries):= ='union_data(inCountries, '+asitemlist('Country_Catchments/'+inCountries/ZoneId+'/store_catchment')+')';
 			}
 		}
@@ -109,17 +114,18 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 			parameter<inCountries> inCountry;
 			///
 			parameter<bool>        Use_Grav_spec := False;
-			parameter<bool>		   Single_Centroid:= False;
+			parameter<bool>        Single_Centroid:= False;
 			
 			unit<uint32> sep_Country_Units := select_with_org_rel(in_sep_units/polygon_rel = inCountry) 
 			{
 				attribute<BaseProjection>     geometry (poly)    := (in_sep_units/Geometry[org_rel]);
 				attribute<string>             ZoneId             := (inCountries/ZoneId[in_sep_units/polygon_rel])[org_rel];
 				attribute<bool>               any_connection     := pcount(Country_Connected_Grids/scu_rel) > 0;
-				attribute<bool>				  any_grid	 		 := pcount(Country_Unconnected_Grids/scu_rel) > 0 || any_connection;
+				attribute<bool>               any_grid           := pcount(Country_Unconnected_Grids/scu_rel) > 0 || any_connection;
 			}
-			unit<uint32> Rel_sep_country_units := subset(sep_Country_Units/any_grid) {
-				attribute<string>			 ZoneId:= sep_Country_Units/ZoneId[Nr_OrgEntity];
+			unit<uint32> Rel_sep_country_units := select_with_org_rel(sep_Country_Units/any_grid) 
+			{
+				attribute<string>             ZoneId:= sep_Country_Units/ZoneId[org_rel];
 			}
 			unit<uint32> Country_Settlements := select_with_org_rel(SelectedSettlements/Country_rel = inCountry) 
 			{
@@ -127,10 +133,9 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 				attribute<string>             Label       := SelectedSettlements/Label[org_rel];
 				attribute<float32>            Pop         := SelectedSettlements/Pop[org_rel];
 				attribute<FinalNodeSet>       NodeId      := SelectedSettlements/NodeId[org_rel];
-				attribute<BaseProjection>	  Poly (polygon):= rjoin(Label, AllSettlements/Label, AllSettlements/Geometry);
-				attribute<AllSettlements> 	  un_sett_rel:= rlookup(Label, AllSettlements/Label);
-				attribute<.>				  SettId	  := id(.);
-				
+				attribute<BaseProjection>     Poly (poly) := rjoin(Label, AllSettlements/Label, AllSettlements/Geometry);
+				attribute<AllSettlements>     un_sett_rel := rlookup(Label, AllSettlements/Label);
+				attribute<.>                  SettId      := id(.);
 			}
 			
 			unit<uint32> Country_Unconnected_Grids := select_with_org_rel(Unconnected_Grids/country_rel = inCountry) 
@@ -148,7 +153,7 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 				attribute<sep_Country_Units>  scu_rel     := rlookup(Connected_Grids/sep_unit_rel[org_rel], sep_Country_Units/org_rel);
 				attribute<float32>            Pop         := Connected_Grids/Pop[org_rel];
 				attribute<FinalNodeSet>       NodeId      := Connected_Grids/NodeId[org_rel];
-				attribute<Country_Settlements>SettId	  := point_in_polygon(Geometry, Country_Settlements/Poly);
+				attribute<Country_Settlements>SettId      := point_in_polygon(Geometry, Country_Settlements/Poly);
 			}
 			
 			parameter<string> OriginPoints_source:= Single_Centroid || Use_Grav_spec ? 'Country_Settlements' : 'Country_Connected_Grids';
@@ -167,31 +172,38 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 				attribute<float32> 	Pop:= DestinationPoints/Pop[Nr_OrgEntity];
 			}*/
 			
-			container Gravity_spec {
-				unit<uint64> Create_Matrix:= dijkstra_m64('bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);limit(OrgZone_max_mass,DstZone_mass);od:OrgZone_rel,DstZone_rel,impedance'
+			container Gravity_spec 
+			{
+				unit<uint64> Create_Matrix:= impedance_matrix_od64('bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);limit(OrgZone_max_mass,DstZone_mass);od:OrgZone_rel,DstZone_rel,impedance'
 						, FinalLinkSet/impedance
 						, FinalLinkSet/F1
 						, FinalLinkSet/F2
 						, !FinalLinkSet/IsOneDirection
 						, Country_Connected_Grids/NodeId
-						, GridPoints_in_settlements/NodeId, 5d, 1d) {
-					attribute<float32> pull:= Country_Settlements/Pop[GridPoints_in_settlements/SettId[DstZone_rel]] * (max_elem(Impedance[float32], 0.01f)^Grav_func);
-					attribute<Country_Settlements> destpoint:= GridPoints_in_settlements/SettId[DstZone_rel];
+						, GridPoints_in_settlements/NodeId, 5d, 1d) 
+				{
+					attribute<float32>             pull      := Country_Settlements/Pop[GridPoints_in_settlements/SettId[DstZone_rel]] * (max_elem(Impedance[float32], 0.01f)^Grav_func);
+					attribute<Country_Settlements> destpoint := GridPoints_in_settlements/SettId[DstZone_rel];
 				}
+				
 				attribute<Create_Matrix> max_pull_id 						(Country_Connected_Grids):= max_index(Create_Matrix/pull, Create_Matrix/OrgZone_rel);
 				attribute<Country_Settlements> proto_dependent_point		(Country_Connected_Grids):= Create_Matrix/destpoint[max_pull_id];
 				attribute<float64> tt 										(Country_Connected_Grids):= Create_Matrix/Impedance[max_pull_id];
 				
-				unit<uint32> with_values:= subset(isdefined(proto_dependent_point)) {
-					attribute<BaseProjection> Geometry:= Country_Connected_Grids/Geometry[Nr_OrgEntity]; 
-					attribute<Country_Settlements> depval:= proto_dependent_point[Nr_OrgEntity];
+				unit<uint32> with_values:= select_with_org_rel(isdefined(proto_dependent_point)) 
+				{
+					attribute<BaseProjection>      Geometry := Country_Connected_Grids/Geometry[org_rel]; 
+					attribute<Country_Settlements> depval   := proto_dependent_point[org_rel];
 				}
-				unit<uint32> without_values:= subset(isnull(proto_dependent_point)) {
-					attribute<BaseProjection> Geometry:= Country_Connected_Grids/Geometry[Nr_OrgEntity]; 
-					attribute<Country_Settlements> depval:= with_values/depval[connect(with_values/Geometry, Geometry)];
+				
+				unit<uint32> without_values:= select_with_org_rel(isnull(proto_dependent_point)) 
+				{
+					attribute<BaseProjection>      Geometry := Country_Connected_Grids/Geometry[org_rel]; 
+					attribute<Country_Settlements> depval   := with_values/depval[connect(with_values/Geometry, Geometry)];
 				}
-				attribute<without_values> wv_rel (Country_Connected_Grids):= invert(without_values/Nr_OrgEntity);
-				attribute<Country_Settlements> dependent_point (Country_Connected_Grids):= #with_values > 0 ? makedefined(proto_dependent_point, without_values/depval[wv_rel]) : 0;
+				
+				attribute<without_values>      wv_rel          (Country_Connected_Grids) := invert(without_values/org_rel);
+				attribute<Country_Settlements> dependent_point (Country_Connected_Grids) := #with_values > 0 ? makedefined(proto_dependent_point, without_values/depval[wv_rel]) : 0;
 			}
 
 			
@@ -210,17 +222,23 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 					
 				attribute<Country_Settlements> service_area 	(FinalNodeSet) := GridPoints_in_settlements/SettId[rlookup(service_area(FinalLinkSet/F1, FinalLinkSet/F2, Closest_TravelTime/TraceBack), GridPoints_in_settlements/NodeId)];				
 				attribute<Country_Settlements> proto_dependent_point	(Country_Connected_Grids):= service_area[Country_Connected_Grids/NodeId];
-				unit<uint32> with_values:= subset(isdefined(proto_dependent_point)) {
-					attribute<BaseProjection> Geometry:= Country_Connected_Grids/Geometry[Nr_OrgEntity]; 
-					attribute<Country_Settlements> depval:= proto_dependent_point[Nr_OrgEntity];
+				
+				unit<uint32> with_values:= select_with_org_rel(isdefined(proto_dependent_point)) 
+				{
+					attribute<BaseProjection> Geometry:= Country_Connected_Grids/Geometry[org_rel]; 
+					attribute<Country_Settlements> depval:= proto_dependent_point[org_rel];
 				}
-				unit<uint32> without_values:= subset(isnull(proto_dependent_point)) {
-					attribute<BaseProjection> Geometry:= Country_Connected_Grids/Geometry[Nr_OrgEntity]; 
+				
+				unit<uint32> without_values:= select_with_org_rel(isnull(proto_dependent_point)) 
+				{
+					attribute<BaseProjection> Geometry:= Country_Connected_Grids/Geometry[org_rel]; 
 					attribute<Country_Settlements> depval:= with_values/depval[connect(with_values/Geometry, Geometry)];
 				}
-				attribute<without_values> wv_rel (Country_Connected_Grids):= invert(without_values/Nr_OrgEntity);
+				
+				attribute<without_values> wv_rel (Country_Connected_Grids):= invert(without_values/org_rel);
 				attribute<Country_Settlements> dependent_point (Country_Connected_Grids):= #with_values > 0 ? makedefined(proto_dependent_point, without_values/depval[wv_rel]) : 0;
 			}
+			
 			/*container Gravity_spec {
 				unit<uint64> Create_Matrix:= dijkstra_m64('bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);limit(OrgZone_max_mass,DstZone_mass);od:OrgZone_rel,DstZone_rel,impedance'
 						, Minutes, F1, F2, TwoDirections, OriginPoints/NodeRef, SelDestinationPoints/NodeRef, 5f, 1f) {
@@ -231,7 +249,8 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 				attribute<SelDestinationPoints> dependent_point	(OriginPoints):= Create_Matrix/DstZone_rel[max_pull_id];
 				attribute<float32> tt (OriginPoints):= Create_Matrix/Impedance[max_pull_id];
 			}*/
-			container Specification_Reference:= =Use_Grav_spec ? 'Gravity_spec' : 'Find_Only_Closest';		
+			
+			container Specification_Reference:= =Use_Grav_spec ? 'Gravity_spec' : 'Find_Only_Closest';
 			
 			container Add_Unconnected_Grids := 
 				for_each_ne(
@@ -241,11 +260,11 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 			{
 				unit<uint32> all_grids:= ='union_unit(Country_Connected_Grids,'+asitemlist(Rel_sep_country_units/ZoneId+'/sepunit_unconnected_grids')+')' 
 				{
-					attribute<BaseProjection>         geometry                 := ='union_data(., Country_Connected_Grids/Geometry, '+asitemlist(Rel_sep_country_units/ZoneId+'/sepunit_unconnected_grids/Geometry')+')';
+					attribute<BaseProjection>      geometry                 := ='union_data(., Country_Connected_Grids/Geometry, '+asitemlist(Rel_sep_country_units/ZoneId+'/sepunit_unconnected_grids/Geometry')+')';
 					attribute<float32>             Pop                      := ='union_data(., Country_Connected_Grids/Pop, '+asitemlist(Rel_sep_country_units/ZoneId+'/sepunit_unconnected_grids/Pop')+')';
 					//attribute<WorldMollweide>      geometry_mw              := Geometry[WorldMollweide];
 					attribute<Country_Settlements> dependent_point          := ='union_data(., Specification_Reference/dependent_point, '+asitemlist(Rel_sep_country_units/ZoneId+'/dependent_point')+')';
-					attribute<BaseProjection>      geometry_poly (poly)  := points2sequence(makepoly/Point, makepoly/SeqNr, makepoly/Ordinal);
+					attribute<BaseProjection>      geometry_poly (poly)     := points2sequence(makepoly/Point, makepoly/SeqNr, makepoly/Ordinal);
 					
 					attribute<ipoint>                       iPoly (poly)             := points2sequence(makepoly/iPoints, makepoly/SeqNr, 4 - makepoly/Ordinal);
 					//attribute<ipoint>                     Polyset (poly)             := points2sequence(makepoly/iPoints, makepoly/SeqNr, 4 - makepoly/Ordinal);
@@ -253,17 +272,17 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 					unit<uint32> makepoly:= union_unit(all_grids, all_grids, all_grids, all_grids, all_grids) 
 					{
 						attribute<BaseProjection> point   := union_data(., 
-																	geometry + const(point(-500d,  500d, BaseProjection), all_grids, BaseProjection), 
-																	geometry + const(point( 500d,  500d, BaseProjection), all_grids, BaseProjection), 
-																	geometry + const(point( 500d, -500d, BaseProjection), all_grids, BaseProjection), 
-																	geometry + const(point(-500d, -500d, BaseProjection), all_grids, BaseProjection),
-																	geometry + const(point(-500d,  500d, BaseProjection), all_grids, BaseProjection));
+																	geometry + const(point_xy(-500d,  500d, BaseProjection), all_grids, BaseProjection), 
+																	geometry + const(point_xy( 500d,  500d, BaseProjection), all_grids, BaseProjection), 
+																	geometry + const(point_xy( 500d, -500d, BaseProjection), all_grids, BaseProjection), 
+																	geometry + const(point_xy(-500d, -500d, BaseProjection), all_grids, BaseProjection),
+																	geometry + const(point_xy(-500d,  500d, BaseProjection), all_grids, BaseProjection));
 						attribute<ipoint>                    iPoints := point[ipoint] / divpoint;
 						attribute<all_grids>                 SeqNr   := union_data(., id(all_grids), id(all_grids), id(all_grids), id(all_grids), id(all_grids));
 						attribute<uint32>                    Ordinal := id(.) / #all_grids;
 					}
 					
-					//parameter<BaseProjection> shiftpoint := min(geometry) - point(500d, 500d, BaseProjection); // still in use?
+					//parameter<BaseProjection> shiftpoint := min(geometry) - point_xy(500d, 500d, BaseProjection); // still in use?
 					parameter<ipoint>         divpoint   := point_xy(1000i, 1000i, ipoint);
 				}
 			}
@@ -271,16 +290,16 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 			Template Add_Unconnected_Grids__wconn_T 
 			{
 				parameter<sep_Country_Units> in_sep_unit_nr;
-				
+				///
 				unit<uint32> sepunit_unconnected_grids := select_with_org_rel(Country_Unconnected_Grids/scu_rel = in_sep_unit_nr) 
 				{
 					attribute<BaseProjection> Geometry  := Country_Unconnected_Grids/Geometry[org_rel]; 
-					attribute<float32>     pop       := Country_Unconnected_Grids/pop[org_rel];
+					attribute<float32>        pop       := Country_Unconnected_Grids/pop[org_rel];
 				}
 				unit<uint32> sepunit_connected_grids   := select_with_org_rel(Country_Connected_Grids/scu_rel = in_sep_unit_nr) 
 				{
 					attribute<BaseProjection>         Geometry  := Country_Connected_Grids/Geometry[org_rel]; 
-					attribute<Country_Settlements> dep_point := Specification_Reference/dependent_point[org_rel];
+					attribute<Country_Settlements>    dep_point := Specification_Reference/dependent_point[org_rel];
 				}
 				
 				attribute<Country_Settlements> dependent_point (sepunit_unconnected_grids):= sepunit_connected_grids/dep_point[connect(sepunit_connected_grids/Geometry, sepunit_unconnected_grids/Geometry)];
@@ -292,9 +311,9 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 				
 				unit<uint32> sepunit_unconnected_grids:= select_with_org_rel(Country_Unconnected_Grids/scu_rel = in_sep_unit_nr) 
 				{
-					attribute<BaseProjection> Geometry:= Country_Unconnected_Grids/Geometry[org_rel]; 
-					attribute<float32> pop:= Country_Unconnected_Grids/pop[org_rel];
-					attribute<dpoint>  pop_point:= populated ? point(float64(pop), float64(pop), dpoint) : const(point(1.0d, 1.0d, dpoint),.,dpoint);
+					attribute<BaseProjection> Geometry  := Country_Unconnected_Grids/Geometry[org_rel]; 
+					attribute<float32>        pop       := Country_Unconnected_Grids/pop[org_rel];
+					attribute<dpoint>         pop_point := populated ? point_xy(float64(pop), float64(pop), dpoint) : const(point_xy(1.0d, 1.0d, dpoint),.,dpoint);
 					//attribute<float32> pull:= sum(grids_comb/pop_j / grids_comb/gridsdist, grids_comb/nr_1);
 					
 					attribute<dpoint>  wpoint:= Geometry[dpoint] * pop_point;
@@ -304,12 +323,13 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 						attribute<float32> pop_j:= populated ? pop[nr_2] * 1000f : 1000f;
 					}*/
 				}
-				parameter<bool> populated:= sum(sepunit_unconnected_grids/Pop) > 0f;
-				parameter<BaseProjection> centroid:= (sum(sepunit_unconnected_grids/wpoint) / sum(sepunit_unconnected_grids/pop_point))[BaseProjection];
+				parameter<bool>                populated                                   := sum(sepunit_unconnected_grids/Pop) > 0f;
+				parameter<BaseProjection>      centroid                                    := (sum(sepunit_unconnected_grids/wpoint) / sum(sepunit_unconnected_grids/pop_point))[BaseProjection];
 				//parameter<sepunit_unconnected_grids> centroid_rel:= connect(sepunit_unconnected_grids/Geometry, centroid);
-				parameter<Country_Settlements> closest_settlement:= #Country_Settlements > 0 ? connect(Country_Settlements/Geometry, centroid) : 0;
-				attribute<Country_Settlements> dependent_point (sepunit_unconnected_grids):= const(closest_settlement, sepunit_unconnected_grids, Country_Settlements);
+				parameter<Country_Settlements> closest_settlement                          := #Country_Settlements > 0 ? connect(Country_Settlements/Geometry, centroid) : 0;
+				attribute<Country_Settlements> dependent_point (sepunit_unconnected_grids) := const(closest_settlement, sepunit_unconnected_grids, Country_Settlements);
 			}
+			
 			attribute<Country_Settlements> dependent (Add_Unconnected_Grids/all_grids) := #Country_Settlements > 0 ? Add_Unconnected_Grids/all_grids/dependent_point : 0;
 		
 			container results_choice:= cleanup_catchments/iterative_cleaning/lastIter/nextValue; //cleanup_catchments/init; //
@@ -326,7 +346,7 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 					unit<uint32> all_catchments:= unique(dependent), DialogData = "ipoly", DialogType = "map" 
 					{
 						//attribute<ipoint>         ipoly (poly) := bp_union_polygon(Add_Unconnected_Grids/all_grids/iPoly, ac_id);
-						attribute<BaseProjection> poly (poly):= bg_union_polygon(Add_Unconnected_Grids/all_grids/geometry_poly, ac_id);
+						attribute<BaseProjection> poly (poly):= geos_union_polygon(Add_Unconnected_Grids/all_grids/geometry_poly, ac_id);
 						//attribute<BaseProjection> poly  (poly) := points2sequence_pso(border_points/points_mul, border_points/sequence_rel, border_points/ordinal);
 						attribute<float32>        sqkm         := area(poly, float64)[float32] / (1000f * 1000f);
 						attribute<float32>        pop          := sum(Add_Unconnected_Grids/all_grids/pop, ac_id);
@@ -356,7 +376,6 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 						
 						unit<uint32> spc_conn_matrix:= polygon_connectivity(poly[BaseProjection_ip]) 
 						{
-
 							attribute<proto_catchments> first_rel:= F1;
 							attribute<proto_catchments> second_rel:= F2;
 						}
@@ -390,7 +409,8 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 					
 					attribute<split_proto_catchments> spc_rel_settlements (Country_Settlements):= point_in_polygon(Country_Settlements/Geometry, split_proto_catchments/Geometry);
 					
-					unit<uint32> split_proto_catchments:= select_with_attr_by_cond(initial_split_proto_catchments, initial_split_proto_catchments/not_a_hole) {
+					unit<uint32> split_proto_catchments:= select_with_attr_by_cond(initial_split_proto_catchments, initial_split_proto_catchments/not_a_hole) 
+					{
 						attribute<BaseProjection>  centroid				  := makedefined(Country_Settlements/Geometry[max_index(Country_Settlements/Pop, spc_rel_settlements)], centroid_or_mid(Geometry));
 						attribute<float32>         sqkm                   := area(Geometry, float64)[float32] / (1000f * 1000f);
 						attribute<float32>         relsize                := sqkm / currValue/proto_catchments/sqkm[polygon_rel];
@@ -435,16 +455,19 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 						
 						attribute<proto_catchments>pc_id                  := rlookup(jointo, proto_catchments/Values);
 						
-						unit<uint32> exclaves:= select_with_org_rel(exclave) {
-							attribute<BaseProjection> centroid:= split_proto_catchments/centroid[org_rel];
-							attribute<not_exclaves>   closest_main:= connect(not_exclaves/centroid, centroid);
-							attribute<split_proto_catchments> closest_proto_catchment:= not_exclaves/org_rel[closest_main];
-							attribute<float32>	      dist:= dist(centroid, not_exclaves/centroid[closest_main])[float32];
+						unit<uint32> exclaves:= select_with_org_rel(exclave) 
+						{
+							attribute<BaseProjection>         centroid                := split_proto_catchments/centroid[org_rel];
+							attribute<not_exclaves>           closest_main            := connect(not_exclaves/centroid, centroid);
+							attribute<split_proto_catchments> closest_proto_catchment := not_exclaves/org_rel[closest_main];
+							attribute<float32>                dist                    := dist(centroid, not_exclaves/centroid[closest_main])[float32];
 						}
-						unit<uint32> not_exclaves:= select_with_org_rel(!exclave && !drop) {
+						
+						unit<uint32> not_exclaves:= select_with_org_rel(!exclave && !drop) 
+						{
 							//attribute<BaseProjection> outline (arc):= Geometry[org_rel];
-							attribute<BaseProjection> rnd_point:= point(rnd_uniform(0, ., range(float64, 0d, 10d)), rnd_uniform(10, ., range(float64, 0d, 10d)), BaseProjection);
-							attribute<BaseProjection> centroid:= split_proto_catchments/centroid[org_rel] + rnd_point;
+							attribute<BaseProjection> rnd_point := point_xy(rnd_uniform(0, ., range(float64, 0d, 10d)), rnd_uniform(10, ., range(float64, 0d, 10d)), BaseProjection);
+							attribute<BaseProjection> centroid  := split_proto_catchments/centroid[org_rel] + rnd_point;
 						}
 						
 						unit<uint32> spc_conn_matrix:= polygon_connectivity(Geometry[BaseProjection_ip]) 
@@ -462,8 +485,8 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 					
 					unit<uint32> proto_catchments := unique(split_proto_catchments/jointo), DialogData= "poly", DialogType = "map" 
 					{
-						//attribute<BaseProjection> poly (poly) := bg_union_polygon(split_proto_catchments/Geometry, split_proto_catchments/pc_id);
-						attribute<BaseProjection> poly (poly) := partitioned_union_polygon(split_proto_catchments/Geometry[BaseProjection_ip], split_proto_catchments/pc_id)[BaseProjection];
+						// attribute<BaseProjection> poly (poly) := bg_union_polygon(split_proto_catchments/Geometry, split_proto_catchments/pc_id);
+						attribute<BaseProjection> poly (poly) := geos_union_polygon(split_proto_catchments/Geometry, split_proto_catchments/pc_id);
 						//attribute<BaseProjection> poly  (poly) := points2sequence_pso(border_points/points_mul, border_points/sequence_rel, border_points/ordinal);
 						attribute<float32>        sqkm         := area(poly, float64)[float32] / (1000f * 1000f);
 						attribute<bool>	          fua          := any(split_proto_catchments/fua, split_proto_catchments/pc_id);
@@ -502,9 +525,10 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 			unit<uint32> all_catchments:= cleaned_catchments
 			, DialogData = "poly"
 			, DialogType = "map"
-			, StorageName = "= filepath+'.dbf'" 
+			, StorageName = "= filepath+'.shp'" 
+			, StorageType = "gdalwrite.vect"
 			{
-				attribute<BaseProjection>  poly (poly) := cleaned_catchments/poly, StorageName = "= filepath+'.shp'";
+				attribute<BaseProjection>  poly (poly) := cleaned_catchments/poly;
 				attribute<float32>         Pop         := sum(Add_Unconnected_Grids/all_grids/Pop, cs_id);
 				attribute<uint8>           fua         := uint8(cleaned_catchments/fua);
 				//attribute<uint8>         exclv:= "uint8(cleaned_catchments/exclv);

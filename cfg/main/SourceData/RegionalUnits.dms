@@ -30,7 +30,7 @@ container RegionalUnits : using = "geometries"
 			attribute<float64> mean_X     := Weighted_X / W;
 			attribute<float64> mean_Y     := Weighted_y / W;
 			 
-			attribute<LambertEA> weighted_centroid0            := point(mean_X, mean_Y, LambertEA);
+			attribute<LambertEA> weighted_centroid0            := point_xy(mean_X, mean_Y, LambertEA);
 			attribute<bool>      IsWeighted_centroid_in_nuts3  := IsDefined(point_in_polygon(weighted_centroid0, NUTS3/geometry));
 			attribute<LambertEA> weighted_centroid             := IsWeighted_centroid_in_nuts3 ? weighted_centroid0 : centroid_or_mid(NUTS3/geometry);
 			attribute<LambertEA> geometry                      := weighted_centroid;
@@ -60,8 +60,9 @@ container RegionalUnits : using = "geometries"
 	, StorageReadOnly = "true"
 	{
 		attribute<LambertEA> geometry (poly);
-		attribute<bool> add:= CNTR_CODE='IT';// || CNTR_CODE='CH' || CNTR_CODE='NO'; // CH and NO already present in new FUA file
+		attribute<bool>      add:= CNTR_CODE='IT';// || CNTR_CODE='CH' || CNTR_CODE='NO'; // CH and NO already present in new FUA file
 	}
+	
 	unit<uint32> FUA_2021_20250626
 	: StorageName = "%NetworkModelDataDir%/Regions/FUA_2021.shp"
 	, StorageType = "gdal.vect"
@@ -87,15 +88,14 @@ container RegionalUnits : using = "geometries"
 		attribute<bool>      IsCC            := CC_STAT == 'T'; 
 		attribute<bool>      IsTerritory       := strcount(SVRG_UN, 'Territory') > 0; 
 		unit<uint32> Subset := select_with_attr_by_cond(.,(ModelParameters/Use_Country_OD_selection ? name_engl == /ModelParameters/OD_SelectionCountry : IsEu || IsEFTA));
-		
-		
 	}
-	unit<uint32> LAU_2021_Housing: StorageName = "%NetworkModelDataDir%/Regions/LAU2021_housing_census.shp"
+	unit<uint32> LAU_2021_Housing
+	: StorageName = "%NetworkModelDataDir%/Regions/LAU2021_housing_census.shp"
 	, StorageType = "gdal.vect"
 	, StorageReadOnly = "true"
 	{
 		attribute<LambertEA> Geometry (poly);
-		attribute<string> Label:= Gisco_id;
+		attribute<string>    Label:= Gisco_id;
 		
 		unit<uint32> CalcCentroids := .
 		{
@@ -107,19 +107,19 @@ container RegionalUnits : using = "geometries"
 			attribute<float64> mean_X     := Weighted_X / W;
 			attribute<float64> mean_Y     := Weighted_y / W;
 			 
-			attribute<LambertEA> weighted_centroid0            := point(mean_X, mean_Y, LambertEA);
+			attribute<LambertEA> weighted_centroid0            := point_xy(mean_X, mean_Y, LambertEA);
 			attribute<bool>      IsWeighted_centroid_in_nuts3  := IsDefined(point_in_polygon(weighted_centroid0, LAU_2021_Housing/geometry));
 			attribute<LambertEA> weighted_centroid             := IsWeighted_centroid_in_nuts3 ? weighted_centroid0 : centroid_or_mid(LAU_2021_Housing/geometry);
 			attribute<LambertEA> geometry                      := weighted_centroid;
 			
-			attribute<spoint>                              Base_grid_1km_spoint_rel ;
+			attribute<spoint>    Base_grid_1km_spoint_rel;
 			
 			unit<uint64> Population := SourceData/Locations/wPopulation
 			{
-				attribute<LAU_2021_Housing>   LAU_rel := point_in_polygon(geometry, LAU_2021_Housing/geometry);
-				attribute<float64> x         := pointcol(geometry);
-				attribute<float64> y         := pointrow(geometry);
-				attribute<float64> pop       := SourceData/Locations/wPopulation/Population[float64];
+				attribute<LAU_2021_Housing> LAU_rel   := point_in_polygon(geometry, LAU_2021_Housing/geometry);
+				attribute<float64>          x         := pointcol(geometry);
+				attribute<float64>          y         := pointrow(geometry);
+				attribute<float64>          pop       := SourceData/Locations/wPopulation/Population[float64];
 			}
 			
 			unit<uint32> Export_NUTS3_Centroids := CalcCentroids
@@ -130,7 +130,7 @@ container RegionalUnits : using = "geometries"
 		}
 	}
 	
-	unit<uint32> Country_Split := split_partitioned_union_polygon(Country/geometry[BaseProjection_ip], id(Country))
+	unit<uint32> Country_Split := geos_split_union_polygon(Country/geometry, id(Country))
 	{
 		attribute<LambertEA> geometry_lea (poly) := geometry[LambertEA];
 		attribute<LambertEA> centroid            := centroid_or_mid(geometry_lea);
@@ -145,18 +145,18 @@ container RegionalUnits : using = "geometries"
 	
 	unit<uint32> Continental_EU_undissolved := select_with_org_rel((Country_Split/IsEU || Country_Split/IsEFTA) && !Country_Split/IsTerritory && Country_Split/IsWithinStudyArea)
 	{
-		attribute<LambertEA> geometry (poly) := Country_Split/geometry_lea[org_rel];
-		attribute<string>    name            := Country_Split/name[org_rel];
-		attribute<Continental_EU>    Continental_EU_rel     := rlookup(name, Continental_EU/values);
+		attribute<LambertEA>      geometry        (poly) := Country_Split/geometry_lea[org_rel];
+		attribute<string>         name                   := Country_Split/name[org_rel];
+		attribute<Continental_EU> Continental_EU_rel     := rlookup(name, Continental_EU/values);
 		
 	}
 	
 	unit<uint8> Continental_EU := unique_uint8(Continental_EU_undissolved/name)
 	{
-		attribute<LambertEA>    geometry (poly) := partitioned_union_polygon(Continental_EU_undissolved/geometry[BaseProjection_ip], Continental_EU_undissolved/Continental_EU_rel)[LambertEA];
-		attribute<string>       name            := values;
-		attribute<string>       label           := values;
-		attribute<Country/Subset>	Country_rel		:= rlookup(name, Country/Subset/name_engl);
-		attribute<string>  		country_id 		:= Country/Subset/CNTR_ID[Country_rel];
+		attribute<LambertEA>       geometry (poly) := geos_union_polygon(Continental_EU_undissolved/geometry, Continental_EU_undissolved/Continental_EU_rel);
+		attribute<string>          name            := values;
+		attribute<string>          label           := values;
+		attribute<Country/Subset>  Country_rel     := rlookup(name, Country/Subset/name_engl);
+		attribute<string>          country_id      := Country/Subset/CNTR_ID[Country_rel];
 	}
 }
