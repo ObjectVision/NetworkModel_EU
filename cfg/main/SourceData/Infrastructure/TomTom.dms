@@ -139,46 +139,57 @@ Container TomTom : Using = "Units;geography;classifications/tomtom"
 	
 	container Selection
 	{
-		container Make_Streets_selection := FSS/Streets_Selectie
+		unit<uint32> Make_Streets_selection := FSS/Streets_Selectie
 		, StorageName = "=ModelParameters/Roads_path"
 		{
-			attribute<BaseProjection>     geometry       (FSS/Streets_Selectie, arc) := FSS/Streets_Selectie/geometry_clean;
-			attribute<FuncRoadClass>      FRC_rel        (FSS/Streets_Selectie)      := FSS/Streets_Selectie/FRC_rel;
-			attribute<uint64>             F_JNCTID       (FSS/Streets_Selectie)      := FSS/Streets_Selectie/F_JNCTID_directed[uint64];
-			attribute<uint64>             T_JNCTID       (FSS/Streets_Selectie)      := FSS/Streets_Selectie/T_JNCTID_directed[uint64];
-			attribute<m>                  METERS         (FSS/Streets_Selectie)      := FSS/Streets_Selectie/METERS[m];
-			attribute<min_f>              MINUTES        (FSS/Streets_Selectie)      := FSS/Streets_Selectie/MINUTES[min_f];
-			attribute<km_hr>              KPH            (FSS/Streets_Selectie)      := FSS/Streets_Selectie/KPH[km_hr];
-			attribute<Directions>         Direction      (FSS/Streets_Selectie)      := FSS/Streets_Selectie/Direction;
-			attribute<uint8>			  Lanes			 (FSS/Streets_Selectie)      := FSS/Streets_Selectie/Lanes;	
+			// attribute<BaseProjection>     geometry       (FSS/Streets_Selectie, arc) := FSS/Streets_Selectie/geometry_clean;
+			// attribute<FuncRoadClass>      FRC_rel        (FSS/Streets_Selectie)      := FSS/Streets_Selectie/FRC_rel;
+			// attribute<uint64>             F_JNCTID       (FSS/Streets_Selectie)      := FSS/Streets_Selectie/F_JNCTID_directed[uint64];
+			// attribute<uint64>             T_JNCTID       (FSS/Streets_Selectie)      := FSS/Streets_Selectie/T_JNCTID_directed[uint64];
+			// attribute<m>                  METERS         (FSS/Streets_Selectie)      := FSS/Streets_Selectie/METERS[m];
+			// attribute<min_f>              MINUTES        (FSS/Streets_Selectie)      := FSS/Streets_Selectie/MINUTES[min_f];
+			// attribute<km_hr>              KPH            (FSS/Streets_Selectie)      := FSS/Streets_Selectie/KPH[km_hr];
+			// attribute<Directions>         Direction      (FSS/Streets_Selectie)      := FSS/Streets_Selectie/Direction;
+			// attribute<uint8>			  Lanes			 (FSS/Streets_Selectie)      := FSS/Streets_Selectie/Lanes;	
 			
-			parameter<uint32>             n                                          := #FSS/Streets_Selectie;
+			attribute<BaseProjection>     geometry       (arc) := FSS/Streets_Selectie/geometry_clean;
+			attribute<FuncRoadClass>      FRC_rel              := FSS/Streets_Selectie/FRC_rel;
+			attribute<uint64>             F_JNCTID             := FSS/Streets_Selectie/F_JNCTID_directed[uint64];
+			attribute<uint64>             T_JNCTID             := FSS/Streets_Selectie/T_JNCTID_directed[uint64];
+			attribute<m>                  METERS               := FSS/Streets_Selectie/METERS[m];
+			attribute<min_f>              MINUTES              := FSS/Streets_Selectie/MINUTES[min_f];
+			attribute<km_hr>              KPH                  := FSS/Streets_Selectie/KPH[km_hr];
+			attribute<Directions>         Direction            := FSS/Streets_Selectie/Direction;
+			attribute<uint8>              Lanes                := FSS/Streets_Selectie/Lanes;
+			
+			// parameter<uint32>             n                                          := #FSS/Streets_Selectie;
 		}
 		
-		container Read_Streets_selection
+		// container Read_Streets_selection
+		unit<uint32> Read_Streets_selection
 		: StorageName = "=ModelParameters/Roads_path"
 		, StorageReadOnly = "True"
 		{
 			
-			unit<uint32> domain := range(uint32, 0 , n);
+			// unit<uint32> domain := range(uint32, 0 , n);
 			
-			attribute<BaseProjection>     Geometry       (domain, arc);
-			attribute<FuncRoadClass>      FRC_rel        (domain);
-			attribute<uint64>             F_JNCTID       (domain);
-			attribute<uint64>             T_JNCTID       (domain);
+			// attribute<BaseProjection>     Geometry       (domain, arc);
+			// attribute<FuncRoadClass>      FRC_rel        (domain);
+			// attribute<uint64>             F_JNCTID       (domain);
+			// attribute<uint64>             T_JNCTID       (domain);
 			
-			attribute<m>                  METERS         (domain);
-			attribute<min_f>              MINUTES        (domain);
-			attribute<km_hr>              KPH            (domain);
-			attribute<Directions>         Direction      (domain);
-			attribute<uint8>              Lanes          (domain);
+			// attribute<m>                  METERS         (domain);
+			// attribute<min_f>              MINUTES        (domain);
+			// attribute<km_hr>              KPH            (domain);
+			// attribute<Directions>         Direction      (domain);
+			// attribute<uint8>              Lanes          (domain);
 			
-			parameter<uint32>             n;
+			// parameter<uint32>             n;
 		}
 	}
 	
 	unit<uint32> Junctions := FSS/Junctions;
-	unit<uint32> Streets   := Selection/Read_Streets_selection/domain
+	unit<uint32> Streets   := Selection/Read_Streets_selection
 	{
 		attribute<BaseProjection>     Geometry       (arc) := Selection/Read_Streets_selection/Geometry;
 		attribute<FuncRoadClass>      FRC_rel              := Selection/Read_Streets_selection/FRC_rel;
