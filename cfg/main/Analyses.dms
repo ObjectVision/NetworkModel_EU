@@ -53,10 +53,16 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		attribute<float32> MeanSize_j_r0     (Dest) := Assignment_j_r0 / SchoolCount_j                                    , Descr = "Round-1 realized mean size per facility at j.";
 
 		// Final outputs
-		attribute<float32> FinalSize_j       (Dest) := Iters/LastIter/MeanSize_j                                          , Descr = "Final mean size per facility.";
-		attribute<float32> F_ij                     := Iters/LastIter/F_ij                                                , Descr = "Final OD allocation";
-		attribute<float32> CatchmentShare_ij        := F_ij / max_elem(Pop_i[OrgZone_rel], 1f)                            , Descr = "Final share of origin i to destination j.";
-	
+		container results {
+			attribute<float32> FinalSize_j       (Dest) := Iters/LastIter/MeanSize_j                                          , Descr = "Final mean size per facility.";
+			attribute<float32> F_ij               (OD)  := Iters/LastIter/F_ij                                                , Descr = "Final OD allocation";
+			attribute<float32> F_i               (Org)  := sum(F_ij, OrgZone_rel); 
+			attribute<float32> mean_imp          (Org)  := sum(F_ij * float32(impedance)) / F_i;
+			attribute<float32> min_imp           (Org)  := min(F_ij* (float32(impedance) / F_ij), OrgZone_rel);
+//			attribute<float32> CatchmentShare_ij        := F_ij / max_elem(Pop_i[OrgZone_rel], 1f)                            , Descr = "Final share of origin i to destination j.";
+			// TODO: number of (un)serviced clients
+			// TODO: mean/max impedance to Facility
+		}
 	
 		container Iters :=
 			for_each_ne(
