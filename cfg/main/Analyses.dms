@@ -61,10 +61,12 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<float32> min_imp           (Org)  := min(F_ij* (float32(impedance) / F_ij), OrgZone_rel);
 			
 			attribute<euro>    travel_costs      (Org)  := sum(F_ij * float32(impedance * ModelParameters/cost_per_km), OrgZone_rel) / F_i;
-			attribute<float32> F_j               (Dest) := sum(F_ij, DstZone_rel); 
+			attribute<float32> F_j               (Dest) := sum(F_ij*Pop_i[OrgZone_rel], DstZone_rel); 
 			attribute<euro>    CostFactor_j      (Dest) := ModelParameters/ConstCostsPerFacility / F_j; 
-			attribute<euro>    facility_costs    (Org)  := sum(F_ij * CostFactor_j[DstZone_rel], OrgZone_rel);
-			attribute<euro>    total_costs       (Org)  := travel_costs + facility_costs;
+			attribute<euro>    total_facility_costs    (Org)  := sum(F_ij * Pop_i[OrgZone_rel] * CostFactor_j[DstZone_rel], OrgZone_rel);
+			attribute<euro>    avg_facility_costs(Org)  := total_facility_costs / Pop_i;
+			attribute<euro>    avg_costs         (Org)  := travel_costs + avg_facility_costs;
+			attribute<euro>    total_costs       (Org)  := travel_costs * Pop_i + total_facility_costs;
 			
 //			attribute<float32> CatchmentShare_ij        := F_ij / max_elem(Pop_i[OrgZone_rel], 1f)                            , Descr = "Final share of origin i to destination j.";
 			// TODO: number of (un)serviced clients
