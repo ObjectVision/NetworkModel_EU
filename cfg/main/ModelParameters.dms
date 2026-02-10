@@ -8,12 +8,15 @@
 	parameter<bool>     UseStreetTypeSubset            := TRUE; // TRUE FALSE
 	parameter<string>   Street_OD_ConnectabletSelectie := 'FuncRoadClass/V/Motorway_Freeway_or_Other_Major_Road';
 	parameter<string>   StreetTypeSubsetSelectie       := 'FuncRoadClass/V/Local_Road_of_Minor_Importance';    //7 FuncRoadClass/V/Local_Road   8 FuncRoadClass/V/Secondary_Road Local_Road_of_Minor_Importance  Local_Road_of_High_Importance 
-	parameter<uint8>    NumberOfItersForNetworkCleanUp := 10b;
+	parameter<uint8>    NumberOfItersForNetworkCleanUp := 5b;
+	parameter<euro>     ConstCostsPerFacility          := 1000000[euro];
+	parameter<euro_km>  cost_per_km                    := 0.19[euro / km];
 	
 	parameter<bool>     Use_Country_OD_selection       := CountryFolder <> 'EU';//True; // TRUE FALSE  //Country is currently defined as Finland
 	parameter<string>   PopVersie                      := '2021_Ardeco'; //2021_v1_0 2018
 	parameter<string>   Roads_path                     := '%NetworkModelDataDir%/Infrastructure/TomTom/'+CountryFolder+'/NW2021_SP_streets_subset.mmd';
-	parameter<string>   CountryFolder                  := 'EU';//Netherlands';// Amsterdam Finland EU //Use_Country_OD_selection ?  'Amsterdam' : 'EU'; 
+//	parameter<string>   CountryFolder                  := 'EU';//Netherlands';// Amsterdam Finland EU //Use_Country_OD_selection ?  'Amsterdam' : 'EU'; 
+	parameter<string>   CountryFolder                  := 'Netherlands';//Netherlands';// Amsterdam Finland EU //Use_Country_OD_selection ?  'Amsterdam' : 'EU'; 
 	parameter<string>   OD_SelectionCountry            := CountryFolder == 'Amsterdam' ?  'Netherlands' : CountryFolder == 'Netherlands' ? 'Netherlands' : CountryFolder == 'Finland' ? 'Finland' : 'EU';
 
 	parameter<string>   OSM_file_date                  := '20211004';

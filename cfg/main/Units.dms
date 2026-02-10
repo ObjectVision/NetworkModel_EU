@@ -16,5 +16,7 @@ container Units
 	unit<float64> km_hr     := km / hr_f;
 	unit<uint32>  size      ;
 	unit<float64> ratio;
+	unit<float32> euro      := baseunit('€', float32);
+	unit<float64> euro_km    := euro / km;
 	
 }
