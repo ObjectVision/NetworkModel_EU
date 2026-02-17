@@ -86,6 +86,7 @@ container RegionalUnits : using = "geometries"
 		attribute<bool>      IsEU            := EU_STAT == 'T'; 
 		attribute<bool>      IsEFTA          := EFTA_STAT == 'T'; 
 		attribute<bool>      IsCC            := CC_STAT == 'T'; 
+		attribute<bool>		 PopGridsAvailable:= IsEU || (IsEFTA && CNTR_ID <> 'IS');
 		attribute<bool>      IsTerritory       := strcount(SVRG_UN, 'Territory') > 0; 
 		unit<uint32> Subset := select_with_attr_by_cond(.,(ModelParameters/Use_Country_OD_selection ? name_engl == /ModelParameters/OD_SelectionCountry : IsEu || IsEFTA));
 	}

@@ -38,6 +38,7 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 	#include<Settlement_Hierarchies.dms>
 	#include<Create_Catchments.dms>
 	#include<functional_rural_areas.dms>
+	#include<ComputeProxy.dms>
 	
 	Template Avg_Traveltime_To_PopulatedCells_T
 	{
@@ -245,6 +246,7 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 			unit<ipoint> Base_grid    := = 'Geometries/Base_grid_'+ModelParameters/OrgGridsize;
 			
 			unit<uint64> Numerator_Di :=
+				//impedance_matrix_od64('bidirectional(link_flag);startPoint(Node_rel,OrgZone_loc);endPoint(Node_rel,DstZone_loc);cut(OrgZone_max_imp);euclid(maxSqrDist);alternative(link_imp);interaction(v_i,w_j,dist_decay):D_i;od:impedance,OrgZone_rel,DstZone_rel'
 				impedance_matrix_od64('bidirectional(link_flag);startPoint(Node_rel,OrgZone_loc);endPoint(Node_rel,DstZone_loc);cut(OrgZone_max_imp);euclid(maxSqrDist);alternative(link_imp);interaction(v_i,w_j,dist_decay):D_i'
 					, FinalLinkSet/impedance
 					, FinalLinkSet/F1
@@ -259,7 +261,9 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 					, 1.0 // v_i
 					, NetwerkSpec/DestDomain/Population[float64] // w_j
 					, -1.0 // dist_deacy
-				), KeepData = "True";
+				), KeepData = "True";/* {
+					attribute<float64> eucl_dist:= dist(NetwerkSpec/OrgLocations_spoint[OrgZone_rel], NetwerkSpec/destLocations_spoint[DstZone_rel])[float64];
+				}*/
 				
 			unit<uint64> Denominator_Di :=
 				impedance_matrix_od64('bidirectional(link_flag);startPoint(Node_rel,OrgZone_loc);endPoint(Node_rel,DstZone_loc);cut(OrgZone_max_imp);euclid(maxSqrDist);alternative(link_imp);interaction(v_i,w_j,dist_decay):D_i'
@@ -278,8 +282,14 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 					, 0.0 // dist_deacy
 				), KeepData = "True";
 				
+			//attribute<float64> Avg_Eucl_dist 				  (NetwerkSpec/OrgDomain) := sum(Numerator_Di/eucl_dist * float64(NetwerkSpec/DestDomain/Population[Numerator_Di/DstZone_rel]), Numerator_Di/OrgZone_rel) / Denominator_Di/D_i;
+			//attribute<float64> Avg_Eucl_dist_grid			  (Base_grid):= Avg_Eucl_dist[invert(Base_grid/points/grid_domain_rel)], 
+		//		StorageName = "='%LocalDataProjDir%/Output/Avg_euclidean_distance_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'",
+	//			storagetype = "gdalwrite.grid";
 			attribute<km> Avg_Distance_To_PopulatedCells  (NetwerkSpec/OrgDomain) := MakeDefined(Numerator_Di/D_i[km] / Denominator_Di/D_i, 0[km]);
-			attribute<km> Avg_Distance_To_PopulatedCells_grid         (Base_grid) := Avg_Distance_To_PopulatedCells[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Avg_distance_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
+			attribute<km> Avg_Distance_To_PopulatedCells_grid         (Base_grid) := Avg_Distance_To_PopulatedCells[invert(Base_grid/points/grid_domain_rel)], 
+				StorageName = "='%LocalDataProjDir%/Output/Avg_distance_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'",
+				storagetype = "gdalwrite.grid";
 			
 			parameter<string>  Generator                                         := 'Ready', ExplicitSuppliers = "Avg_Distance_To_PopulatedCells_grid";
 		}
@@ -335,9 +345,6 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 			}
 		}
 	}
-	
-	#include<ComputeProxy.dms>
-	
 	
 	// container RunPerMS:= 
 		// for_each_ne(
@@ -402,7 +409,9 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 				);
 				
 			attribute<min_f> Avg_Traveltime_To_PopulatedCells    (NetwerkSpec/OrgDomain) := MakeDefined(convert(Numerator_Di/D_i[s_f] / Denominator_Di/D_i, min_f), 0[min_f]);
-			attribute<min_f> Avg_Traveltime_To_PopulatedCells_grid           (Base_grid) := Avg_Traveltime_To_PopulatedCells[invert(Base_grid/points/grid_domain_rel)], StorageName = "='%LocalDataProjDir%/Output/Avg_traveltime_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'";
+			attribute<min_f> Avg_Traveltime_To_PopulatedCells_grid           (Base_grid) := Avg_Traveltime_To_PopulatedCells[invert(Base_grid/points/grid_domain_rel)], 
+				StorageName = "='%LocalDataProjDir%/Output/Avg_traveltime_To_PopulatedCells_grid-'+ModelParameters/CountryFolder+'_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'.tif'",
+				storagetype = "gdalwrite.grid";
 			
 			parameter<string>  Generator                                         := 'Ready', ExplicitSuppliers = "Avg_Traveltime_To_PopulatedCells_grid";
 		}
