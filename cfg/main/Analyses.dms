@@ -14,9 +14,9 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			, FinalLinkSet/F2
 			
 			, !FinalLinkSet/IsOneDirection //link flag
-			, FinalNodeSet/OrgNode_rel
 			, FinalNodeSet/DestNode_rel
-			, 5d , 1d                      //limit (org max mass, dest mss)
+			, FinalNodeSet/OrgNode_rel
+			, 500d , 1d                      //limit (org max mass, dest mss)
 			, FinalLinkSet/Impedance       //alt imp
 		)
 	{
@@ -34,41 +34,41 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		parameter<float32> UK_theta                 := 0.233f,       Descr = "Exponent from UK school-size power law (sublinear scaling).";
 		parameter<uint8>   NumberOfIterations       := 5b,           Descr = "Number of iterations for balancing assignment.";
 		
-		attribute<float32> SchoolCount_j     (Dest) := Dest/count_schools_per_cell                                        , Descr = "Number of school facilities on destination cell j";
+		attribute<float32> SchoolCount_j     (Dest) := Dest/count_schools_per_cell                                        , Descr = "Number of school facilities on Orgination cell j";
 		attribute<float32> Pop_i              (Org) := float32(Org/Population)                                            , Descr = "Eligible student population in origin cell i";
-		attribute<float32> LocalPotential_j  (Dest) := sum(Pop_i[OrgZone_rel] * float32(d_ij <= PotRadiusKm), DstZone_rel), Descr = "Eligible student population within PotRadiusKm of destination j.";
-		attribute<float32> CapTarget_j       (Dest) := UK_k * pow(max_elem(LocalPotential_j, 1f), UK_theta)               , Descr = "Exogenous expected capacity per facility at destination j";
+		attribute<float32> LocalPotential_j  (Dest) := sum(Pop_i[DstZone_rel] * float32(d_ij <= PotRadiusKm), OrgZone_rel), Descr = "Eligible student population within PotRadiusKm of Orgination j.";
+		attribute<float32> CapTarget_j       (Dest) := UK_k * pow(max_elem(LocalPotential_j, 1f), UK_theta)               , Descr = "Exogenous expected capacity per facility at Orgination j";
 	
 		attribute<float32> d_ij                     := max_elem(value(impedance, float32), MinDist)                       , Descr = "Distance between i and j"; 
 		attribute<s_f>     t_ij                     := max_elem(alt_imp, MinTime)                                         , Descr = "Traveltime between i and j based on shortest travel path";
-		attribute<float32> ClosestDist_i      (Org) := min(d_ij, OrgZone_rel)                                             , Descr = "Distance from origin i to its nearest school (min over j)";
-		attribute<float32> c_ij                     := max_elem(d_ij - ClosestDist_i[OrgZone_rel], MinDist)               , Descr = "'Extra' distance beyond the nearest option"; 
+		attribute<float32> ClosestDist_i      (Org) := min(d_ij, DstZone_rel)                                             , Descr = "Distance from origin i to its nearest school (min over j)";
+		attribute<float32> c_ij                     := max_elem(d_ij - ClosestDist_i[DstZone_rel], MinDist)               , Descr = "'Extra' distance beyond the nearest option"; 
 		attribute<float32> Deterrence_ij            := α * c_ij^β                                                         , Descr = "Distance-decay weight based on surplus distance.";
 		
 		//Inital round 
-		attribute<float32> DestWeight_j_init (Dest) := const(1f, Dest)                                                    , Descr = "Initial destination weight";
-		attribute<float32> A_i_r0             (Org) := 1f / sum(DestWeight_j_init[DstZone_rel] * Deterrence_ij, OrgZone_rel), Descr = "Round-1 origin balancing factor A_i.";
-		attribute<float32> F_ij_r0                  := Pop_i[OrgZone_rel] * A_i_r0[OrgZone_rel] * DestWeight_j_init[DstZone_rel] * Deterrence_ij, Descr = "Round-1 flow from origin i to destination j.";
-		attribute<float32> Assignment_j_r0   (Dest) := sum(F_ij_r0, DstZone_rel)                                          , Descr = "Round-1 assignment to destination j.";
+		attribute<float32> DestWeight_j_init (Dest) := const(1f, Dest)                                                    , Descr = "Initial Orgination weight";
+		attribute<float32> A_i_r0             (Org) := 1f / sum(DestWeight_j_init[OrgZone_rel] * Deterrence_ij, DstZone_rel), Descr = "Round-1 origin balancing factor A_i.";
+		attribute<float32> F_ij_r0                  := Pop_i[DstZone_rel] * A_i_r0[DstZone_rel] * DestWeight_j_init[OrgZone_rel] * Deterrence_ij, Descr = "Round-1 flow from origin i to Orgination j.";
+		attribute<float32> Assignment_j_r0   (Dest) := sum(F_ij_r0, OrgZone_rel)                                          , Descr = "Round-1 assignment to Orgination j.";
 		attribute<float32> MeanSize_j_r0     (Dest) := Assignment_j_r0 / SchoolCount_j                                    , Descr = "Round-1 realized mean size per facility at j.";
 
 		// Final outputs
 		container results {
 			attribute<float32> FinalSize_j       (Dest) := Iters/LastIter/MeanSize_j                                          , Descr = "Final mean size per facility.";
 			attribute<float32> F_ij               (OD)  := Iters/LastIter/F_ij                                                , Descr = "Final OD allocation";
-			attribute<float32> F_i               (Org)  := sum(F_ij, OrgZone_rel); 
+			attribute<float32> F_i               (Org)  := sum(F_ij, DstZone_rel); 
 			attribute<float32> mean_imp          (Org)  := sum(F_ij * float32(impedance)) / F_i;
-			attribute<float32> min_imp           (Org)  := min(F_ij* (float32(impedance) / F_ij), OrgZone_rel);
+			attribute<float32> min_imp           (Org)  := min(F_ij* (float32(impedance) / F_ij), DstZone_rel);
 			
-			attribute<euro>    travel_costs      (Org)  := sum(F_ij * float32(impedance * ModelParameters/cost_per_km), OrgZone_rel) / F_i;
-			attribute<float32> F_j               (Dest) := sum(F_ij*Pop_i[OrgZone_rel], DstZone_rel); 
+			attribute<euro>    travel_costs      (Org)  := sum(F_ij * float32(impedance * ModelParameters/cost_per_km), DstZone_rel) / F_i;
+			attribute<float32> F_j               (Dest) := sum(F_ij*Pop_i[DstZone_rel], OrgZone_rel); 
 			attribute<euro>    CostFactor_j      (Dest) := ModelParameters/ConstCostsPerFacility / F_j; 
-			attribute<euro>    total_facility_costs    (Org)  := sum(F_ij * Pop_i[OrgZone_rel] * CostFactor_j[DstZone_rel], OrgZone_rel);
+			attribute<euro>    total_facility_costs    (Org)  := sum(F_ij * Pop_i[DstZone_rel] * CostFactor_j[OrgZone_rel], DstZone_rel);
 			attribute<euro>    avg_facility_costs(Org)  := total_facility_costs / Pop_i;
 			attribute<euro>    avg_costs         (Org)  := travel_costs + avg_facility_costs;
 			attribute<euro>    total_costs       (Org)  := travel_costs * Pop_i + total_facility_costs;
 			
-//			attribute<float32> CatchmentShare_ij        := F_ij / max_elem(Pop_i[OrgZone_rel], 1f)                            , Descr = "Final share of origin i to destination j.";
+//			attribute<float32> CatchmentShare_ij        := F_ij / max_elem(Pop_i[OrgZone_rel], 1f)                            , Descr = "Final share of origin i to Orgination j.";
 			// TODO: number of (un)serviced clients
 			// TODO: mean/max impedance to Facility
 		}
@@ -102,10 +102,10 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<float32> MeanSize_j_Prev   (Dest) := PrevIter/MeanSize_j;
 			
 			attribute<float32> CapRatio_j        (Dest) := MeanSize_j_Prev / max_elem(CapTarget_j, 1f)                                          , Descr = "Load relative to target capacity (previous iter).";
-			attribute<float32> DestWeight_j_adj  (Dest) := min_elem(max_elem(pow(max_elem(CapRatio_j, 1e-3f), -γ), W_floor), W_ceiling)         , Descr = "Adjusted destination weight (oversubscribed -> lower weight).";
-			attribute<float32> A_i                (Org) := 1f / sum(DestWeight_j_adj[DstZone_rel] * Deterrence_ij, OrgZone_rel)                 , Descr = "Origin balancing factor.";
-			attribute<float32> F_ij                (OD) := Pop_i[OrgZone_rel] * A_i[OrgZone_rel] * DestWeight_j_adj[DstZone_rel] * Deterrence_ij, Descr = "Rebalanced flow.";
-			attribute<float32> Assignment_j        (Dest) := sum(F_ij, DstZone_rel)                                                             , Descr = "Assignment to destination j";
+			attribute<float32> DestWeight_j_adj  (Dest) := min_elem(max_elem(pow(max_elem(CapRatio_j, 1e-3f), -γ), W_floor), W_ceiling)         , Descr = "Adjusted Orgination weight (oversubscribed -> lower weight).";
+			attribute<float32> A_i                (Org) := 1f / sum(DestWeight_j_adj[OrgZone_rel] * Deterrence_ij, DstZone_rel)                 , Descr = "Origin balancing factor.";
+			attribute<float32> F_ij                (OD) := Pop_i[DstZone_rel] * A_i[DstZone_rel] * DestWeight_j_adj[OrgZone_rel] * Deterrence_ij, Descr = "Rebalanced flow.";
+			attribute<float32> Assignment_j        (Dest) := sum(F_ij, OrgZone_rel)                                                             , Descr = "Assignment to Orgination j";
 			attribute<float32> MeanSize_j        (Dest) := Assignment_j / float32(SchoolCount_j)                                                , Descr = "Mean size per facility";
 		}
 	}
@@ -113,15 +113,15 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 	
 	// container Base_Analysis_Traveltime := =
 		// 'Templates/Avg_Traveltime_To_PopulatedCells_T('
-			// 'Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
-			// ',Populated_grid' //Dest
+			// 'Base_grid_'+ModelParameters/DestGridsize+'/points'   //Dest
+			// ',Populated_grid' //Org
 			// ',NetworkSetup/Base_Analysis/NetwerkSpec'
 		// ')';
 		
 	// container Base_Analysis_Distance := =
 		// 'Templates/Avg_Distance_To_PopulatedCells_T('
-			// 'Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
-			// ',Populated_grid' //Dest
+			// 'Base_grid_'+ModelParameters/DestGridsize+'/points'   //Dest
+			// ',Populated_grid' //Org
 			// ',NetworkSetup/Base_Analysis/NetwerkSpec'
 		// ')';
 
