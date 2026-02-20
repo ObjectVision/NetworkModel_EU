@@ -14,6 +14,14 @@ container Geometries
 		container Extent_EU
 		{
 			//EU extent basemap
+			parameter<float64> x_min :=  943000d;
+			parameter<float64> x_max :=  6500000d;
+			parameter<float64> y_min :=  940000d;
+			parameter<float64> y_max :=  5500000d;
+		}
+		container Extent_EU_no_islands
+		{
+			//EU extent basemap
 			parameter<float64> x_min :=  2300000d;
 			parameter<float64> x_max :=  6500000d;
 			parameter<float64> y_min :=  1300000d;
@@ -71,7 +79,12 @@ container Geometries
 		attribute<BaseProjection>     point          := id[BaseProjection] + point_xy(0.5d * 1000d, -0.5d * 1000d, BaseProjection);
 		attribute<bool>               IsEU           := IsDefined(point_in_polygon(point, SourceData/RegionalUnits/NUTS/geometry));
 		//attribute<bool>				  IsEFTA		 := 
-		attribute<SourceData/RegionalUnits/Country/subset> Country_rel:= point_in_polygon(point, SourceData/RegionalUnits/Country/subset/geometry);
+		attribute<SourceData/RegionalUnits/Country/subset> Country_rel_store:= point_in_polygon(point, SourceData/RegionalUnits/Country/subset/geometry), 
+			storagename = "= '%LocalDataProjDir%/'+ModelParameters/CountryFolder+'/BaseGrid_Countryrel_'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'";
+		attribute<SourceData/RegionalUnits/Country/subset> Country_rel: storagename = "= propvalue(Country_rel_store, 'storagename')", storagereadonly = "true";
+		attribute<SourceData/RegionalUnits/Country_split>  Country_split_store:= point_in_polygon(point, SourceData/RegionalUnits/Country_split/geometry_lea), 
+			storagename = "= '%LocalDataProjDir%/'+ModelParameters/CountryFolder+'/BaseGrid_CountrySplitrel_'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.fss'";
+		attribute<SourceData/RegionalUnits/Country_split> Country_split_rel: storagename = "= propvalue(Country_split_store, 'storagename')", storagereadonly = "true";
 		attribute<bool>               IsCountry      := IsDefined(Country_rel);
 		attribute<uint32>             Population     := SourceData/Locations/Population/ReadData[uint32];
 		attribute<bool>				  PopGridsAvailable:= SourceData/RegionalUnits/Country/subset/PopGridsAvailable[Country_rel];

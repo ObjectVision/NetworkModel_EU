@@ -83,13 +83,16 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<uint64>           JnctIds            := values;
 				}
 				
-				container Connectiveness := Templates/Check_Connectiveness_T(.,NodeSet_src, Fsrc_1, Fsrc_2);
+				container Connectiveness 			:= Templates/Check_Connectiveness_T(.,NodeSet_src, Fsrc_1, Fsrc_2);
+				container Connectiveness_seldomain 	:= Templates/Check_Connectiveness_T_seldomain(., NodeSet_src, Fsrc_1, Fsrc_2, /SourceData/RegionalUnits/Country_split);
+
+				
 			}
 			
 			//attribute<bool> Roads_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness/IsVerbonden;
-			attribute<bool> Roads_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness/IsSterkVerbonden;
+			attribute<bool> Roads_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness_seldomain/Strong_connectivity/IsConnected_seldomain;
 			//attribute<bool> Nodes_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness/NodesVerbonden;
-			attribute<bool> Nodes_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness/NodesSterkVerbonden;
+			attribute<bool> Nodes_isConnected (Roads_with_unconnected_subnetworks_only_CarRoads/NodeSet_src) := Roads_with_unconnected_subnetworks_only_CarRoads/Connectiveness_seldomain/Strong_connectivity/NodesConnected_seldomain;
 
 			unit<uint32> Roads := select(Roads_isConnected)
 			{
@@ -753,6 +756,112 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 		{
 			// attribute<BaseProjection> geometry := org_rel -> values;
 		}
+	}
+	
+	Template Check_Connectiveness_T_seldomain
+	{
+		unit<uint32>              LinkSet_domain;
+		unit<uint32>              NodeSet_domain;
+		attribute<NodeSet_domain> inF1 (LinkSet_domain);
+		attribute<NodeSet_domain> inF2 (LinkSet_domain);
+		unit<uint32>              seldomain;
+		///
+		attribute<LambertEA>          seldomain_geom (poly, seldomain) := seldomain/geometry_lea;
+		
+		unit<uint32> reverse_directions:= select(!LinkSet_domain/IsOneDirection);
+		attribute<seldomain>              seldomain_rel  (NodeSet_domain) := point_in_polygon(NodeSet_domain/geometry, seldomain_geom), descr = "Link between nodeset and seldomains (ie separate units)";
+		
+		//****************** elements for straightforward connected
+		
+		container Undirected_connectivity: descr = "Evaluates network connectivity without taking directions into account" 
+		{
+			unit<uint32> Networks := connected_parts(inF1, inF2) // Verzameling van alle netwerken, inclusief de subnetwerken.
+			{
+				attribute<uint32>   Nr_Nodes                                    := pcount(PartNr);
+				attribute<uint32>   Nr_Seldomains                               := pcount(Networks_per_seldomain/Network_rel);
+				parameter<Networks> Main                                        := max_index(Nr_Nodes); // uitgangspunt: het netwerk met de meeste nodes is het relevante netwerk
+				attribute<Networks> Main_in_seldomain               (seldomain) := Networks_per_seldomain/Network_rel[max_index(Networks_per_seldomain/Nr_nodes_in_network, Networks_per_seldomain/Seldomain_rel)]; // uitgangspunt: neem het grootste netwerk met minstens een punt binnen de grenzen van een unit.
+				attribute<bool>     SelCrit                                     := any(Networks_per_seldomain/Sel_crit, Networks_per_seldomain/Network_rel);
+				attribute<uint32>   Nr_Nodes_Main_in_seldomain      (seldomain) := Nr_Nodes[Main_in_seldomain];
+				attribute<bool>     IsConnected                (NodeSet_domain) := PartNr == Main;
+				attribute<bool>     IsConnected_seldomain      (NodeSet_domain) := IsDefined(rlookup(PartNr, Main_in_seldomain));
+			}
+			
+			attribute<upoint>                 nps_comb       (NodeSet_domain) := point_xy(Networks/PartNr, seldomain_rel);
+			attribute<Networks_per_seldomain> nps_rel        (NodeSet_domain) := rlookup(nps_comb, Networks_per_seldomain/Values);
+			
+			unit<uint32> Networks_per_seldomain := unique(nps_comb) 
+			{
+				attribute<Networks>	 Network_rel             := pointcol(values)[Networks];
+				attribute<seldomain> Seldomain_rel           := pointrow(values)[seldomain];
+				attribute<uint32>    Nr_nodes_in_both        := pcount(nps_rel);
+				attribute<uint32>    Nr_nodes_in_network     := Nr_nodes_in_both > 0 ? Networks/Nr_Nodes[Network_rel] : 0 / 0;
+				attribute<bool>	     Main_in_seldomain       := id(.) = max_index(Nr_nodes_in_both, Seldomain_rel)[seldomain_rel];
+				attribute<bool>	     Main_touching_seldomain := id(.) = max_index(Nr_nodes_in_network, Seldomain_rel)[seldomain_rel];
+				attribute<bool>      Sel_crit                := Nr_nodes_in_both > 1000 || Main_touching_seldomain;
+			}
+			attribute<bool>    IsVerbonden_single    (LinkSet_domain) := Networks/IsConnected[inF1] && Networks/IsConnected[inF2];
+			attribute<bool>    IsVerbonden_seldomain (LinkSet_domain) := Networks/IsConnected_seldomain[inF1] || Networks/IsConnected_seldomain[inF2];
+			//attribute<bool>    IsVerbonden           (LinkSet_domain) := Networks/SelCrit[Networks/PartNr[inF1]];
+			
+			attribute<bool>	NodesConnected      		(NodeSet_domain) := Networks/IsConnected;
+			attribute<bool>	NodesConnected_seldomain    (NodeSet_domain) := Networks/IsConnected_seldomain;
+			
+			attribute<uint32>  NrParts               (LinkSet_domain) := Networks/Nr_Nodes[Networks/PartNr[inF1]];
+			
+			unit<uint32> NodesNotConnected := select_with_org_rel(!Networks/IsConnected)
+			{
+				attribute<BaseProjection>        geometry  := org_rel -> geometry_ll;
+			}
+		}
+		
+		//********************* elements for strongly connected networks
+		// may require doubling of links with doubled directions...
+		container Strong_connectivity
+		{
+			unit<uint32> LinkSet_digraph:= union_unit(LinkSet_domain, reverse_directions) 
+			{
+				attribute<NodeSet_domain> F1:= union_data(., inF1, collect_by_cond(reverse_directions, !LinkSet_domain/IsOneDirection, inF2));
+				attribute<NodeSet_domain> F2:= union_data(., inF2, collect_by_cond(reverse_directions, !LinkSet_domain/IsOneDirection, inF1));
+			}
+			
+			unit<uint32> Networks := strongly_connected_components(LinkSet_digraph/F1, LinkSet_digraph/F2), descr = "Identification of strongly connected networks"
+			{
+				attribute<uint32>                      Nr_Nodes                     := pcount(part_rel);
+				parameter<.> 		Main                         := max_index(Nr_Nodes); 
+				attribute<Networks> Main_in_seldomain               (seldomain)     := Networks_per_seldomain/Network_rel[max_index(Networks_per_seldomain/Nr_nodes_in_network, Networks_per_seldomain/Seldomain_rel)]; 
+				attribute<bool>     SelCrit                                     := any(Networks_per_seldomain/Sel_crit, Networks_per_seldomain/Network_rel);
+					attribute<uint32>   Nr_Nodes_Main_in_seldomain      (seldomain) := Nr_Nodes[Main_in_seldomain];
+					attribute<bool>     IsConnected                (NodeSet_domain) := PartNr == Main;
+					attribute<bool>     IsConnected_seldomain      (NodeSet_domain) := IsDefined(rlookup(PartNr, Main_in_seldomain));
+				}
+				
+				attribute<upoint>                 nps_comb       (NodeSet_domain) := point_xy(Networks/PartNr, seldomain_rel);
+				attribute<Networks_per_seldomain> nps_rel        (NodeSet_domain) := rlookup(nps_comb, Networks_per_seldomain/Values);
+				
+				unit<uint32> Networks_per_seldomain := unique(nps_comb) 
+				{
+					attribute<Networks>	 Network_rel             := pointcol(values)[Networks];
+					attribute<seldomain> Seldomain_rel           := pointrow(values)[seldomain];
+					attribute<uint32>    Nr_nodes_in_both        := pcount(nps_rel);
+					attribute<uint32>    Nr_nodes_in_network     := Nr_nodes_in_both > 0 ? Networks/Nr_Nodes[Network_rel] : 0 / 0;
+					attribute<bool>	     Main_in_seldomain       := id(.) = max_index(Nr_nodes_in_both, Seldomain_rel)[seldomain_rel];
+					attribute<bool>	     Main_touching_seldomain := id(.) = max_index(Nr_nodes_in_network, Seldomain_rel)[seldomain_rel];
+					attribute<bool>      Sel_crit                := Nr_nodes_in_both > 1000 || Main_touching_seldomain;
+				}
+				attribute<bool>    IsConnected_single    (LinkSet_domain) := Networks/IsConnected[inF1] && Networks/IsConnected[inF2], Descr = "Criterion to only select the largest network";
+				attribute<bool>    IsConnected_seldomain (LinkSet_domain) := Networks/IsConnected_seldomain[inF1] || Networks/IsConnected_seldomain[inF2], Descr = "Criterion to select the largest network present in a seldomain";
+				//attribute<bool>    IsVerbonden           (LinkSet_domain) := Networks/SelCrit[Networks/PartNr[inF1]], unclear;
+				attribute<uint32>  NrParts               (LinkSet_domain) := Networks/Nr_Nodes[Networks/PartNr[inF1]];
+				
+				attribute<bool>	NodesConnected      		(NodeSet_domain) := Networks/IsConnected;
+				attribute<bool>	NodesConnected_seldomain    (NodeSet_domain) := Networks/IsConnected_seldomain;
+				
+				unit<uint32> NodesNotConnected := select_with_org_rel(!Networks/IsConnected)
+				{
+					attribute<BaseProjection>        geometry  := org_rel -> geometry_ll;
+				}
+			}
 	}
 }
 

@@ -52,7 +52,7 @@ container RegionalUnits : using = "geometries"
 			}
 		}
 	}
-	unit<uint32> FUA_2021:= FUA_2021_20251113;
+	unit<uint32> FUA_2021:= FUA_2021_20251126;
 	unit<uint32> FUA_provisional_add:= select_with_attr_by_cond(FUA_provisional, FUA_provisional/add);
 	unit<uint32> FUA_provisional
 	: StorageName = "%NetworkModelDataDir%/Regions/FUA_2021_provisional.shp"
@@ -70,8 +70,8 @@ container RegionalUnits : using = "geometries"
 	{
 		attribute<LambertEA> geometry (poly);
 	}
-	unit<uint32> FUA_2021_20251113
-	: StorageName = "%NetworkModelDataDir%/Regions/FUA_2021_def_202511.shp"
+	unit<uint32> FUA_2021_20251126
+	: StorageName = "%NetworkModelDataDir%/Regions/FUAs_2021_20251126.shp"
 	, StorageType = "gdal.vect"
 	, StorageReadOnly = "true"
 	{
@@ -83,6 +83,7 @@ container RegionalUnits : using = "geometries"
 	, StorageReadOnly = "true"
 	{
 		attribute<LambertEA> geometry (poly);
+		attribute<string> 	 Label			 := CNTR_ID;
 		attribute<bool>      IsEU            := EU_STAT == 'T'; 
 		attribute<bool>      IsEFTA          := EFTA_STAT == 'T'; 
 		attribute<bool>      IsCC            := CC_STAT == 'T'; 
@@ -130,8 +131,21 @@ container RegionalUnits : using = "geometries"
 			}
 		}
 	}
+	unit<uint32> Country_split:= select_with_attr_by_cond(Country_split_read, isdefined(Country_split_read/Country_subset_rel));
 	
-	unit<uint32> Country_Split := geos_split_union_polygon(Country/geometry, id(Country))
+	unit<uint32> Country_split_read: storagename = "%NetworkModelDataDir%/Regions/Country_split.fss", storagereadonly = "true", dialogdata = "LambertEA" {
+		attribute<LambertEA> geometry_lea (poly);
+		attribute<LambertEA> centroid;
+		attribute<Country/Subset> Country_subset_rel:= rlookup(CNTR_ID, Country/Subset/CNTR_ID);
+		attribute<bool>      IsEU;
+		attribute<bool>      IsEFTA;
+		attribute<bool>      IsTerritory;
+		attribute<bool>      IsWithinStudyArea;
+		attribute<string> 	 CNTR_ID;
+		attribute<string>    name;
+	}
+	
+	unit<uint32> Country_Split_store := geos_split_union_polygon(Country/geometry, id(Country)), storagename = "%NetworkModelDataDir%/Regions/Country_split.fss"
 	{
 		attribute<LambertEA> geometry_lea (poly) := geometry[LambertEA];
 		attribute<LambertEA> centroid            := centroid_or_mid(geometry_lea);
@@ -139,6 +153,7 @@ container RegionalUnits : using = "geometries"
 		attribute<bool>      IsEFTA              := Country/IsEFTA[part_rel];
 		attribute<bool>      IsTerritory         := Country/IsTerritory[part_rel];
 		attribute<bool>      IsWithinStudyArea   := IsDefined(point_in_polygon(centroid, Geometries/selection_polygon/geometry));
+		attribute<string> 	 CNTR_ID			 := Country/CNTR_ID[part_rel];
 		attribute<string>    name                := Country/name_engl[part_rel];
 	}
 
