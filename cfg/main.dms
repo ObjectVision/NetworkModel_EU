@@ -2,6 +2,7 @@ container NetworkModel_EU
 { 
 	container MakeUnlinkedData
 	{
+		parameter<string> Step_0_Countries_split			   := 'Ready', ExplicitSuppliers = "SourceData/RegionalUnits/Country_split_store ";
 		parameter<string> Step_1_Junctions_fss                 := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Junctions_fss ";
 		parameter<string> Step_2_Streets_fss                   := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Streets_fss";
 		parameter<string> Step_3_Streets_fss_selection         := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Streets_fss_selection";

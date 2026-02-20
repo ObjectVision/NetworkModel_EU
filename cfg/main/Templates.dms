@@ -82,8 +82,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 					attribute<BaseProjection>   geometry           := PointSet/geometry[rlookup(JnctIds, PointSet/JnctIds)];
 					attribute<uint64>           JnctIds            := values;
 				}
-				
-				container Connectiveness 			:= Templates/Check_Connectiveness_T(.,NodeSet_src, Fsrc_1, Fsrc_2);
+
 				container Connectiveness_seldomain 	:= Templates/Check_Connectiveness_T_seldomain(., NodeSet_src, Fsrc_1, Fsrc_2, /SourceData/RegionalUnits/Country_split);
 
 				
@@ -688,54 +687,7 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			}
 		}
  	}
-	
-	Template Check_Connectiveness_T
-	{
-		unit<uint32> LinkSet_domain;
-		unit<uint32> NodeSet_domain;
-		attribute<NodeSet_domain> F1(LinkSet_domain);
-		attribute<NodeSet_domain> F2(LinkSet_domain);
-		///
-		
-		unit<uint32> Connected_Networks:= connected_parts(F1, F2) // Verzameling van alle netwerken, inclusief de subnetwerken.
-		{
-			attribute<uint32>             Nr_Nodes                     := pcount(part_rel);
-			parameter<Connected_Networks> Main                         := max_index(Nr_Nodes); // uitgangspunt: het netwerk met de meeste nodes is het relevante netwerk
-			attribute<bool>               IsConnected (NodeSet_domain) := part_rel == Main;
-		}
-		
-		unit<uint32> reverse_directions:= select(!LinkSet_domain/IsOneDirection);
-		
-		// may require doubling of links with doubled directions...
-		unit<uint32> LinkSet_digraph:= union_unit(LinkSet_domain, reverse_directions) 
-		{
-			attribute<NodeSet_domain> F1:= union_data(., ../F1, collect_by_cond(reverse_directions, !LinkSet_domain/IsOneDirection, ../F2));
-			attribute<NodeSet_domain> F2:= union_data(., ../F2, collect_by_cond(reverse_directions, !LinkSet_domain/IsOneDirection, ../F1));
-		}
-		
-		unit<uint32> Strongly_connected_Networks := strongly_connected_components(LinkSet_digraph/F1, LinkSet_digraph/F2)
-		{
-			attribute<uint32>                      Nr_Nodes                     := pcount(part_rel);
-			parameter<Strongly_connected_Networks> Main                         := max_index(Nr_Nodes); 
-			attribute<bool>                        IsConnected (NodeSet_domain) := part_rel == Main;
-		}
-		
-		attribute<bool> IsVerbonden         (LinkSet_domain) := Connected_Networks/IsConnected[F1] && Connected_Networks/IsConnected[F2];
-		attribute<bool> IsSterkVerbonden    (LinkSet_domain) := Strongly_connected_Networks/IsConnected[F1] && Strongly_connected_Networks/IsConnected[F2];
-		
-		attribute<bool>	NodesVerbonden      (NodeSet_domain) := Connected_Networks/IsConnected;
-		attribute<bool>	NodesSterkVerbonden (NodeSet_domain) := Strongly_connected_Networks/IsConnected;
-		
-		unit<uint32> NodesNotConnected := select_with_org_rel(!Connected_Networks/IsConnected)
-		{
-			attribute<BaseProjection>        geometry := org_rel -> geometry;
-		}
-		unit<uint32> NodesNotStronglyConnected := select_with_org_rel(!Strongly_connected_Networks/IsConnected)
-		{
-			attribute<BaseProjection>        geometry := org_rel -> geometry;
-		}
-	}
-	
+
 	Template Check_Connectiveness_T_adhoc
 	{
 		unit<uint32> LinkSet_domain;
