@@ -11,6 +11,8 @@
 	parameter<uint8>    NumberOfItersForNetworkCleanUp := 5b;
 	parameter<euro>     ConstCostsPerFacility          := 1000000[euro];
 	parameter<euro_km>  cost_per_km                    := 0.19[euro / km];
+	parameter<float64>  max_nr_facilities_per_client   := 5d;
+	parameter<km>       max_dist_to_facility           := 1000[km];
 	
 	parameter<bool>     Use_Country_OD_selection       := CountryFolder <> 'EU';//True; // TRUE FALSE  //Country is currently defined as Finland
 	parameter<string>   PopVersie                      := '2021_Ardeco'; //2021_v1_0 2018

@@ -10,7 +10,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 	
 	unit<uint64> AllocateKidsToSchools :=
 		impedance_matrix_od64(
-			'bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);limit(OrgZone_max_mass,DstZone_mass);alternative(link_imp):alt_imp;od:OrgZone_rel,DstZone_rel,impedance'
+			'bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);cut(OrgZone_max_imp);limit(OrgZone_max_mass,DstZone_mass);alternative(link_imp):alt_imp;od:OrgZone_rel,DstZone_rel,impedance'
 			, FinalLinkSet/LengthKM
 			, FinalLinkSet/F1
 			, FinalLinkSet/F2
@@ -18,6 +18,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			, !FinalLinkSet/IsOneDirection //link flag
 			, FinalNodeSet/OrgNode_rel
 			, FinalNodeSet/DestNode_rel
+			, 5[km]                        //OrgZone_max_imp
 			, 5d , 1d                      //limit (org max mass, dest mss)
 			, FinalLinkSet/Impedance       //alt imp
 		)
