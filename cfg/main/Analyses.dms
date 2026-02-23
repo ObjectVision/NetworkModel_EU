@@ -84,15 +84,16 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		// Final outputs
 		container results {
 			attribute<float32> FinalSize_j       (Dest) := Iters/LastIter/MeanSize_j                                          , Descr = "Final mean size per facility.";
-			attribute<float32> F_ij               (OD)  := Iters/LastIter/F_ij                                                , Descr = "Final OD allocation";
+			attribute<float32> F_ij              (OD)  := Iters/LastIter/F_ij                                                , Descr = "Final OD allocation";
 			attribute<float32> F_i               (Org)  := sum(F_ij, client_rel); 
 			attribute<float32> mean_imp          (Org)  := sum(F_ij * float32(impedance)) / F_i;
 			attribute<float32> min_imp           (Org)  := min(F_ij* (float32(impedance) / F_ij), client_rel);
 			
 			attribute<euro>    travel_costs      (Org)  := sum(F_ij * travelcost_ij, client_rel) / F_i;
-			attribute<float32> F_j               (Dest) := sum(F_ij*Pop_i[client_rel], facility_rel); 
+			attribute<float32> F_j               (Dest) := sum(F_ij, facility_rel); 
 			attribute<euro>    CostFactor_j      (Dest) := ModelParameters/ConstCostsPerFacility / F_j; 
-			attribute<euro>    total_facility_costs    (Org)  := sum(F_ij * Pop_i[client_rel] * CostFactor_j[facility_rel], client_rel);
+			
+			attribute<euro>    total_facility_costs(Org):= sum(F_ij * CostFactor_j[facility_rel], client_rel);
 			attribute<euro>    avg_facility_costs(Org)  := total_facility_costs / Pop_i;
 			attribute<euro>    avg_costs         (Org)  := travel_costs + avg_facility_costs;
 			attribute<euro>    total_costs       (Org)  := travel_costs * Pop_i + total_facility_costs;
