@@ -74,6 +74,14 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<float32> pop(client) := Pop_i;
 		}
 		
+		container FacilityExport
+			:	StorageName = "='%localDataProjDir%/'+ModelParameters/CountryFolder+'_j.arrow'"
+			,	StorageType = "gdalwrite.vect"
+			,	StorageReadOnly = "False"
+		{
+			attribute<Facility> id(Facility) := id(Facility);
+		}
+		
 		//Inital round 
 		attribute<float32> DestWeight_j_init (Dest) := const(1f, Dest)                                                    , Descr = "Initial destination weight";
 		attribute<float32> A_i_r0             (Org) := 1f / sum(DestWeight_j_init[facility_rel] * Deterrence_ij, client_rel), Descr = "Round-1 origin balancing factor A_i.";
