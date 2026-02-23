@@ -18,8 +18,8 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			, !FinalLinkSet/IsOneDirection //link flag
 			, FinalNodeSet/OrgNode_rel
 			, FinalNodeSet/DestNode_rel
-			, 5[km]                        //OrgZone_max_imp
-			, 5d , 1d                      //limit (org max mass, dest mss)
+			, ModelParameters/max_dist_to_facility               //OrgZone_max_imp
+			, ModelParameters/max_nr_facilities_per_client , 1d  //limit (org max mass, dest mss)
 			, FinalLinkSet/Impedance       //alt imp
 		)
 	{
@@ -49,12 +49,12 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		attribute<float32> ClosestDist_i      (Org) := min(d_ij, client_rel)                                             , Descr = "Distance from origin i to its nearest school (min over j)";
 		attribute<float32> c_ij                     := max_elem(d_ij - ClosestDist_i[client_rel], MinDist)               , Descr = "'Extra' distance beyond the nearest option"; 
 		attribute<float32> Deterrence_ij            := α * c_ij^β                                                         , Descr = "Distance-decay weight based on surplus distance.";
-
+		attribute<euro>    travelcost_ij            := float32(impedance * ModelParameters/cost_per_km);
 
 		parameter<string> GDAL_DRIVER := 'Arrow';
 		
 		container DistanceTableExport
-			:	StorageName = "='%localDataProjDir%/'+ModelParameters/CountryFolder+'.arrow'"
+			:	StorageName = "='%localDataProjDir%/'+ModelParameters/CountryFolder+'_od.arrow'"
 			,	StorageType = "gdalwrite.vect"
 			,	StorageReadOnly = "False"
 		{
@@ -62,7 +62,16 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<Facility>  facility_rel(OD) := ../facility_rel;
 			attribute<s_f    >   t_ij(OD) := ../t_ij;
 			attribute<float32>   d_ij(OD) := ../d_ij;
+			attribute<float32>   travelcost_ij(OD) := ../travelcost_ij;
 			attribute<float32>   Deterrence_ij(OD) := ../Deterrence_ij;
+		}
+		container ClientExport
+			:	StorageName = "='%localDataProjDir%/'+ModelParameters/CountryFolder+'_i.arrow'"
+			,	StorageType = "gdalwrite.vect"
+			,	StorageReadOnly = "False"
+		{
+			attribute<client> id(client) := id(client);
+			attribute<float32> pop(client) := Pop_i;
 		}
 		
 		//Inital round 
@@ -80,7 +89,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<float32> mean_imp          (Org)  := sum(F_ij * float32(impedance)) / F_i;
 			attribute<float32> min_imp           (Org)  := min(F_ij* (float32(impedance) / F_ij), client_rel);
 			
-			attribute<euro>    travel_costs      (Org)  := sum(F_ij * float32(impedance * ModelParameters/cost_per_km), client_rel) / F_i;
+			attribute<euro>    travel_costs      (Org)  := sum(F_ij * travelcost_ij, client_rel) / F_i;
 			attribute<float32> F_j               (Dest) := sum(F_ij*Pop_i[client_rel], facility_rel); 
 			attribute<euro>    CostFactor_j      (Dest) := ModelParameters/ConstCostsPerFacility / F_j; 
 			attribute<euro>    total_facility_costs    (Org)  := sum(F_ij * Pop_i[client_rel] * CostFactor_j[facility_rel], client_rel);
