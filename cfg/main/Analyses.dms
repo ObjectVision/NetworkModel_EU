@@ -8,6 +8,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 	unit<uint32> FinalLinkSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
 	unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
 	
+	
 	unit<uint64> AllocateKidsToSchools :=
 		impedance_matrix_od64(
 			'bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);cut(OrgZone_max_imp);limit(OrgZone_max_mass,DstZone_mass);alternative(link_imp):alt_imp;od:OrgZone_rel,DstZone_rel,impedance'
@@ -65,6 +66,14 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<float32>   travelcost_ij(OD) := ../travelcost_ij;
 			attribute<float32>   Deterrence_ij(OD) := ../Deterrence_ij;
 		}
+		
+		unit<uint32> ResultingFacilityClosure
+			:	StorageName = "='%localDataProjDir%/'+ModelParameters/CountryFolder+'_j_new.arrow'"
+			,	StorageType = "gdal.vect"
+			,	StorageReadOnly = "True";
+			
+		attribute<bool> FacilityRemainsOpen(Facility) := rjoin(ID(facility), convert(ResultingFacilityClosure/id, Facility), ResultingFacilityClosure/Open);
+		
 		container ClientExport
 			:	StorageName = "='%localDataProjDir%/'+ModelParameters/CountryFolder+'_i.arrow'"
 			,	StorageType = "gdalwrite.vect"
@@ -147,8 +156,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<float32> MeanSize_j        (Dest) := Assignment_j / float32(SchoolCount_j)                                                , Descr = "Mean size per facility";
 		}
 	}
-
-	
+		
 	// container Base_Analysis_Traveltime := =
 		// 'Templates/Avg_Traveltime_To_PopulatedCells_T('
 			// 'Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
