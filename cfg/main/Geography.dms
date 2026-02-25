@@ -195,32 +195,30 @@ container Geography : using = "units"
 				parameter<Float64> rev_dist_max    := max(rev_dist);
 				attribute<Float64> rev_dist_scaled := rev_dist / rev_dist_max;
 				attribute<Float64> AbsWeight :=
-					distMatr[Float64] <= (straal * straal) ?
-						distMatr[Float64] != 0f ?
-							1f / (distMatr[Float64] ^ 2f) :
-							1f :
-						0f;
+					distMatr[Float64] <= (straal * straal) 
+					?  distMatr[Float64] > 0.0 ? 1.0 / distMatr[Float64] : 1.0
+					:  0.0;
 				
 				attribute<Float64> AbsWeight_ln :=
 					distMatr[Float64] <= (straal * straal) ?
-						distMatr[Float64] != 0f ?
-							1f / (distMatr[Float64] / straal) :
-							1f :
-						0f;
+						distMatr[Float64] != 0.0 ?
+							1.0 / (distMatr[Float64] / straal) :
+							1.0 :
+						0.0;
 				
-				attribute<Float64> RelWeight         := scalesum(     AbsWeight , 1.0f );
-				attribute<Float64> RelWeightSqrt     := scalesum(Sqrt(AbsWeight), 1.0f );
-				attribute<Float64> Flat2             := float32(distMatr <= uint32(straal * straal));
-				attribute<Float64> Flat_Visualisatie := dist <= 1.5f ? 1f : 0f;
-				attribute<Float64> neighbourhood     := distMatr > 0 ? 1f : 0f;
+				attribute<Float64> RelWeight         := scalesum(     AbsWeight , 1.0 );
+				attribute<Float64> RelWeightSqrt     := scalesum(Sqrt(AbsWeight), 1.0 );
+				attribute<Float64> Flat2             := float64(distMatr <= uint32(straal * straal));
+				attribute<Float64> Flat_Visualisatie := dist <= 1.5 ? 1.0 : 0.0;
+				attribute<Float64> neighbourhood     := distMatr > 0 ? 1.0 : 0.0;
 				parameter<Float64> oppervlakte     := sum(Flat2);
-				attribute<Float64> binair          := distMatr <= 100 ? 1f : 0f;
+				attribute<Float64> binair          := distMatr <= 100 ? 1.0 : 0.0;
 			}
 		}
 	
 		
 		
-		container Distmatrices_25m  := for_each_nex(Matrix/name, 'Distmatrices/Impl_25m/'+Matrix/name+'/PotRange', spoint), Descr = "Bevat de verschillende afstandsmatrices die gebruikt kunnen worden in het model, op basis van een grid van 25m.";
+		container Distmatrices_25m  := for_each_nex(Matrix/name, 'Distmatrices/Impl/'+Matrix/name+'/PotRange', spoint), Descr = "Bevat de verschillende afstandsmatrices die gebruikt kunnen worden in het model, op basis van een grid van 25m.";
 		
 	}
 }

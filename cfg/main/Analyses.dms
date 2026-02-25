@@ -73,6 +73,14 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			,	StorageReadOnly = "True";
 			
 		attribute<bool> FacilityRemainsOpen(Facility) := rjoin(ID(facility), convert(ResultingFacilityClosure/id, Facility), ResultingFacilityClosure/Open);
+		unit<uint32> OpenFacilities := select_with_org_rel(FacilityRemainsOpen)
+		{
+			attribute<BaseProjection> geometry := org_rel->Geometry;
+		}
+		attribute<Float64> FacilityProximity    (Geography/Base_grid_1km) := potential(Float64(IsDefined(invert(      Facility/geometry[Geography/Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
+		attribute<Float64> OpenFacilityProximity(Geography/Base_grid_1km) := potential(Float64(IsDefined(invert(OpenFacilities/geometry[Geography/Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
+		
+		attribute<Float64> Openness(Geography/Base_grid_1km) := OpenFacilityProximity / FacilityProximity;
 		
 		container ClientExport
 			:	StorageName = "='%localDataProjDir%/'+ModelParameters/CountryFolder+'_i.arrow'"
@@ -90,6 +98,8 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		{
 			attribute<Facility> id(Facility) := id(Facility);
 		}
+		
+		
 		
 		//Inital round 
 		attribute<float32> DestWeight_j_init (Dest) := const(1f, Dest)                                                    , Descr = "Initial destination weight";
