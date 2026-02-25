@@ -1,4 +1,4 @@
-using Arrow, JuMP, HiGHS, Statistics
+using Arrow, JuMP, HiGHS, Statistics, Random
 
 country = "Finland"
 
@@ -6,17 +6,17 @@ od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
 fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_j.arrow")
 
-locations_col = od[:client_rel]
-facilities_col = od[:facility_rel]
+locations_col = Int.(od[:client_rel])
+facilities_col = Int.(od[:facility_rel])
 d_ij_col = od[:d_ij]
 travelcost_ij_col = od[:travelcost_ij]
 population = loc[:pop]
-facilities = fac[:id]
+facilities = Int.(fac[:id])
 
 N = length(locations_col) # od pairs
 M = length(facilities)
 
-
+println(typeof(facilities_col))
 locations = Dict{Int, Vector{Int}}()
 
 for k in 1:N
@@ -28,13 +28,32 @@ for k in 1:N
     end
 end
 
+println("loc ", length(locations))
+
+
+facility_rows = Dict{Int, Vector{Int}}()
+
+for k in 1:N
+    j = facilities_col[k]   # facility of od row k
+    if !haskey(facility_rows, j)
+        facility_rows[j] = Int[]
+    end
+    push!(facility_rows[j], k)
+end
+
+for j in facilities
+    if !haskey(facility_rows, j)
+        facility_rows[j] = Int[]   # empty vector if no od rows
+    end
+end
+
 
 total_dist = sum((0.2 * travelcost_ij_col[k]) * (population[locations_col[k]+1]*0.1) for k in 1:N)
 total_pop = sum(population)*0.1
 mean_dist = total_dist / total_pop
 baseline_λ = mean_dist * (total_pop / M) # cost of a school equals average travel cost of students per school
 
-factors = [0.25]
+factors = [0.5]
 open_scenarios = []
 
 for factor in factors
@@ -43,13 +62,13 @@ for factor in factors
 
     model = Model(HiGHS.Optimizer)
     # set_silent(model)
-    set_time_limit_sec(model, 60)
+    # set_time_limit_sec(model, 60)
     set_optimizer_attribute(model, "mip_rel_gap", 0.01)
     set_optimizer_attribute(model, "presolve", "on")
 
     # variables
-    @variable(model, y[1:N], Bin)    # per od pair
-    @variable(model, x[j in facilities], Bin)   # per facility
+    @variable(model, y[shuffle(1:N)], Bin)    # per od pair
+    @variable(model, x[j in shuffle(facilities)], Bin)   # per facility
 
     # objective
     @objective(model, Min, sum(y[k] * travelcost_ij_col[k] * population[locations_col[k]+1]*0.1 for k in 1:N) + sum(x[j]*λ for j in facilities))
@@ -58,9 +77,15 @@ for factor in factors
     for (_, rows) in locations
         @constraint(model, sum(y[k] for k in rows) == 1)
     end
-    for k in 1:N
-        @constraint(model, y[k] <= x[facilities_col[k]])
-    end
+
+    # for k in 1:N
+    #     @constraint(model, y[k] <= x[facilities_col[k]])
+    # end
+
+    @constraint(model,
+        [j in facilities],
+        sum(y[k] for k in facility_rows[j]) <= length(facility_rows[j]) * x[j]
+    )
 
     optimize!(model)
 
