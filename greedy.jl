@@ -27,34 +27,72 @@ for k in 1:N
     end
 end
 
+K = length(locations)
 
-open_facilities = falses[M]
 
-assigned_clients = Set{Int}()
+regret = Vector{Tuple{Int, Float64}}(undef, K)
+j = 1
 
-while length(assigned_clients) < length(locations)
-    best_fac = nothing
-    best_net_saving = -Inf
-    
-    for f in facilities
-        # skip if already open
-        if open_facilities[f]
-            continue
+for (i, rows) in locations
+    min1 = Inf
+    min2 = Inf
+
+    for k in rows
+        c = travelcost_ij_col[k]
+        if c < min1
+            min2 = min1
+            min1 = c
+        elseif c < min2
+            min2 = c
         end
-        
-        # TODO
     end
-    
-    if best_net_saving <= 0
-        break
-    end
-    
-    # open best facility and update assigned clients
-    open_facilities[best_fac] = true
+
+    regret[j] = (i, min2 - min1)
+    j += 1
 end
 
+sort!(regret, by = x -> x[2], rev = true)
+clients = first.(regret)
 
-Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_greedy.arrow", (
-    id = facilities
-    open = open_facilities
-))
+
+facility_load = Dict(j => 0 for j in facilities)
+
+
+for i in clients
+    for k in locations[i]
+        j = facilities_col[k]
+        cost = travelcost_ij_col[k]
+        n_j = facility_load[j]
+    end
+end
+
+#     println(i)
+# end
+    
+
+# while length(assigned_clients) < length(locations)
+#     best_fac = nothing
+#     best_net_saving = -Inf
+    
+#     for f in facilities
+#         # skip if already open
+#         if open_facilities[f]
+#             continue
+#         end
+        
+#         # TODO
+#     end
+    
+#     if best_net_saving <= 0
+#         break
+#     end
+    
+#     # open best facility and update assigned clients
+#     open_facilities[best_fac] = true
+# end
+
+
+# Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_greedy.arrow", (
+#     id = facilities,
+#     open = open_facilities
+# ))
