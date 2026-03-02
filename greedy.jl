@@ -1,5 +1,7 @@
 using Arrow, Statistics
 
+
+
 country = "Netherlands"
 
 od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
@@ -48,51 +50,49 @@ for (i, rows) in locations
     end
 
     regret[j] = (i, min2 - min1)
-    j += 1
+    global j += 1
 end
 
 sort!(regret, by = x -> x[2], rev = true)
 clients = first.(regret)
 
-
+assigned_facility = Dict{Int, Int}()
 facility_load = Dict(j => 0 for j in facilities)
 
+total_dist = sum((0.2 * travelcost_ij_col[k]) * (population[locations_col[k]+1]*0.1) for k in 1:N)
+total_pop = sum(population)*0.1
+mean_dist = total_dist / total_pop
+baseline_λ = mean_dist * (total_pop / M) # cost of a school equals average travel cost of students per school
+facility_cost = baseline_λ
 
 for i in clients
+    best_delta = Inf
+    best_j = nothing
+
     for k in locations[i]
-        j = facilities_col[k]
+        local j = facilities_col[k]
         cost = travelcost_ij_col[k]
         n_j = facility_load[j]
+
+         # marginal facility cost
+        delta_fac = n_j == 0 ? facility_cost : 0.0 # facility_cost/(n_j+1) - facility_cost/n_j
+
+        # total marginal cost
+        delta = delta_fac + cost
+
+        if delta < best_delta
+            best_delta = delta
+            best_j = j
+        end
     end
+
+    # assign client i to best facility
+    assigned_facility[i] = best_j
+    facility_load[best_j] += 1
 end
 
-#     println(i)
-# end
-    
 
-# while length(assigned_clients) < length(locations)
-#     best_fac = nothing
-#     best_net_saving = -Inf
-    
-#     for f in facilities
-#         # skip if already open
-#         if open_facilities[f]
-#             continue
-#         end
-        
-#         # TODO
-#     end
-    
-#     if best_net_saving <= 0
-#         break
-#     end
-    
-#     # open best facility and update assigned clients
-#     open_facilities[best_fac] = true
-# end
-
-
-# Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_greedy.arrow", (
-#     id = facilities,
-#     open = open_facilities
-# ))
+Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_greedy.arrow", (
+    id = facilities,
+    open = open_facilities
+))
