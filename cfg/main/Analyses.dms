@@ -5,8 +5,8 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 	unit<uint32> Org          := Client;
 	unit<uint32> Dest         := Facility;
 	container    NetwerkSpec  := /NetworkSetup/School_Analysis/NetwerkSpec;
-	unit<uint32> FinalLinkSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
-	unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
+	unit<uint32> FinalLinkSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalSet/FinalLinkSet;
+	unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalSet/FinalNodeSet;
 	
 	
 	unit<uint64> AllocateKidsToSchools :=
@@ -166,20 +166,4 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<float32> MeanSize_j        (Dest) := Assignment_j / float32(SchoolCount_j)                                                , Descr = "Mean size per facility";
 		}
 	}
-		
-	// container Base_Analysis_Traveltime := =
-		// 'Templates/Avg_Traveltime_To_PopulatedCells_T('
-			// 'Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
-			// ',Populated_grid' //Dest
-			// ',NetworkSetup/Base_Analysis/NetwerkSpec'
-		// ')';
-		
-	// container Base_Analysis_Distance := =
-		// 'Templates/Avg_Distance_To_PopulatedCells_T('
-			// 'Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
-			// ',Populated_grid' //Dest
-			// ',NetworkSetup/Base_Analysis/NetwerkSpec'
-		// ')';
-
-
 }
