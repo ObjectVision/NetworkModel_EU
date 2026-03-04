@@ -1,29 +1,31 @@
 using Arrow, Statistics
 
-country = "Finland"
+
+
+country = "Netherlands"
 
 od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
 fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_j.arrow")
 
-clients_col = od[:client_rel]
+locations_col = od[:client_rel]
 facilities_col = od[:facility_rel]
 d_ij_col = od[:d_ij]
-t_ij_col = od[:t_ij]
+travelcost_ij_col = od[:travelcost_ij]
 population = loc[:pop]
 facilities = fac[:id]
 
-N = length(clients_col) # od pairs
+N = length(locations_col) # od pairs
 M = length(facilities)
 
 locations = Dict{Int, Vector{Int}}()
 
 for k in 1:N
-    id = clients_col[k]
-    if haskey(locations, id)
-        push!(locations[id], k)
+    i = locations_col[k]
+    if haskey(locations, i)
+        push!(locations[i], k)
     else
-        locations[id] = [k]
+        locations[i] = [k]
     end
 end
 
@@ -38,7 +40,7 @@ for (i, rows) in locations
     min2 = Inf
 
     for k in rows
-        c = t_ij_col[k]
+        c = travelcost_ij_col[k]
         if c < min1
             min2 = min1
             min1 = c
@@ -57,16 +59,11 @@ clients = first.(regret)
 assigned_facility = Dict{Int, Int}()
 facility_load = Dict(j => 0 for j in facilities)
 
-total_time = sum((0.2 * t_ij_col[k]) * (population[clients_col[k]+1]*0.1) for k in 1:N)
+total_dist = sum((0.2 * travelcost_ij_col[k]) * (population[locations_col[k]+1]*0.1) for k in 1:N)
 total_pop = sum(population)*0.1
-avg_time = total_time / total_pop
-estimated_cost = avg_time * (total_pop / M) # cost of a school equals average travel time (cost) of students per school
-facility_cost = 2 * estimated_cost * 200 # per year
-
-alpha = 1 # how important travel time is relative to facility cost
-T = 2 * 1.5 * 200 # roughly corresponds to 15 minutes
-gamma = facility_cost / T^2
-
+mean_dist = total_dist / total_pop
+baseline_λ = mean_dist * (total_pop / M) # cost of a school equals average travel cost of students per school
+facility_cost = baseline_λ
 
 for i in clients
     best_delta = Inf
@@ -74,37 +71,26 @@ for i in clients
 
     for k in locations[i]
         local j = facilities_col[k]
-        travel = t_ij_col[k]
+        cost = travelcost_ij_col[k]
         n_j = facility_load[j]
 
-        # marginal facility cost
-        delta_fac =  (n_j == 0) ? facility_cost : 0.0 # facility_cost / (facility_load[j] + 1)
-        delta = travel + delta_fac
+         # marginal facility cost
+        delta_fac = n_j == 0 ? facility_cost : 0.0 # facility_cost/(n_j+1) - facility_cost/n_j
 
-        penalized_travel = travel > T ? travel + gamma * (travel - T)^2 : travel
-
-        # # total marginal cost
-        delta = delta_fac + alpha * penalized_travel
+        # total marginal cost
+        delta = delta_fac + cost
 
         if delta < best_delta
             best_delta = delta
             best_j = j
         end
-
     end
 
     # assign client i to best facility
-    if best_j === nothing
-        error("no valid facility found for client $i")  # safety check
-    end
-
     assigned_facility[i] = best_j
     facility_load[best_j] += 1
 end
 
-open_facilities = [facility_load[j] > 0 ? true : false for j in facilities]
-println("total ", length(facilities))
-println("open ", sum(open_facilities))
 
 Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_greedy.arrow", (
     id = facilities,
