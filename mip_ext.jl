@@ -62,7 +62,7 @@ open = falses(M)
 
 model = Model(HiGHS.Optimizer)
 # set_time_limit_sec(model, 60)
-set_optimizer_attribute(model, "mip_rel_gap", 0.05)
+set_optimizer_attribute(model, "mip_rel_gap", 0.01)
 set_optimizer_attribute(model, "presolve", "on")
 
 # variables
