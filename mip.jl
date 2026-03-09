@@ -52,9 +52,16 @@ end
 total_time = sum((0.2 * t_ij_col[k]) * (population[clients_col[k]+1]*0.1) for k in 1:N)
 facility_cost = (2 * total_time * 200) / M
 
+# total_time = sum((0.2 * t_ij_col[k]) * (population[clients_col[k]+1]*0.1) for k in 1:N)
+# total_pop = sum(population)*0.1
+# avg_time = total_time / total_pop
+# estimated_cost = avg_time * (total_pop / M) # cost of a school equals average travel time (cost) of students per school
+# facility_cost = 2 * estimated_cost * 200 # per year
+
 min_students = 100
 λ = facility_cost / (min_students / 2)
 
+open = falses(M)
 
 model = Model(HiGHS.Optimizer)
 
@@ -139,3 +146,24 @@ println("solving MIP with warm start...")
 optimize!(model)
 
 println("objective value: ", objective_value(model))
+
+                                                                                                       
+println(sum(value(x[j]) for j in facilities), " facilities open")                       
+    
+for j in facilities
+    open[j+1] = value(x[j]) > 0.5
+end
+
+
+println("travel: ", sum(value(y[k]) * t_ij_col[k] * population[clients_col[k]+1] * 0.1 for k in 1:N))
+# println("penalty: ", sum(value(small[j]) * λ for j in facilities))
+
+
+columns = Dict{Symbol, AbstractVector}()
+columns[:id] = facilities
+columns[:open] = open
+
+
+Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_mip.arrow", (
+    columns
+))
