@@ -75,7 +75,7 @@ set_optimizer_attribute(model, "presolve", "on")
 )
 
 # objective
-@objective(model, Min, sum(y[k] * t_ij_col[k] * population[clients_col[k]+1]*0.1 for k in 1:N) + sum(small[j]*λ for j in facilities))
+@objective(model, Min, sum(y[k] * t_ij_col[k] * population[clients_col[k]+1]*0.1 for k in 1:N) + sum(small[j]*(min_students - load[j])*λ for j in facilities))
 
 # constraints
 for (_, rows) in locations
@@ -87,7 +87,7 @@ for k in 1:N
 end
 
 for j in facilities
-    @constraint(model, load[j] >= min_students * (x[j] - small[j]))
+    @constraint(model, load[j] >= (min_students * (x[j] - small[j])))  # load is less than min_students => j is small
 end
 
 for j in facilities
