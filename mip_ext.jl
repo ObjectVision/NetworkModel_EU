@@ -53,10 +53,9 @@ total_pop = sum(population)*0.1
 avg_time = total_time / total_pop
 estimated_cost = avg_time * (total_pop / M) # cost of a school equals average travel time (cost) of students per school
 facility_cost = 2 * estimated_cost * 200 # per year
-U = sum(population) * 0.1
-min_students = 50
+min_students = 100
 
-factor = 1 # 0.001
+factor = 1
 open = falses(M)
 
 λ = factor * facility_cost
