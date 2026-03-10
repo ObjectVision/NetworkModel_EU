@@ -1,6 +1,6 @@
 using Arrow, JuMP, HiGHS, Statistics, Random
 
-country = "Finland"
+country = "Netherlands"
 
 od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
@@ -59,7 +59,7 @@ facility_cost = (2 * total_time * 200) / M
 # facility_cost = 2 * estimated_cost * 200 # per year
 
 min_students = 100
-λ = facility_cost / (min_students / 2) 
+λ = facility_cost / (min_students / 2)
 
 open = falses(M)
 
@@ -81,7 +81,7 @@ set_optimizer_attribute(model, "user_objective_scale", -1)
 )
 
 
-@objective(model, Min, sum(y[k] * t_ij_col[k] * population[clients_col[k]+1] * 0.1 for k in 1:N) + sum(deficit[j] * λ for j in facilities))
+@objective(model, Min, sum(y[k] * t_ij_col[k] * population[clients_col[k]+1] * 0.1 for k in 1:N))
 
 
 # each client assigned
@@ -111,15 +111,12 @@ println("converting to MIP...")
 set_binary.(x)
 
 
-# fix integer values
-tol = 1e-6
+# fix schools to be open
 for j in facilities
-    if abs(x_relaxed[j]) <= tol
-        fix(x[j], 0.0; force=true)
-    elseif abs(x_relaxed[j] - 1.0) <= tol
-        fix(x[j], 1.0; force=true)
-    end
+    fix(x[j], 1.0; force=true)   # all schools open
 end
+
+tol = 1e-6
 
 fractional_x = [j for j in facilities if x_relaxed[j] > tol && x_relaxed[j] < 1-tol]
 closed_x = [j for j in facilities if abs(x_relaxed[j]) <= tol]
@@ -161,6 +158,17 @@ end
 
 println("travel: ", sum(value(y[k]) * t_ij_col[k] * population[clients_col[k]+1] * 0.1 for k in 1:N))
 println("penalty: ", sum(value(deficit[j]) * λ for j in facilities))
+
+count = 0
+for j in facilities
+    l = value(load[j])
+    d = value(deficit[j])
+    if l < min_students
+        global count +=1
+    end
+end
+
+println("schools with a penalty ", count)
 
 
 columns = Dict{Symbol, AbstractVector}()
