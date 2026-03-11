@@ -1,6 +1,8 @@
 using Arrow, JuMP, HiGHS, Statistics, Random
 
 country = "Finland"
+flag = 1
+force = false
 
 od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
@@ -81,7 +83,7 @@ set_optimizer_attribute(model, "user_objective_scale", -1)
 )
 
 
-@objective(model, Min, sum(y[k] * t_ij_col[k] * population[clients_col[k]+1] * 0.1 for k in 1:N) + sum(deficit[j] * λ for j in facilities))
+@objective(model, Min, sum(y[k] * t_ij_col[k] * population[clients_col[k]+1] * 0.1 for k in 1:N) + flag*sum(deficit[j] * λ for j in facilities))
 
 
 # each client assigned
@@ -106,42 +108,56 @@ optimize!(model)
 x_relaxed = value.(x)
 y_relaxed = value.(y)
 
+tol = 1e-6
+
+
+println("LP results...")
+lp_open = length([j for j in facilities if abs(x_relaxed[j]) >= 1-tol])
+lp_closed = length([j for j in facilities if abs(x_relaxed[j]) <= tol])
+lp_fractional = length([j for j in facilities if x_relaxed[j] > tol && x_relaxed[j] < 1-tol])
+println("LP: $lp_open open")
+println("LP: $lp_closed closed")
+println("LP: $lp_fractional fractional")
+println("travel: ", sum(value(y[k]) * t_ij_col[k] * population[clients_col[k]+1] * 0.1 for k in 1:N))
+println("penalty: ", sum(value(deficit[j]) * λ for j in facilities))
+
 
 println("converting to MIP...")
 set_binary.(x)
 
 
-# fix integer values
-tol = 1e-6
-for j in facilities
-    if abs(x_relaxed[j]) <= tol
-        fix(x[j], 0.0; force=true)
-    elseif abs(x_relaxed[j] - 1.0) <= tol
-        fix(x[j], 1.0; force=true)
+if force
+    # fix schools to be open
+    for j in facilities
+        fix(x[j], 1.0; force=true)   # all schools open
     end
-end
 
-fractional_x = [j for j in facilities if x_relaxed[j] > tol && x_relaxed[j] < 1-tol]
-closed_x = [j for j in facilities if abs(x_relaxed[j]) <= tol]
-println("number of fractional facilities: ", length(fractional_x))
-println("number of closed facilities: ", length(closed_x))
+    # warm start for y
+    for k in 1:N
+        set_start_value(y[k], y_relaxed[k])
+    end
+else
+    # fix integer values
+    for j in facilities
+        if abs(x_relaxed[j]) <= tol
+            fix(x[j], 0.0; force=true)
+        elseif abs(x_relaxed[j] - 1.0) <= tol
+            fix(x[j], 1.0; force=true)
+        end
+    end
 
+    # warm start for y
+    for k in 1:N
+        set_start_value(y[k], y_relaxed[k])
+    end
 
-for j in facilities
-    set_start_value(x[j], x_relaxed[j])
-end
-
-for k in 1:N
-    set_start_value(y[k], y_relaxed[k])
-end
-
-
-# optional rounding 
-for j in facilities
-    if x_relaxed[j] > 0.5
-        set_start_value(x[j], 1.0)
-    else
-        set_start_value(x[j], 0.0)
+    # warm start for x
+    for j in facilities
+        if x_relaxed[j] > 0.5
+            set_start_value(x[j], 1.0)
+        else
+            set_start_value(x[j], 0.0)
+        end
     end
 end
 
@@ -149,16 +165,19 @@ end
 println("solving MIP with warm start...")
 optimize!(model)
 
-println("objective value: ", objective_value(model))
+# println("objective value: ", objective_value(model))
 
-                                                                                                       
-println(sum(value(x[j]) for j in facilities), " facilities open")                       
+println("MIP results...")                                                                                                                        
     
 for j in facilities
     open[j+1] = value(x[j]) > 0.5
 end
 
-
+println(length(facilities))
+mip_open = sum(value(x[j]) for j in facilities)
+mip_closed = length(facilities)-mip_open
+println("MIP: $mip_open open")
+println("MIP: $mip_closed closed")
 println("travel: ", sum(value(y[k]) * t_ij_col[k] * population[clients_col[k]+1] * 0.1 for k in 1:N))
 println("penalty: ", sum(value(deficit[j]) * λ for j in facilities))
 
