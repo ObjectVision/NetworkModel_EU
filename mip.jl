@@ -53,13 +53,6 @@ end
 
 total_time = sum((0.2 * t_ij_col[k]) * (population[clients_col[k]+1]*0.1) for k in 1:N)
 facility_cost = (2 * total_time * 200) / M
-
-# total_time = sum((0.2 * t_ij_col[k]) * (population[clients_col[k]+1]*0.1) for k in 1:N)
-# total_pop = sum(population)*0.1
-# avg_time = total_time / total_pop
-# estimated_cost = avg_time * (total_pop / M) # cost of a school equals average travel time (cost) of students per school
-# facility_cost = 2 * estimated_cost * 200 # per year
-
 min_students = 100
 λ = facility_cost / (min_students / 2) 
 
@@ -85,6 +78,7 @@ set_optimizer_attribute(model, "user_objective_scale", -1)
 
 @objective(model, Min, sum(y[k] * t_ij_col[k] * population[clients_col[k]+1] * 0.1 for k in 1:N) + flag*sum(deficit[j] * λ for j in facilities))
 
+@constraint(model, [j in facilities], load[j] >= min_students * x[j])
 
 # each client assigned
 for (_, rows) in locations
@@ -125,7 +119,6 @@ println("penalty: ", sum(value(deficit[j]) * λ for j in facilities))
 println("converting to MIP...")
 set_binary.(x)
 
-
 if force
     # fix schools to be open
     for j in facilities
@@ -133,9 +126,9 @@ if force
     end
 
     # warm start for y
-    for k in 1:N
-        set_start_value(y[k], y_relaxed[k])
-    end
+    # for k in 1:N
+    #     set_start_value(y[k], y_relaxed[k])
+    # end
 else
     # fix integer values
     for j in facilities
@@ -143,29 +136,31 @@ else
             fix(x[j], 0.0; force=true)
         elseif abs(x_relaxed[j] - 1.0) <= tol
             fix(x[j], 1.0; force=true)
+        # else
+        #     set_binary(x[j])
+            # set_start_value(x[j], x_relaxed[j] > 0.5 ? 1.0 : 0.0)
         end
     end
 
-    # warm start for y
-    for k in 1:N
-        set_start_value(y[k], y_relaxed[k])
-    end
+    # # warm start for y
+    # for k in 1:N
+    #     set_start_value(y[k], y_relaxed[k])
+    # end
 
-    # warm start for x
-    for j in facilities
-        if x_relaxed[j] > 0.5
-            set_start_value(x[j], 1.0)
-        else
-            set_start_value(x[j], 0.0)
-        end
-    end
+    # # warm start for x
+    # for j in facilities
+    #     if x_relaxed[j] > 0.5
+    #         set_start_value(x[j], 1.0)
+    #     else
+    #         set_start_value(x[j], 0.0)
+    #     end
+    # end
 end
 
-
-println("solving MIP with warm start...")
+# println("solving MIP with warm start...")
 optimize!(model)
 
-# println("objective value: ", objective_value(model))
+println("objective value: ", objective_value(model))
 
 println("MIP results...")                                                                                                                        
     
