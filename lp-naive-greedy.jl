@@ -139,4 +139,4 @@ columns = Dict{Symbol, AbstractVector}()
 columns[:id] = facilities
 columns[:open] = open_vec
 
-Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_mip.arrow", columns)
+Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_lp_greedy.arrow", columns)

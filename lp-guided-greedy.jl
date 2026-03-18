@@ -271,4 +271,3 @@ Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_lp_greedy.arrow", (
     id   = facilities,
     open = open_vec
 ))
-println("saved.")
