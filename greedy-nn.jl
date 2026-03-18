@@ -55,11 +55,46 @@ println("facilities with expected load >= min_students: ",
 println("facilities with expected load < min_students: ",
     sum(1 for j in facilities if expected_load[j] < min_students))
 
-min_viable_load = min_students * 0
+min_viable_load = min_students * 0.25
 initial_open = Set(j for j in facilities if expected_load[j] >= min_viable_load)
 
 println("initially open: ", length(initial_open))
 println("initially closed: ", M - length(initial_open))
+
+# force_open = 0
+# for (i, rows) in locations
+#     if !any(facilities_col[k] in initial_open for k in rows)
+#         # force open nearest facility for this client
+#         global force_open += 1
+#         best_k = argmin(t_ij_col[k] for k in rows)
+#         push!(initial_open, facilities_col[rows[best_k]])
+#     end
+# end
+
+unassigned = Set(i for (i, rows) in locations if !any(facilities_col[k] in initial_open for k in rows))
+force_open = 0
+while !isempty(unassigned)
+    coverage = Dict{Int, Int}()
+    for i in unassigned
+        for k in locations[i]
+            j = facilities_col[k]
+            if !(j in initial_open)
+                coverage[j] = get(coverage, j, 0) + 1
+            end
+        end
+    end
+    best_j = argmax(coverage)
+    push!(initial_open, best_j)
+    global force_open += 1
+    for i in collect(unassigned)
+        if any(facilities_col[k] == best_j for k in locations[i])
+            delete!(unassigned, i)
+        end
+    end
+end
+
+println("force open ", force_open)
+
 
 function drop_heuristic(open_set)
     assigned = Dict{Int, Int}()
@@ -237,6 +272,12 @@ println("\nresults:")
 println("open: $n_open, closed: $n_closed out of $M")
 println("travel: ", sum(cur_cost[i] * client_pop[i] for i in keys(assigned)))
 println("penalty: ", flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set))
+
+unassigned = [i for i in keys(locations) if !haskey(assigned, i)]
+println("unassigned clients: ", length(unassigned))
+
+assigned = [i for i in keys(locations) if haskey(assigned, i)]
+println("assigned clients: ", length(assigned))
 
 Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_greedy.arrow", (
     id = facilities,
