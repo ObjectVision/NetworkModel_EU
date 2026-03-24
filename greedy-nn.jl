@@ -61,15 +61,6 @@ initial_open = Set(j for j in facilities if expected_load[j] >= min_viable_load)
 println("initially open: ", length(initial_open))
 println("initially closed: ", M - length(initial_open))
 
-# force_open = 0
-# for (i, rows) in locations
-#     if !any(facilities_col[k] in initial_open for k in rows)
-#         # force open nearest facility for this client
-#         global force_open += 1
-#         best_k = argmin(t_ij_col[k] for k in rows)
-#         push!(initial_open, facilities_col[rows[best_k]])
-#     end
-# end
 
 unassigned = Set(i for (i, rows) in locations if !any(facilities_col[k] in initial_open for k in rows))
 force_open = 0
@@ -164,6 +155,7 @@ function drop_heuristic(open_set)
         best_saving = 0.0
         best_j = nothing
 
+        # find facility to close
         for j in open_set
             penalty_saving = flag * λ * max(0.0, min_students - fload[j])
             if penalty_saving == 0.0
@@ -191,17 +183,15 @@ function drop_heuristic(open_set)
             end
         end
 
+        # if we find a facility to close
         if best_j !== nothing
             open_set = setdiff(open_set, [best_j])
 
-            # collect affected before any deletions
+            # collect affected clients
             affected = union(Set(facility_clients[best_j]), get(second_best_clients, best_j, Set{Int}()))
 
-            # reassign clients of best_j
+            # reassign clients
             for i in facility_clients[best_j]
-                if !haskey(second_best, i)
-                    continue
-                end
                 old_second = second_best[i][1]
                 new_j = second_best[i][1]
                 new_cost = second_best[i][2]
@@ -221,9 +211,6 @@ function drop_heuristic(open_set)
 
             # update second_best for affected clients
             for i in affected
-                if !haskey(assigned, i)
-                    continue
-                end
                 if haskey(second_best, i) && haskey(second_best_clients, second_best[i][1])
                     delete!(second_best_clients[second_best[i][1]], i)
                 end
@@ -244,6 +231,7 @@ function drop_heuristic(open_set)
                         push!(second_best_clients[best_alt_j], i)
                     end
                 else
+                    # if client no longer has an alternative
                     delete!(second_best, i)
                 end
             end
@@ -263,15 +251,6 @@ function drop_heuristic(open_set)
 end
 
 open_set, assigned, fload, cur_cost, total_cost = drop_heuristic(initial_open)
-
-# open_vec = [j in open_set for j in facilities]
-# n_open = sum(open_vec)
-# n_closed = M - n_open
-
-# println("\nresults:")
-# println("open: $n_open, closed: $n_closed out of $M")
-# println("travel: ", sum(cur_cost[i] * client_pop[i] for i in keys(assigned)))
-# println("penalty: ", flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set))
 
 open_vec = zeros(Int, M)
 for (idx, j) in enumerate(facilities)

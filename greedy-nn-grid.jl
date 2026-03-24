@@ -127,9 +127,6 @@ function drop_heuristic(open_set, min_students, λ)
             affected = union(Set(facility_clients[best_j]), get(second_best_clients, best_j, Set{Int}()))
 
             for i in facility_clients[best_j]
-                if !haskey(second_best, i)
-                    continue
-                end
                 old_second = second_best[i][1]
                 new_j = second_best[i][1]
                 new_cost = second_best[i][2]
@@ -148,9 +145,9 @@ function drop_heuristic(open_set, min_students, λ)
             delete!(second_best_clients, best_j)
 
             for i in affected
-                if !haskey(assigned, i)
-                    continue
-                end
+                # if !haskey(assigned, i)
+                #     continue
+                # end
                 if haskey(second_best, i) && haskey(second_best_clients, second_best[i][1])
                     delete!(second_best_clients[second_best[i][1]], i)
                 end
@@ -198,7 +195,7 @@ function run_scenario(min_students, λ_factor)
         expected_load[j] += client_pop[i]
     end
 
-    min_viable_load = min_students * 0.5
+    min_viable_load = min_students * 0
     initial_open = Set(j for j in facilities if expected_load[j] >= min_viable_load)
 
     # ensure no student remains unassigned
