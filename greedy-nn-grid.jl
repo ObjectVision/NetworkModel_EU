@@ -1,5 +1,6 @@
 using Arrow
 
+
 country = "Netherlands"
 flag = 1
 
@@ -16,6 +17,7 @@ facilities = Int.(fac[:id])
 N = length(clients_col)
 M = length(facilities)
 
+
 locations = Dict{Int, Vector{Int}}()
 for k in 1:N
     i = clients_col[k]
@@ -24,79 +26,17 @@ end
 
 client_pop = Dict(i => population[i+1] * 0.1 for i in keys(locations))
 
-min_students = 100
-total_time = sum(0.2 * t_ij_col[k] * client_pop[clients_col[k]] for k in 1:N)
-facility_cost = (2 * total_time * 200) / M
-λ = facility_cost / (min_students / 2) * 0.00001
-
+# nearest facility
 nearest_facility = Dict{Int, Int}()
-nearest_cost = Dict{Int, Float64}()
-
 for (i, rows) in locations
-    best_k = nothing
-    best_cost = Inf
-    for k in rows
-        if t_ij_col[k] < best_cost
-            best_cost = t_ij_col[k]
-            best_k = k
-        end
-    end
+    best_k = rows[argmin(t_ij_col[k] for k in rows)]
     nearest_facility[i] = facilities_col[best_k]
-    nearest_cost[i] = best_cost
 end
 
-expected_load = Dict(j => 0.0 for j in facilities)
-for (i, j) in nearest_facility
-    expected_load[j] += client_pop[i]
-end
 
-println("facilities with expected load >= min_students: ",
-    sum(1 for j in facilities if expected_load[j] >= min_students))
-println("facilities with expected load < min_students: ",
-    sum(1 for j in facilities if expected_load[j] < min_students))
+function drop_heuristic(open_set, min_students, λ)
+    open_set = copy(open_set)
 
-min_viable_load = min_students * 0.5
-initial_open = Set(j for j in facilities if expected_load[j] >= min_viable_load)
-
-println("initially open: ", length(initial_open))
-println("initially closed: ", M - length(initial_open))
-
-# force_open = 0
-# for (i, rows) in locations
-#     if !any(facilities_col[k] in initial_open for k in rows)
-#         # force open nearest facility for this client
-#         global force_open += 1
-#         best_k = argmin(t_ij_col[k] for k in rows)
-#         push!(initial_open, facilities_col[rows[best_k]])
-#     end
-# end
-
-unassigned = Set(i for (i, rows) in locations if !any(facilities_col[k] in initial_open for k in rows))
-force_open = 0
-while !isempty(unassigned)
-    coverage = Dict{Int, Int}()
-    for i in unassigned
-        for k in locations[i]
-            j = facilities_col[k]
-            if !(j in initial_open)
-                coverage[j] = get(coverage, j, 0) + 1
-            end
-        end
-    end
-    best_j = argmax(coverage)
-    push!(initial_open, best_j)
-    global force_open += 1
-    for i in collect(unassigned)
-        if any(facilities_col[k] == best_j for k in locations[i])
-            delete!(unassigned, i)
-        end
-    end
-end
-
-println("force open ", force_open)
-
-
-function drop_heuristic(open_set)
     assigned = Dict{Int, Int}()
     cur_cost = Dict{Int, Float64}()
     fload = Dict(j => 0.0 for j in facilities)
@@ -149,15 +89,6 @@ function drop_heuristic(open_set)
         push!(second_best_clients[j], i)
     end
 
-    travel_cost = sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
-    penalty_cost = flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set)
-    current_cost = travel_cost + penalty_cost
-
-    println("initial cost: ", round(current_cost, digits=0),
-            " (travel=", round(travel_cost, digits=0),
-            " penalty=", round(penalty_cost, digits=0), ")")
-
-    n_closed_count = 0
     improved = true
     while improved
         improved = false
@@ -193,11 +124,8 @@ function drop_heuristic(open_set)
 
         if best_j !== nothing
             open_set = setdiff(open_set, [best_j])
-
-            # collect affected before any deletions
             affected = union(Set(facility_clients[best_j]), get(second_best_clients, best_j, Set{Int}()))
 
-            # reassign clients of best_j
             for i in facility_clients[best_j]
                 if !haskey(second_best, i)
                     continue
@@ -219,7 +147,6 @@ function drop_heuristic(open_set)
             facility_clients[best_j] = Int[]
             delete!(second_best_clients, best_j)
 
-            # update second_best for affected clients
             for i in affected
                 if !haskey(assigned, i)
                     continue
@@ -248,56 +175,104 @@ function drop_heuristic(open_set)
                 end
             end
 
-            travel_cost = sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
-            penalty_cost = flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set)
-            current_cost = travel_cost + penalty_cost
-
-            n_closed_count += 1
-            print("\rclosed $n_closed_count facilities, cost=$(round(current_cost, digits=0)), penalty=$(round(penalty_cost, digits=0))    ")
             improved = true
         end
     end
-    println()
 
-    return open_set, assigned, fload, cur_cost, current_cost
+    travel = sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
+    penalty = flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set)
+
+    return open_set, assigned, fload, cur_cost, travel, penalty
 end
 
-open_set, assigned, fload, cur_cost, total_cost = drop_heuristic(initial_open)
 
-# open_vec = [j in open_set for j in facilities]
-# n_open = sum(open_vec)
-# n_closed = M - n_open
+function run_scenario(min_students, λ_factor)
 
-# println("\nresults:")
-# println("open: $n_open, closed: $n_closed out of $M")
-# println("travel: ", sum(cur_cost[i] * client_pop[i] for i in keys(assigned)))
-# println("penalty: ", flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set))
+    total_time = sum(0.2 * t_ij_col[k] * client_pop[clients_col[k]] for k in 1:N)
+    facility_cost = (2 * total_time * 200) / M
+    λ = λ_factor * (facility_cost / (min_students / 2))
 
-open_vec = zeros(Int, M)
-for (idx, j) in enumerate(facilities)
-    if j in open_set
-        open_vec[idx] = fload[j] >= min_students ? 1 : 2
+    # expected load
+    expected_load = Dict(j => 0.0 for j in facilities)
+    for (i, j) in nearest_facility
+        expected_load[j] += client_pop[i]
+    end
+
+    min_viable_load = min_students * 0.5
+    initial_open = Set(j for j in facilities if expected_load[j] >= min_viable_load)
+
+    # ensure no student remains unassigned
+    unassigned = Set(i for (i, rows) in locations if !any(facilities_col[k] in initial_open for k in rows))
+
+    while !isempty(unassigned)
+        coverage = Dict{Int, Int}()
+
+        for i in unassigned
+            for k in locations[i]
+                j = facilities_col[k]
+                if !(j in initial_open)
+                    coverage[j] = get(coverage, j, 0) + 1
+                end
+            end
+        end
+
+        if isempty(coverage)
+            i = first(unassigned)
+            k = locations[i][argmin(t_ij_col[k] for k in locations[i])]
+            push!(initial_open, facilities_col[k])
+        else
+            best_j = argmax(coverage)
+            push!(initial_open, best_j)
+        end
+
+        for i in collect(unassigned)
+            if any(facilities_col[k] in initial_open for k in locations[i])
+                delete!(unassigned, i)
+            end
+        end
+    end
+
+    open_set, assigned, fload, cur_cost, travel, penalty = drop_heuristic(initial_open, min_students, λ)
+
+    n_open_full = sum(1 for j in open_set if fload[j] >= min_students; init=0)
+    n_open_small = sum(1 for j in open_set if fload[j] < min_students; init=0)
+
+    travel = isempty(assigned) ? 0.0 :
+        sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
+
+    penalty = isempty(open_set) ? 0.0 :
+        flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set)
+
+    return travel, penalty, n_open_full, n_open_small
+end
+
+
+function grid_search()
+
+    min_students_values = [25, 50, 100, 150, 200]
+    λ_factors = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
+
+    println("\ngrid search")
+    println(rpad("min_students", 14),
+            rpad("λ_factor", 10),
+            rpad("open", 12),
+            rpad("open>=min", 12),
+            rpad("open<min", 12),
+            rpad("travel", 14),
+            "penalty")
+
+    for min_students in min_students_values
+        for λ_factor in λ_factors
+            travel, penalty, n_open_full, n_open_small = run_scenario(min_students, λ_factor)
+            println(rpad(min_students, 14), 
+                    rpad(λ_factor, 10),
+                    rpad(n_open_small+n_open_full, 12),
+                    rpad(n_open_full, 12),
+                    rpad(n_open_small, 12),
+                    rpad(round(travel, digits=0), 14),
+                    round(penalty, digits=0))
+        end
     end
 end
 
-n_open_full = sum(open_vec .== 1)
-n_open_small = sum(open_vec .== 2)
-n_open = n_open_full + n_open_small
-n_closed = sum(open_vec .== 0)
-
-println("\nresults:")
-println("open: $n_open")
-println("open (>= min_students): $n_open_full")
-println("open (< min_students): $n_open_small")
-println("closed: $n_closed")
-println("total: $M")
-println("travel: ", sum(cur_cost[i] * client_pop[i] for i in keys(assigned)))
-println("penalty: ", flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set))
-
-unassigned_list = [i for i in keys(locations) if !haskey(assigned, i)]
-println("unassigned clients: ", length(unassigned_list))
-
-Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_greedy.arrow", (
-    id = facilities,
-    open = open_vec
-))
+grid_search()

@@ -1,6 +1,6 @@
 using Arrow, JuMP, HiGHS
 
-country = "France"
+country = "Netherlands"
 flag = 1
 
 od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
@@ -242,16 +242,38 @@ end
 
 open_set, assigned, fload, cur_cost, total_cost = drop_heuristic()
 
-open_vec = [j in open_set for j in facilities]
-n_open   = sum(open_vec)
-n_closed = M - n_open
+# open_vec = [j in open_set for j in facilities]
+# n_open   = sum(open_vec)
+# n_closed = M - n_open
+
+# println("\nresults:")
+# println("open: $n_open, closed: $n_closed")
+# println("travel: ", sum(cur_cost[i] * client_pop[i] for i in keys(assigned)))
+# println("penalty: ", flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set))
+
+open_vec = zeros(Int, M)
+for (idx, j) in enumerate(facilities)
+    if j in open_set
+        open_vec[idx] = fload[j] >= min_students ? 1 : 2
+    end
+end
+
+n_open_full = sum(open_vec .== 1)
+n_open_small = sum(open_vec .== 2)
+n_closed = sum(open_vec .== 0)
 
 println("\nresults:")
-println("open: $n_open, closed: $n_closed")
+println("open (>= min_students): $n_open_full")
+println("open (< min_students): $n_open_small")
+println("closed: $n_closed")
+println("total: $M")
 println("travel: ", sum(cur_cost[i] * client_pop[i] for i in keys(assigned)))
 println("penalty: ", flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set))
 
-Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_lp_greedy.arrow", (
-    id   = facilities,
+unassigned_list = [i for i in keys(locations) if !haskey(assigned, i)]
+println("unassigned clients: ", length(unassigned_list))
+
+Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_greedy.arrow", (
+    id = facilities,
     open = open_vec
 ))
