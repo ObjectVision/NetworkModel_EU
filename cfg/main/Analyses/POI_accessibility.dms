@@ -1,0 +1,128 @@
+Container POI_accessibility: using = "units", descr = "Automated computation of access to POI layers" 
+{
+	unit<uint32> Access_definition_list: nrofrows = 12
+	{
+		attribute<string> 	POI_set:= 	 matrix/Values[(0+(id(.)*nfields))[matrix]];
+		attribute<string> 	method:=	 matrix/Values[(1+(id(.)*nfields))[matrix]];
+		attribute<uint32>	max_search:= (matrix/Values[(2+(id(.)*nfields))[matrix]]), descr = "cut for closest, farthest facility for farther";
+		
+		parameter<uint32> nfields:= 3;
+		
+		unit<uint32> matrix:= range(uint32, 0, #Access_definition_list * nfields) 
+		{
+			attribute<string> Values:
+			[ 'grid_urban_points_2021', 'closest', '99999999'
+			, 'all_urban_points_2021', 'closest', '99999999'
+			, 'urban_lau_centroids_2021', 'closest', '99999999'
+			, 'ESPON_DESIRE_POI_Hospitals_NUTS2024', 'closest', '99999999'
+			, 'ESPON_DESIRE_POI_Childcare', 'closest', '99999999'
+			, 'ESPON_DESIRE_POI_Doctors_NUTS2024', 'closest', '99999999'
+			, 'ESPON_DESIRE_POI_Elderlycare', 'closest', '99999999'
+			, 'ESPON_DESIRE_POI_SupermarketsConveniencestores_NUTS2024', 'closest', '99999999'
+			, 'ESPON_DESIRE_POI_SchoolsPrimary_NUTS2024', 'closest', '99999999'
+			, 'ESPON_DESIRE_POI_SchoolsSecondary_NUTS2024', 'closest', '99999999'
+			, 'TripAdvisor_2023_restaurants', 'closest', '99999999'
+			, 'TripAdvisor_2023_restaurants', 'farther', '5'
+			];
+			
+			
+		}
+		
+		
+	}
+	
+	container NetContainerRef:= /NetworkSetup/POIs_and_grids/NetwerkSpec;
+	unit<uint32> Network:= NetContainerRef/CreateMoreEfficientNetwork/FinalLinkSet;
+	unit<uint32> NodeSet:= NetContainerRef/CreateMoreEfficientNetwork/FinalNodeSet;
+	
+	
+	unit<uint32> ResultsPoints:= NetContainerRef/OrgDomain, descr = "The grid to which results are stored"
+	{
+		attribute<NodeSet> NodeRel:= NodeSet/OrgNode_rel;
+		attribute<Geometries/Base_grid_1km> grid_domain_rel:= NetContainerRef/OrgDomain/grid_domain_rel;
+	}
+	unit<ipoint> ResultsGrid:= Geometries/Base_grid_1km 
+	{
+		attribute<ResultsPoints> rp_id:= invert(ResultsPoints/grid_domain_rel);
+		attribute<NodeSet> 		 NodeRel:= ResultsPoints/NodeRel[rp_id];
+	}
+	unit<uint32> Unique_POI_Locations:= NetContainerRef/DestDomain, descr = "The unique locations considered as POI locations"
+	{
+		attribute<NodeSet> NodeRel:= NodeSet/DestNode_rel;
+	}
+	unit<uint32> POI_sets:= /SourceData/Locations/POIs/all_pois, descr = "The full set of separate POI locations"
+	{
+		attribute<NodeSet> NodeRel:= Unique_POI_Locations/NodeRel[locid];
+	}
+	
+	container Analyses:= for_each_ne(
+		Access_definition_list/method+'_'+Access_definition_list/POI_set
+		, Access_definition_list/method+'_POI_access('
+			+quote(Access_definition_list/POI_set)+','+string(Access_definition_list/max_search)
+		+')');
+	
+	
+	Template closest_POI_access 
+	{
+		parameter<string> 	set_def;
+		parameter<uint32> 	cut_criterion;
+		
+		parameter<min_f> 	in_max:= cut_criterion[min_f];
+		
+		unit<uint32> POI_sel
+		:= select_with_org_rel(POI_sets/set = set_def && isdefined(POI_sets/NodeRel))
+		, descr = "Get relevant POIs, discard null NodeRels (may occur due to null geometries)"
+		{
+			attribute<BaseProjection> Geometry:= POI_sets/Geometry[org_rel];
+			attribute<NodeSet> NodeRel:= POI_sets/NodeRel[org_rel];
+		}
+		attribute<s_f> TimeToNearestDest (NodeSet) := 
+			impedance_table('bidirectional(link_flag);startPoint(Node_rel);cut(OrgZone_max_imp)'
+			, Network/Impedance
+			, Network/F1
+			, Network/F2
+			, !Network/IsOneDirection
+			, POI_sel/NodeRel
+			, in_max[s_f]
+		);
+		attribute<min_f> AccessTime (ResultsGrid):= (TimeToNearestDest[ResultsGrid/NodeRel])[min_f]; //, storagename = "= '%LocalDataProjDir%/'+propvalue(., 'Name')+'.tif'", storagetype = "gdalwrite.vect";
+		attribute<float32> AccessTime_Store (ResultsGrid):= AccessTime[float32], storagename = "= '%LocalDataProjDir%/POI_access_analysis/'+propvalue(., 'Name')+'/time_minutes.tif'", storagetype = "gdalwrite.grid";
+	}
+	Template farther_POI_access
+	{
+		parameter<string> 	set_def;
+		parameter<uint32> 	cut_criterion;
+		
+		unit<uint32> POI_sel
+		:= select_with_org_rel(POI_sets/set = set_def && isdefined(POI_sets/NodeRel))
+		, descr = "Get relevant POIs, discard null NodeRels (may occur due to null geometries)"
+		{
+			attribute<BaseProjection> Geometry:= POI_sets/Geometry[org_rel];
+			attribute<NodeSet> NodeRel:= POI_sets/NodeRel[org_rel];
+		}
+		
+		unit<uint64> Matrix := 
+			impedance_matrix_od64('bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);limit(OrgZone_max_mass,DstZone_mass);od:impedance,OrgZone_rel,DstZone_rel'
+				, Network/impedance
+				, Network/F1
+				, Network/F2
+				, !Network/IsOneDirection
+				, ResultsPoints/NodeRel
+				, POI_sel/NodeRel
+				, cut_criterion[float64], 1d //cut impedance
+			);
+		
+					/*	unit<uint64> Create_Matrix:= impedance_matrix_od64('bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);limit(OrgZone_max_mass,DstZone_mass);od:OrgZone_rel,DstZone_rel,impedance'
+						, FinalLinkSet/impedance
+						, FinalLinkSet/F1
+						, FinalLinkSet/F2
+						, !FinalLinkSet/IsOneDirection
+						, Country_Connected_Grids/NodeId
+						, GridPoints_in_settlements/NodeId, 5d, 1d) */
+		
+		attribute<min_f> AccessTime (ResultsPoints):= max(Matrix/Impedance[min_f], Matrix/OrgZone_rel);
+		attribute<float32> AccessTime_Store (ResultsGrid):= max_elem(0f, float32(AccessTime))[ResultsGrid/rp_id], storagename = "= '%LocalDataProjDir%/POI_access_analysis/'+propvalue(., 'Name')+'/time_minutes_farthest_from_'+string(cut_criterion)+'.tif'", storagetype = "gdalwrite.grid";
+	
+	}
+	
+}

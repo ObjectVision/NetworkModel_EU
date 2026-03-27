@@ -38,6 +38,7 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 	#include<Settlement_Hierarchies.dms>
 	#include<Create_Catchments.dms>
 	#include<functional_rural_areas.dms>
+	#include<POI_accessibility.dms>
 	#include<ComputeProxy.dms>
 	
 	

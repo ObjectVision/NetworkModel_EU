@@ -1,0 +1,61 @@
+container POIs {
+	
+	unit<uint32> all_pois:= = 'union_unit('+asitemlist('load_POIS/'+POI_list/label+'/inFile')+')', descr = "collection of all POIs to generate one destination set" 
+	{
+		attribute<BaseProjection> Geometry:=    ='union_data(., '+asitemlist('load_POIS/'+POI_list/label+'/inFile/Geometry')+')';
+		attribute<string> 		  set:= 	    ='union_data(., '+asitemlist('load_POIS/'+POI_list/label+'/inFile/set')+')';
+		attribute<unique_poi_locations> locid:= rlookup(Geometry, unique_poi_locations/Geometry);
+	}
+	unit<uint32> unique_poi_locations:= unique(all_pois/Geometry), descr = "Unique POI locations (across all sets)"
+	{
+		attribute<LambertEA> Geometry:= Values;
+		attribute<Base_grid_1km_spoint> Base_grid_1km_spoint_rel     := Geometry[Base_grid_1km_spoint];
+	}
+	
+	unit<uint32> POI_list
+	: nrofrows = 11
+	, descr = "Full list of the various POI sets to be loaded"
+	{
+		attribute<string> path:= matrix/values[((id(.)*nfields)+0)[matrix]];
+		attribute<string> label:= asitemname(path);
+		
+		parameter<uint32> nfields:= 1;
+		
+		unit<uint32> matrix:= range(uint32, 0, #POI_list * nfields) 
+		{
+			attribute<string> values: 
+				[ 'grid_urban_points_2021'
+				, 'all_urban_points_2021'
+				, 'urban_lau_centroids_2021'
+				, 'ESPON_DESIRE_POI_Hospitals_NUTS2024'
+				, 'ESPON_DESIRE_POI_Childcare'
+				, 'ESPON_DESIRE_POI_Doctors_NUTS2024'
+				, 'ESPON_DESIRE_POI_Elderlycare'
+				, 'ESPON_DESIRE_POI_SupermarketsConveniencestores_NUTS2024'
+				, 'ESPON_DESIRE_POI_SchoolsPrimary_NUTS2024'
+				, 'ESPON_DESIRE_POI_SchoolsSecondary_NUTS2024'
+				, 'TripAdvisor_2023_restaurants'
+				];
+		}
+	}
+	
+	container load_POIS:= for_each_ne(POI_list/label, 'T_load_POIs('+quote(POI_list/path)+')');
+	
+	Template T_load_POIs 	{
+		
+		parameter<string> inPath;
+		
+		unit<uint32> inFile
+		: StorageName = "= '%NetworkModelDataDir%/POIs/'+inPath+'.shp'"
+		, StorageType = "gdal.vect"
+		, StorageReadOnly = "True"
+		, DialogData = "BaseProjection"
+		, DialogType = "map"
+		, Descr = "POI points"
+		{
+			attribute<string> set:= const(asitemname(inPath),.,string);
+		}
+		
+	}
+	
+}	

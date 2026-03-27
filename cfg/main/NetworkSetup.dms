@@ -22,6 +22,12 @@ container NetworkSetup : using = "units;geometries;SourceData;Classifications"
 			',SourceData/RegionalUnits/LAU_2021_Housing/CalcCentroids' //Dest
 			',''PopW_LAU_housing_census'''
 		')';
+	container POIs_and_grids := =
+		'Call_CreateNetwork_T('
+			'Geometries/Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
+			', SourceData/Locations/POIs/unique_poi_locations' //Dest
+			',''POIs_and_grids'''
+		')';
 	
 	Template Call_CreateNetwork_T
 	{

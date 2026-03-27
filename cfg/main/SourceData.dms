@@ -96,5 +96,7 @@ container SourceData: Using = "Units;Classifications;geometries"
 			attribute<int64>          UNIQUE_ID       := union_data(., Settlements_v5_in/UNIQUE_ID, 80000000[int64] +  Settlements_v4_CH_NO/OBJECTID);
 			attribute<string>         Name            := string(degurba) + '_' + string(UNIQUE_ID);
 		}
+		
+		#include<POIs.dms>
 	}
 }
