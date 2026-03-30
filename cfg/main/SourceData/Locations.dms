@@ -237,14 +237,20 @@ container Locations : using = "geography;units"
 	
 	
 	unit<uint32> Schools 
-	: StorageName = "%NetworkModelDataDir%/Locations/EU_schools_fixed3.csv"
+	: StorageName = "%NetworkModelDataDir%/Locations/EU_schools_2023_downloaded_20260327_fixed.csv"
 	, StorageType = "gdal.vect"
 	, StorageReadOnly = "True"
 	{
 		attribute<wgs84_base>     geometry_wgs := point_xy(float64(lon), float64(lat), wgs84_base);
 		attribute<BaseProjection> geometry     := geometry_wgs[BaseProjection];
 		
-		attribute<Schoollevel>         SchoolLevel_rel := rlookup(uint8(fixed_levels), id(Schoollevel));
+		//attribute<Schoollevel>         SchoolLevel_rel := rlookup(uint8(levels_fixed), id(Schoollevel));
+		
+		container check_schoollevel:= for_each_nedv(Schoollevel/Name
+			, 'strcount(levels_fixed, '+quote(string(id(Schoollevel)))+') > 0'
+			, Schools
+			, bool
+		);
 		
 		attribute<bool>           IsStudyArea  := IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry));
 		
@@ -254,6 +260,8 @@ container Locations : using = "geography;units"
 			attribute<Base_grid>            Base_grid_rel                := geometry[Base_grid];
 			attribute<float32>              LocalPopulation              := rjoin(Base_grid_rel, Analyses/Populated_grid/Base_grid_rel, Analyses/Populated_grid/LocalPopulation);
 			attribute<uq_school_cells>      uq_school_cells_rel          := rlookup(Base_grid_rel, uq_school_cells/values);
+			
+			
 			
 			unit<uint32> uq_school_cells := unique(./Base_grid_rel)
 			{
