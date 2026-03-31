@@ -12,23 +12,23 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 	unit<uint64> AllocateKidsToSchools :=
 		impedance_matrix_od64(
 			'bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);cut(OrgZone_max_imp);limit(OrgZone_max_mass,DstZone_mass);alternative(link_imp):alt_imp;od:OrgZone_rel,DstZone_rel,impedance'
-			, FinalLinkSet/LengthKM
+			, FinalLinkSet/Impedance
 			, FinalLinkSet/F1
 			, FinalLinkSet/F2
 			
 			, !FinalLinkSet/IsOneDirection //link flag
 			, FinalNodeSet/OrgNode_rel
 			, FinalNodeSet/DestNode_rel
-			, ModelParameters/max_dist_to_facility               //OrgZone_max_imp
+			, ModelParameters/max_traveltime_to_facility[s_f]               //OrgZone_max_imp
 			, ModelParameters/max_nr_facilities_per_client , 1d  //limit (org max mass, dest mss)
-			, FinalLinkSet/Impedance       //alt imp
+			, FinalLinkSet/Lengthkm       //alt imp
 		)
 	{
 		unit<uint64> OD := .;
 		attribute<Client>   client_rel   := OrgZone_rel;
 		attribute<Facility> facility_rel := DstZone_rel;
 		
-		parameter<float32> MinDist                  := 0.001f,       Descr = "Minimum distance to be used between i and j, to avoid zero distances.";
+		parameter<km>      MinDist                  := 0.001[km],       Descr = "Minimum distance to be used between i and j, to avoid zero distances.";
 		parameter<s_f>     MinTime                  := 1[s_f],       Descr = "Minimum traveltime to be used between i and j, to avoid zero time.";
 		parameter<float32> α                        := 1f,           Descr = "Scale factor in distance-decay function f(c)=Alpha*c^Beta.";
 		parameter<float32> β                        := -2f,          Descr = "Distance-decay exponent (<0) controlling sensitivity to distance.";
@@ -45,12 +45,12 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		attribute<float32> LocalPotential_j  (Dest) := sum(Pop_i[client_rel] * float32(d_ij <= PotRadiusKm), facility_rel), Descr = "Eligible student population within PotRadiusKm of destination j.";
 		attribute<float32> CapTarget_j       (Dest) := UK_k * pow(max_elem(LocalPotential_j, 1f), UK_theta)               , Descr = "Exogenous expected capacity per facility at destination j";
 	
-		attribute<float32> d_ij                     := max_elem(value(impedance, float32), MinDist)                       , Descr = "Distance between i and j"; 
-		attribute<s_f>     t_ij                     := max_elem(alt_imp, MinTime)                                         , Descr = "Traveltime between i and j based on shortest travel path";
-		attribute<float32> ClosestDist_i      (Org) := min(d_ij, client_rel)                                             , Descr = "Distance from origin i to its nearest school (min over j)";
-		attribute<float32> c_ij                     := max_elem(d_ij - ClosestDist_i[client_rel], MinDist)               , Descr = "'Extra' distance beyond the nearest option"; 
+		attribute<float32> d_ij                     := value(max_elem(alt_imp, MinDist),float32)                          , Descr = "Distance between i and j"; 
+		attribute<float32> t_ij                     := value(max_elem(impedance, MinTime),float32)                        , Descr = "Traveltime between i and j based on shortest travel path";
+		attribute<float32> ClosestDist_i      (Org) := min(d_ij, client_rel)                                              , Descr = "Distance from origin i to its nearest school (min over j)";
+		attribute<float32> c_ij                     := max_elem(d_ij - ClosestDist_i[client_rel], value(MinDist, float32))                , Descr = "'Extra' distance beyond the nearest option"; 
 		attribute<float32> Deterrence_ij            := α * c_ij^β                                                         , Descr = "Distance-decay weight based on surplus distance.";
-		attribute<euro>    travelcost_ij            := float32(impedance * ModelParameters/cost_per_km);
+		attribute<euro>    travelcost_ij            := float32(d_ij[km] * ModelParameters/cost_per_km);
 
 		parameter<string> GDAL_DRIVER := 'Arrow';
 		
