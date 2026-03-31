@@ -2,8 +2,8 @@ using Arrow
 
 country = "Netherlands"
 flag = 1
-use_quadratic = true  # set to true to use quadratic travel cost
-run_grid = true        # set to false to run a single scenario
+travel = "quadratic"  # "linear", "quadratic", or "piecewise"
+grid = true       # set to false to run a single scenario
 
 od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
@@ -11,7 +11,7 @@ fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_j.arrow")
 
 clients_col = Int.(od[:client_rel])
 facilities_col = Int.(od[:facility_rel])
-t_ij_col = od[:t_ij]
+t_ij_col = od[:t_ij] ./ 60  # convert to minutes
 population = loc[:pop]
 facilities = Int.(fac[:id])
 
@@ -26,21 +26,22 @@ end
 
 client_pop = Dict(i => population[i+1] * 0.1 for i in keys(locations))
 
-function travel_cost(t)
-    t_min = t / 60
-    return 0.05 * t_min^2 + 0.5 * t_min
-    # if t <= 15*60
-    #     return 1.0 * t
-    # elseif t <= 30*60
-    #     return 2.0 * t
-    # else
-    #     return 4.0 * t
-    # end
+function c(t)
+    if travel == "quadratic"
+        return 0.05 * t^2 + 0.5 * t
+    elseif travel == "piecewise"
+        if t <= 15
+            return 1.0 * t
+        elseif t <= 30
+            return 2.0 * t
+        else
+            return 4.0 * t
+        end
+    elseif travel == "linear"
+        return t
+    end
 end
 
-c(t) = use_quadratic ? travel_cost(t) : t / 60
-
-# nearest facility
 nearest_facility = Dict{Int, Int}()
 for (i, rows) in locations
     best_k = rows[argmin(c(t_ij_col[k]) for k in rows)]
@@ -73,7 +74,7 @@ function drop_heuristic(open_set, min_students, λ)
             j = facilities_col[best_k]
             assigned[i] = j
             cur_cost[i] = best_cost
-            cur_time[i] = t_ij_col[best_k]
+            cur_time[i] = t_ij_col[best_k]  # already in minutes
             fload[j] += client_pop[i]
         end
     end
@@ -83,7 +84,7 @@ function drop_heuristic(open_set, min_students, λ)
         push!(facility_clients[j], i)
     end
 
-    # second_best: (facility, cost, raw_time)
+    # second_best: (facility, cost, time in minutes)
     second_best = Dict{Int, Tuple{Int, Float64, Float64}}()
     for (i, rows) in locations
         if !haskey(assigned, i)
@@ -105,7 +106,7 @@ function drop_heuristic(open_set, min_students, λ)
             end
         end
         if best_alt_j != -1
-            second_best[i] = (best_alt_j, best_alt, t_ij_col[best_alt_k])
+            second_best[i] = (best_alt_j, best_alt, t_ij_col[best_alt_k]) 
         end
     end
 
@@ -192,7 +193,7 @@ function drop_heuristic(open_set, min_students, λ)
                     end
                 end
                 if best_alt_j != -1
-                    second_best[i] = (best_alt_j, best_alt, t_ij_col[best_alt_k])
+                    second_best[i] = (best_alt_j, best_alt, t_ij_col[best_alt_k])  # already in minutes
                     if haskey(second_best_clients, best_alt_j)
                         push!(second_best_clients[best_alt_j], i)
                     end
@@ -213,8 +214,6 @@ end
 
 
 function run_scenario(min_students, λ_factor)
-    # total_time = sum(0.2 * 2 * 200 * c(t_ij_col[k]/60) * client_pop[clients_col[k]] for k in 1:N)
-    # facility_cost = total_time / M
     facility_cost = 99699
     λ = λ_factor * facility_cost
 
@@ -239,7 +238,7 @@ function run_scenario(min_students, λ_factor)
         end
         if isempty(coverage)
             i = first(unassigned)
-            k = locations[i][argmin(t_ij_col[k] for k in locations[i])]
+            k = locations[i][argmin(c(t_ij_col[k]) for k in locations[i])]
             push!(initial_open, facilities_col[k])
         else
             best_j = argmax(coverage)
@@ -262,15 +261,17 @@ function run_scenario(min_students, λ_factor)
     penalty = isempty(open_set) ? 0.0 :
         flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set)
 
-    # b1 = sum(1 for (i, t) in cur_time if t <= 15*60; init=0)
-    # b2 = sum(1 for (i, t) in cur_time if 15*60 < t <= 30*60; init=0)
-    # b3 = sum(1 for (i, t) in cur_time if t > 30*60; init=0)
+    # b1 = sum(1 for (i, t) in cur_time if t <= 15; init=0)
+    # b2 = sum(1 for (i, t) in cur_time if 15 < t <= 30; init=0)
+    # b3 = sum(1 for (i, t) in cur_time if t > 30; init=0)
     # println("  assigned clients by travel band:")
     # println("    t <= 15 min:      $b1 (", round(100*b1/length(assigned), digits=1), "%)")
     # println("    15 < t <= 30 min: $b2 (", round(100*b2/length(assigned), digits=1), "%)")
     # println("    t > 30 min:       $b3 (", round(100*b3/length(assigned), digits=1), "%)")
 
-    return open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small
+    mean_travel_min = sum(cur_time[i] for i in keys(cur_time)) / length(cur_time)
+
+    return open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small, mean_travel_min
 end
 
 
@@ -278,32 +279,34 @@ function grid_search()
     min_students_values = [25, 50, 100, 150, 200]
     λ_factors = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
 
-    println("\ngrid search (quadratic=$(use_quadratic))")
+    println("\ngrid search (travel cost function=$(travel))")
     println(rpad("min_students", 14),
             rpad("λ_factor", 10),
-            rpad("open", 12),
-            rpad("open>=min", 12),
-            rpad("open<min", 12),
+            rpad("open", 8),
+            rpad(">=min", 8),
+            rpad("<min", 8),
             rpad("travel", 14),
-            "penalty")
+            rpad("penalty", 14),
+            "mean_t (min)")
 
     for min_students in min_students_values
         for λ_factor in λ_factors
-            open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small = run_scenario(min_students, λ_factor)
+            open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, λ_factor)
             println(rpad(min_students, 14),
                     rpad(λ_factor, 10),
-                    rpad(n_open_small + n_open_full, 12),
-                    rpad(n_open_full, 12),
-                    rpad(n_open_small, 12),
+                    rpad(n_open_small + n_open_full, 8),
+                    rpad(n_open_full, 8),
+                    rpad(n_open_small, 8),
                     rpad(round(travel, digits=0), 14),
-                    round(penalty, digits=0))
+                    rpad(round(penalty, digits=0), 14),
+                    round(mean_travel_min, digits=2))
         end
     end
 end
 
 
 function single_run(min_students, λ_factor)
-    open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small = run_scenario(min_students, λ_factor)
+    open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, λ_factor)
 
     n_open = n_open_full + n_open_small
     println("\nresults (quadratic=$(use_quadratic), min_students=$(min_students), λ_factor=$(λ_factor)):")
@@ -314,6 +317,7 @@ function single_run(min_students, λ_factor)
     println("total: $M")
     println("travel: ", round(travel, digits=0))
     println("penalty: ", round(penalty, digits=0))
+    println("mean travel time (min): ", round(mean_travel_min, digits=2))
     println("unassigned clients: ", sum(1 for i in keys(locations) if !haskey(assigned, i); init=0))
 
     open_vec = zeros(Int, M)
@@ -330,7 +334,7 @@ function single_run(min_students, λ_factor)
 end
 
 
-if run_grid
+if grid
     grid_search()
 else
     single_run(50, 0.0001)
