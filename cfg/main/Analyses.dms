@@ -68,11 +68,11 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		}
 		
 		unit<uint32> ResultingFacilityClosure
-			:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_j_new.arrow'"
+			:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_j_greedy.arrow'"
 			,	StorageType = "gdal.vect"
 			,	StorageReadOnly = "True";
 			
-		attribute<bool> FacilityRemainsOpen(Facility) := rjoin(ID(facility), convert(ResultingFacilityClosure/id, Facility), ResultingFacilityClosure/Open);
+		attribute<int64> FacilityRemainsOpen(Facility) := rjoin(ID(facility), convert(ResultingFacilityClosure/id, Facility), ResultingFacilityClosure/Open);
 		unit<uint32> OpenFacilities := select_with_org_rel(FacilityRemainsOpen)
 		{
 			attribute<BaseProjection> geometry := org_rel->Geometry;
