@@ -1,9 +1,9 @@
 using Arrow
 
-country = "Netherlands"
-flag = 1
-travel = "quadratic"  # "linear", "quadratic", or "piecewise"
-grid = true       # set to false to run a single scenario
+country = "Romania"
+travel = "linear"  # "linear", "quadratic", or "piecewise"
+grid = false       # set to false to run a single scenario
+underenrollment = false
 
 od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
@@ -49,7 +49,7 @@ for (i, rows) in locations
 end
 
 
-function drop_heuristic(open_set, min_students, λ)
+function drop_heuristic(open_set, min_students, w, facility_cost)
     open_set = copy(open_set)
 
     assigned = Dict{Int, Int}()
@@ -122,7 +122,7 @@ function drop_heuristic(open_set, min_students, λ)
         best_j = nothing
 
         for j in open_set
-            penalty_saving = flag * λ * max(0.0, min_students - fload[j])
+            penalty_saving = underenrollment ? w * facility_cost * max(0.0, min_students - fload[j]) : w * facility_cost
             if penalty_saving == 0.0
                 continue
             end
@@ -207,15 +207,14 @@ function drop_heuristic(open_set, min_students, λ)
     end
 
     travel = sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
-    penalty = flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set)
+    penalty = underenrollment ? sum(w * facility_cost * max(0.0, min_students - fload[j]) for j in open_set) : sum(w * facility_cost for j in open_set)
 
     return open_set, assigned, fload, cur_cost, cur_time, travel, penalty
 end
 
 
-function run_scenario(min_students, λ_factor)
+function run_scenario(min_students, w)
     facility_cost = 99699
-    λ = λ_factor * facility_cost
 
     expected_load = Dict(j => 0.0 for j in facilities)
     for (i, j) in nearest_facility
@@ -251,7 +250,7 @@ function run_scenario(min_students, λ_factor)
         end
     end
 
-    open_set, assigned, fload, cur_cost, cur_time, travel, penalty = drop_heuristic(initial_open, min_students, λ)
+    open_set, assigned, fload, cur_cost, cur_time, travel, penalty = drop_heuristic(initial_open, min_students, w, facility_cost)
 
     n_open_full = sum(1 for j in open_set if fload[j] >= min_students; init=0)
     n_open_small = sum(1 for j in open_set if fload[j] < min_students; init=0)
@@ -259,7 +258,7 @@ function run_scenario(min_students, λ_factor)
     travel = isempty(assigned) ? 0.0 :
         sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
     penalty = isempty(open_set) ? 0.0 :
-        flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set)
+        (underenrollment ? sum(w * facility_cost * max(0.0, min_students - fload[j]) for j in open_set) : sum(w * facility_cost for j in open_set))
 
     # b1 = sum(1 for (i, t) in cur_time if t <= 15; init=0)
     # b2 = sum(1 for (i, t) in cur_time if 15 < t <= 30; init=0)
@@ -276,24 +275,24 @@ end
 
 
 function grid_search()
-    min_students_values = [25, 50, 100, 150, 200]
-    λ_factors = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
+    min_students_values = underenrollment ? [25, 50, 100, 150, 200] : [50]
+    ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
 
     println("\ngrid search (travel cost function=$(travel))")
     println(rpad("min_students", 14),
-            rpad("λ_factor", 10),
+            rpad("policy_weight", 14),
             rpad("open", 8),
             rpad(">=min", 8),
             rpad("<min", 8),
-            rpad("travel", 14),
-            rpad("penalty", 14),
+            rpad("travel_cost", 14),
+            rpad("facility_cost", 14),
             "mean_t (min)")
 
     for min_students in min_students_values
-        for λ_factor in λ_factors
-            open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, λ_factor)
+        for w in ws
+            open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, w)
             println(rpad(min_students, 14),
-                    rpad(λ_factor, 10),
+                    rpad(w, 14),
                     rpad(n_open_small + n_open_full, 8),
                     rpad(n_open_full, 8),
                     rpad(n_open_small, 8),
@@ -305,11 +304,11 @@ function grid_search()
 end
 
 
-function single_run(min_students, λ_factor)
-    open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, λ_factor)
+function single_run(min_students, w)
+    open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, w)
 
     n_open = n_open_full + n_open_small
-    println("\nresults (quadratic=$(use_quadratic), min_students=$(min_students), λ_factor=$(λ_factor)):")
+    println("\nresults (travel cost=$(travel), min_students=$(min_students), w=$(w)):")
     println("open: $n_open")
     println("open (>= min_students): $n_open_full")
     println("open (< min_students): $n_open_small")
@@ -337,5 +336,5 @@ end
 if grid
     grid_search()
 else
-    single_run(50, 0.0001)
+    single_run(50, 1)
 end
