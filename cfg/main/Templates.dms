@@ -194,7 +194,7 @@ container Templates: Using = "Units;Classifications;geography;Classifications/To
 			}
 			
 			unit<uint32> LinkSet_Write := union_unit(LinkSet_Calc/unchanged_links, LinkSet_Calc/changed_links, LinkSet_Calc/location_connectors)
-			,	StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.mmd'"
+			,	StorageName = "= '%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'/Linkset_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.mmd'"
 			{
 				attribute<BaseProjection>  geometry(arc)		:= union_data(.,LinkSet_Calc/unchanged_links/geometry, 		LinkSet_Calc/changed_links/geometry, 		LinkSet_Calc/location_connectors/geometry);
 				attribute<km_hr>           KPH                  := union_data(.,LinkSet_Calc/unchanged_links/KPH, 			LinkSet_Calc/changed_links/KPH, 			LinkSet_Calc/location_connectors/KPH);
@@ -299,7 +299,7 @@ container Templates: Using = "Units;Classifications;geography;Classifications/To
 			parameter<string> Generate := 'ready', explicitsuppliers = "Write_FinalSet";
 			
 			container Write_FinalSet
-			: StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/FinalSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.mmd'"
+			: StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'/FinalSet_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_Pop-'+string(ModelParameters/PopVersie)+'.mmd'"
 			{
 				unit<uint32> FinalNodeSet := FinalNodeSet_Calc
 				{
@@ -357,7 +357,7 @@ container Templates: Using = "Units;Classifications;geography;Classifications/To
 					unit<uint32> Without_OD_connection_roads := select_with_attr_by_org_rel(.,!IsOD_connection_road);
 					
 					unit<uint32> Export := Without_OD_connection_roads
-					, StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/Network_Cleaned_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_'+expand(., '%DateTime%')+'.gpkg'"
+					, StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'/Network_Cleaned_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_'+expand(., '%DateTime%')+'.gpkg'"
 					, StorageType = "gdalwrite.vect"
 					{
 						attribute<BaseProjection> geometry     (arc) := Without_OD_connection_roads/geometry;
@@ -372,7 +372,7 @@ container Templates: Using = "Units;Classifications;geography;Classifications/To
 					unit<uint32> Roads_NL:= select_with_attr_by_org_rel(.,Is_inNL);
 					
 					unit<uint32> Export_NL := Roads_NL
-					, StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/CountryFolder+'/IN_NL/Network_Cleaned_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_'+expand(., '%DateTime%')+'.gpkg'"
+					, StorageName = "='%LocalDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'/IN_NL/Network_Cleaned_O-'+ModelParameters/OrgGridsize+'_D-'+/ModelParameters/DestGridsize+'_'+expand(., '%DateTime%')+'.gpkg'"
 					, StorageType = "gdalwrite.vect"
 					{
 						attribute<BaseProjection> geometry     (arc) := Roads_NL/geometry;

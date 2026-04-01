@@ -58,4 +58,40 @@ container Classifications: Using = "Units"
 		attribute<string> name := AsItemName(label);
 		container V := for_each_nedv(name, String(ID(.))+'[..]', void, .);
 	}
+
+	unit<uint32> SexAgeClasses := combine(Sex, AgeClasses)
+	{
+		attribute<Sex>                  Sex_rel                := first_rel;
+		attribute<AgeClasses>           AgeClasses_rel         := second_rel;
+		attribute<string>               Gender_name            := Sex/label[first_rel];
+		attribute<string>               AgeClass_name          := AgeClasses/label[second_rel];
+		// attribute<bool>                 IsOver65               := AgeClasses/IsOver65[second_rel];
+		attribute<uint32>               from                   := AgeClasses/from[second_rel];
+		attribute<string>               name                   := Gender_name + '_' + AgeClass_name;
+		attribute<string>               label                  := name;
+		// attribute<string>				AgeClasses_readable	   := AgeClasses/AgeClasses_readable[second_rel], descr = "Used for reporting (ad hoc reporting unit)";
+		// attribute<string> 				RepAgeClasses_readable := AgeClasses/RepAgeClasses_readable[second_rel], descr = "Used for reporting (ad hoc reporting unit)";
+		
+		container V := for_each_nedv(name, String(ID(.))+'[..]', void, .);
+	}
+
+	unit<uint32> Sex : NrOfRows = 2
+	, Descr = "Sex classes" 
+	{
+		attribute<string> Label : ['F','M'], descr = "descriptive name of gender class";
+		attribute<string> name := label;
+		container V := for_each_nedv(label, String(ID(.))+'[..]', void, .);
+	}
+
+	unit<uint32> AgeClasses : NrOfRows =  18
+	, Descr = "Definition of narrow (5y) age classes that are allocated separately" 
+	{
+		attribute<uint32>         from                                        := id(.) * 5, descr = "start of age class";
+		attribute<uint32>         to                                          := id(.) < max(id(.)) ? ((id(.) + 1) * 5) - 1 : 150, descr = "end of age class";
+		attribute<string>         Label                                       := id(.) < max(id(.)) 
+																					? to < 10
+																						? 'Y0'+string(from) + '_0'+string(to) 
+																						: 'Y'+string(from) + '_'+string(to) 
+																					: 'Over85', descr = "descriptive name of age class";
+	}
 }

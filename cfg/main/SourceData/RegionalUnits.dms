@@ -63,7 +63,7 @@ container RegionalUnits : using = "geography"
 		attribute<bool>      IsEFTA          := EFTA_STAT == 'T'; 
 		attribute<bool>      IsCC            := CC_STAT == 'T'; 
 		attribute<bool>      IsTerritory       := strcount(SVRG_UN, 'Territory') > 0; 
-		unit<uint32> Subset := select_with_attr_by_cond(.,(ModelParameters/Use_Country_OD_selection ? name_engl == /ModelParameters/OD_SelectionCountry : IsEu || IsEFTA))
+		unit<uint32> Subset := select_with_attr_by_cond(.,(ModelParameters/Use_Country_selection ? name_engl == /ModelParameters/StudyArea : IsEu || IsEFTA))
 		{
 			attribute<LambertEA>    geometry_BB (poly, BoundingBox) := points2sequence(BoundingBox/point_set/point, BoundingBox/point_set/Sequence_rel, BoundingBox/point_set/ordinal);
 			

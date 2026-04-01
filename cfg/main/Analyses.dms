@@ -1,6 +1,6 @@
 container Analyses: Using = "Units;Classifications;geography;sourcedata" 
 {  
-	unit<uint32> Client       := ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
+	unit<uint32> Client       := ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/'+ModelParameters/Client+' > 0)';
 	unit<uint32> Facility     := /SourceData/Locations/Schools/within_StudyArea/uq_school_cells;
 	unit<uint32> Org          := Client;
 	unit<uint32> Dest         := Facility;
@@ -55,20 +55,20 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		parameter<string> GDAL_DRIVER := 'Arrow';
 		
 		container DistanceTableExport
-			:	StorageName = "='%localDataProjDir%/'+ModelParameters/CountryFolder+'_od.arrow'"
+			:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_od.arrow'"
 			,	StorageType = "gdalwrite.vect"
 			,	StorageReadOnly = "False"
 		{
-			attribute<Client>    Client_rel  (OD) := ../client_rel;
-			attribute<Facility>  facility_rel(OD) := ../facility_rel;
-			attribute<s_f    >   t_ij(OD) := ../t_ij;
-			attribute<float32>   d_ij(OD) := ../d_ij;
+			attribute<Client>    Client_rel   (OD) := ../client_rel;
+			attribute<Facility>  facility_rel (OD) := ../facility_rel;
+			attribute<float32>   t_ij         (OD) := ../t_ij;
+			attribute<float32>   d_ij         (OD) := ../d_ij;
 			attribute<float32>   travelcost_ij(OD) := ../travelcost_ij;
 			attribute<float32>   Deterrence_ij(OD) := ../Deterrence_ij;
 		}
 		
 		unit<uint32> ResultingFacilityClosure
-			:	StorageName = "='%localDataProjDir%/'+ModelParameters/CountryFolder+'_j_new.arrow'"
+			:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_j_new.arrow'"
 			,	StorageType = "gdal.vect"
 			,	StorageReadOnly = "True";
 			
@@ -83,7 +83,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		attribute<Float64> Openness(Geography/Base_grid_1km) := OpenFacilityProximity / FacilityProximity;
 		
 		container ClientExport
-			:	StorageName = "='%localDataProjDir%/'+ModelParameters/CountryFolder+'_i.arrow'"
+			:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_i.arrow'"
 			,	StorageType = "gdalwrite.vect"
 			,	StorageReadOnly = "False"
 		{
@@ -92,7 +92,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		}
 		
 		container FacilityExport
-			:	StorageName = "='%localDataProjDir%/'+ModelParameters/CountryFolder+'_j.arrow'"
+			:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_j.arrow'"
 			,	StorageType = "gdalwrite.vect"
 			,	StorageReadOnly = "False"
 		{

@@ -1,5 +1,33 @@
 container Locations : using = "geography;units"
 {
+	container Pop_2021_per_SexAgeClasses := 
+		for_each_ndvat(
+			SexAgeClasses/name
+			, Base_Grid_100m
+			, float32
+			, '%NetworkModelDataDir%/Population/EU_Ardeco_2021_100_x0/'+SexAgeClasses/name+'.tif'
+			, 'gdal.grid'
+		)
+	{
+		// primary school age = 6 tm 12 year.
+		attribute<float32> pop_primaryschool (Base_Grid_100m) := F_Y05_09 * 0.8f + M_Y05_09 * 0.8f + F_Y10_14 * 0.6f + M_Y10_14 * 0.6f;
+	
+	}
+	
+	attribute<float32> Pop_primaryschool (Base_Grid_1km) := sum(Pop_2021_per_SexAgeClasses/pop_primaryschool, Base_Grid_100m/grid_1k_rel);
+
+	unit<ipoint> Population_2021_IGOR_Total
+	: StorageName = "%NetworkModelDataDir%/Population/EU_Ardeco_2021_100_x0/Total.tif"
+	, StorageType = "gdal.grid"
+	, StorageReadOnly = "True"
+	, DialogData = "BaseProjection"
+	, DialogType = "map"
+	, Descr = "IGOR output totals"
+	{
+		attribute<uint16> GridData;
+		attribute<uint16> ReadData (Base_Grid_100m);
+	}
+
 	unit<ipoint> Population_2011_Ardeco
 	: StorageName = "%NetworkModelDataDir%/Population/pop_2011_1km_ARDECO.tif"
 	, StorageType = "gdal.grid"
@@ -26,48 +54,48 @@ container Locations : using = "geography;units"
 
 	unit<ipoint> Population := = 'Population_'+string(ModelParameters/PopVersie); 
 	
-	unit<uint64> wPopulation := select_with_org_rel(Population/ReadData > 0[uint32])
-	{
-		attribute<BaseProjection> geometry         := org_rel[BaseProjection];
-		attribute<uint32>         Population       := collect_by_cond(., Locations/Population/ReadData > 0[uint32], Locations/Population/ReadData);
-		attribute<float64>        LocalPopulation  := collect_by_cond(., Locations/Population/ReadData > 0[uint32], Locations/Population/LocalPopulation);
-	}
+	// unit<uint64> wPopulation := select_with_org_rel(Population/ReadData > 0[uint32])
+	// {
+	// 	attribute<BaseProjection> geometry         := org_rel[BaseProjection];
+	// 	attribute<uint32>         Population       := collect_by_cond(., Locations/Population/ReadData > 0[uint32], Locations/Population/ReadData);
+	// 	attribute<float64>        LocalPopulation  := collect_by_cond(., Locations/Population/ReadData > 0[uint32], Locations/Population/LocalPopulation);
+	// }
 	
-	unit<ipoint> Population_2021_Male
-	: StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-M_2021_V2.tiff"
-	, StorageType = "gdal.grid"
-	, StorageReadOnly = "True"
-	, DialogData = "BaseProjection"
-	, DialogType = "map"
-	, Descr = "JRC GeoStat 2021 1000m grid (v2): Male Population"
-	{
-		attribute<uint16> GridData;
-		attribute<uint16> ReadData (Base_Grid_1km);
-	}
+	// unit<ipoint> Population_2021_Male
+	// : StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-M_2021_V2.tiff"
+	// , StorageType = "gdal.grid"
+	// , StorageReadOnly = "True"
+	// , DialogData = "BaseProjection"
+	// , DialogType = "map"
+	// , Descr = "JRC GeoStat 2021 1000m grid (v2): Male Population"
+	// {
+	// 	attribute<uint16> GridData;
+	// 	attribute<uint16> ReadData (Base_Grid_1km);
+	// }
 
-	unit<ipoint> Population_2021_Female
-	: StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-F_2021_V2.tiff"
-	, StorageType = "gdal.grid"
-	, StorageReadOnly = "True"
-	, DialogData = "BaseProjection"
-	, DialogType = "map"
-	, Descr = "JRC GeoStat 2021 1000m grid (v2): Female Population"
-	{
-		attribute<uint16> GridData;
-		attribute<uint16> ReadData (Base_Grid_1km);
-	}
+	// unit<ipoint> Population_2021_Female
+	// : StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-F_2021_V2.tiff"
+	// , StorageType = "gdal.grid"
+	// , StorageReadOnly = "True"
+	// , DialogData = "BaseProjection"
+	// , DialogType = "map"
+	// , Descr = "JRC GeoStat 2021 1000m grid (v2): Female Population"
+	// {
+	// 	attribute<uint16> GridData;
+	// 	attribute<uint16> ReadData (Base_Grid_1km);
+	// }
 
-	unit<ipoint> Population_2021_0_15_year
-	: StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-Y_LT15_2021_V2.tiff"
-	, StorageType = "gdal.grid"
-	, StorageReadOnly = "True"
-	, DialogData = "BaseProjection"
-	, DialogType = "map"
-	, Descr = "JRC GeoStat 2021 1000m grid (v2): Population under 15"
-	{
-		attribute<uint16> GridData;
-		attribute<uint16> ReadData (Base_Grid_1km);
-	}
+	// unit<ipoint> Population_2021_0_15_year
+	// : StorageName = "%NetworkModelDataDir%/Population/ESTAT_OBS-VALUE-Y_LT15_2021_V2.tiff"
+	// , StorageType = "gdal.grid"
+	// , StorageReadOnly = "True"
+	// , DialogData = "BaseProjection"
+	// , DialogType = "map"
+	// , Descr = "JRC GeoStat 2021 1000m grid (v2): Population under 15"
+	// {
+	// 	attribute<uint16> GridData;
+	// 	attribute<uint16> ReadData (Base_Grid_1km);
+	// }
 	
 	unit<uint32> Apotheken
 	: StorageName = "%NetworkModelDataDir%/Locations/apothekersregister20251120_cleaned_Geocoded.csv"

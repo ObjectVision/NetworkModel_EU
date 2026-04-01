@@ -57,9 +57,9 @@ container ExportSettings
 				parameter<string>   Street_OD_ConnectabletSelectie := ModelParameters/Street_OD_ConnectabletSelectie;
 				parameter<string>   StreetTypeSubsetSelectie       := ModelParameters/StreetTypeSubsetSelectie;
 				parameter<string>   NumberOfItersForNetworkCleanUp := string(ModelParameters/NumberOfItersForNetworkCleanUp);
-				parameter<string>   Use_Country_OD_selection       := string(ModelParameters/Use_Country_OD_selection);
+				parameter<string>   Use_Country_selection          := string(ModelParameters/Use_Country_selection);
 				parameter<string>   Roads_path                     := ModelParameters/Roads_path;
-				parameter<string>   CountryFolder                  := ModelParameters/CountryFolder;
+				parameter<string>   StudyArea                      := ModelParameters/StudyArea;
 				parameter<string>   MaxCarSpeed                    := string(ModelParameters/Advanced/MaxCarSpeed);
 				parameter<string>   MaxCarSpeed_limit              := string(ModelParameters/Advanced/MaxCarSpeed_limit);
 				parameter<string>   CarDefaultSpeed                := string(ModelParameters/Advanced/CarDefaultSpeed);
