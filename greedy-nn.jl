@@ -1,9 +1,8 @@
 using Arrow
 
 country = "Romania"
-travel = "linear"  # "linear", "quadratic", or "piecewise"
-grid = false       # set to false to run a single scenario
-underenrollment = false
+travel = "quadratic"  # "linear", "quadratic", or "piecewise"
+grid = true       # set to false to run a single scenario
 
 od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
@@ -74,7 +73,7 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
             j = facilities_col[best_k]
             assigned[i] = j
             cur_cost[i] = best_cost
-            cur_time[i] = t_ij_col[best_k]  # already in minutes
+            cur_time[i] = t_ij_col[best_k]
             fload[j] += client_pop[i]
         end
     end
@@ -84,7 +83,6 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
         push!(facility_clients[j], i)
     end
 
-    # second_best: (facility, cost, time in minutes)
     second_best = Dict{Int, Tuple{Int, Float64, Float64}}()
     for (i, rows) in locations
         if !haskey(assigned, i)
@@ -106,7 +104,7 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
             end
         end
         if best_alt_j != -1
-            second_best[i] = (best_alt_j, best_alt, t_ij_col[best_alt_k]) 
+            second_best[i] = (best_alt_j, best_alt, t_ij_col[best_alt_k])
         end
     end
 
@@ -122,7 +120,7 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
         best_j = nothing
 
         for j in open_set
-            penalty_saving = underenrollment ? w * facility_cost * max(0.0, min_students - fload[j]) : w * facility_cost
+            penalty_saving = w * facility_cost * max(0.0, min_students - fload[j])
             if penalty_saving == 0.0
                 continue
             end
@@ -193,7 +191,7 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
                     end
                 end
                 if best_alt_j != -1
-                    second_best[i] = (best_alt_j, best_alt, t_ij_col[best_alt_k])  # already in minutes
+                    second_best[i] = (best_alt_j, best_alt, t_ij_col[best_alt_k])
                     if haskey(second_best_clients, best_alt_j)
                         push!(second_best_clients[best_alt_j], i)
                     end
@@ -207,7 +205,7 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
     end
 
     travel = sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
-    penalty = underenrollment ? sum(w * facility_cost * max(0.0, min_students - fload[j]) for j in open_set) : sum(w * facility_cost for j in open_set)
+    penalty = sum(w * facility_cost * max(0.0, min_students - fload[j]) for j in open_set)
 
     return open_set, assigned, fload, cur_cost, cur_time, travel, penalty
 end
@@ -221,8 +219,7 @@ function run_scenario(min_students, w)
         expected_load[j] += client_pop[i]
     end
 
-    min_viable_load = min_students * 0
-    initial_open = Set(j for j in facilities if expected_load[j] >= min_viable_load)
+    initial_open = Set(j for j in facilities if expected_load[j] >= 0)
 
     unassigned = Set(i for (i, rows) in locations if !any(facilities_col[k] in initial_open for k in rows))
     while !isempty(unassigned)
@@ -258,15 +255,7 @@ function run_scenario(min_students, w)
     travel = isempty(assigned) ? 0.0 :
         sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
     penalty = isempty(open_set) ? 0.0 :
-        (underenrollment ? sum(w * facility_cost * max(0.0, min_students - fload[j]) for j in open_set) : sum(w * facility_cost for j in open_set))
-
-    # b1 = sum(1 for (i, t) in cur_time if t <= 15; init=0)
-    # b2 = sum(1 for (i, t) in cur_time if 15 < t <= 30; init=0)
-    # b3 = sum(1 for (i, t) in cur_time if t > 30; init=0)
-    # println("  assigned clients by travel band:")
-    # println("    t <= 15 min:      $b1 (", round(100*b1/length(assigned), digits=1), "%)")
-    # println("    15 < t <= 30 min: $b2 (", round(100*b2/length(assigned), digits=1), "%)")
-    # println("    t > 30 min:       $b3 (", round(100*b3/length(assigned), digits=1), "%)")
+        sum(w * facility_cost * max(0.0, min_students - fload[j]) for j in open_set)
 
     mean_travel_min = sum(cur_time[i] for i in keys(cur_time)) / length(cur_time)
 
@@ -275,30 +264,44 @@ end
 
 
 function grid_search()
-    min_students_values = underenrollment ? [25, 50, 100, 150, 200] : [50]
+    total_pop = sum(values(client_pop))
+    min_students_values = [25, 50, 100, 150, 200, total_pop]
     ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
 
     println("\ngrid search (travel cost function=$(travel))")
     println(rpad("min_students", 14),
             rpad("policy_weight", 14),
             rpad("open", 8),
-            rpad(">=min", 8),
-            rpad("<min", 8),
+            rpad(">=min_students", 8),
+            rpad("<min_students", 8),
             rpad("travel_cost", 14),
             rpad("facility_cost", 14),
-            "mean_t (min)")
+            rpad("mean_t (min)", 14),
+            rpad("t<=15", 10),
+            rpad("15<t<=30", 10),
+            "t>30")
 
     for min_students in min_students_values
         for w in ws
             open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, w)
-            println(rpad(min_students, 14),
+
+            b1 = sum(client_pop[i] for (i, t) in cur_time if t <= 15; init=0.0)
+            b2 = sum(client_pop[i] for (i, t) in cur_time if 15 < t <= 30; init=0.0)
+            b3 = sum(client_pop[i] for (i, t) in cur_time if t > 30; init=0.0)
+
+            ms_label = min_students >= total_pop ? "Inf" : string(round(Int, min_students))
+
+            println(rpad(ms_label, 14),
                     rpad(w, 14),
                     rpad(n_open_small + n_open_full, 8),
                     rpad(n_open_full, 8),
                     rpad(n_open_small, 8),
                     rpad(round(travel, digits=0), 14),
                     rpad(round(penalty, digits=0), 14),
-                    round(mean_travel_min, digits=2))
+                    rpad(round(mean_travel_min, digits=2), 14),
+                    rpad(round(Int, b1), 10),
+                    rpad(round(Int, b2), 10),
+                    round(Int, b3))
         end
     end
 end
@@ -306,6 +309,10 @@ end
 
 function single_run(min_students, w)
     open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, w)
+
+    b1 = sum(client_pop[i] for (i, t) in cur_time if t <= 15; init=0.0)
+    b2 = sum(client_pop[i] for (i, t) in cur_time if 15 < t <= 30; init=0.0)
+    b3 = sum(client_pop[i] for (i, t) in cur_time if t > 30; init=0.0)
 
     n_open = n_open_full + n_open_small
     println("\nresults (travel cost=$(travel), min_students=$(min_students), w=$(w)):")
@@ -318,6 +325,9 @@ function single_run(min_students, w)
     println("penalty: ", round(penalty, digits=0))
     println("mean travel time (min): ", round(mean_travel_min, digits=2))
     println("unassigned clients: ", sum(1 for i in keys(locations) if !haskey(assigned, i); init=0))
+    println("t <= 15 min: ", round(Int, b1))
+    println("15 < t <= 30 min: ", round(Int, b2))
+    println("t > 30 min: ", round(Int, b3))
 
     open_vec = zeros(Int, M)
     for (idx, j) in enumerate(facilities)
@@ -329,6 +339,13 @@ function single_run(min_students, w)
     Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_greedy.arrow", (
         id = facilities,
         open = open_vec
+    ))
+
+    sorted_ids = sort(collect(keys(cur_time)))
+    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_i_travel.arrow", (
+        id     = sorted_ids,
+        t_ij   = [cur_time[i] for i in sorted_ids],
+        t_band = [cur_time[i] < 15 ? 1 : cur_time[i] < 30 ? 2 : cur_time[i] < 45 ? 3 : cur_time[i] < 60 ? 4 : 5 for i in sorted_ids]
     ))
 end
 

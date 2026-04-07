@@ -3,7 +3,7 @@ using Arrow, JuMP, HiGHS
 country       = "Romania"
 travel        = "quadratic"   # "linear" or "quadratic"
 facility_cost = 99699
-grid          = false       # set to false for single run
+grid          = true       # set to false for single run
 w_single      = 1     # used when grid = false
 min_students_single = 50  # used when grid = false
 
@@ -279,15 +279,23 @@ if grid
     println(rpad("min_students", 14),
             rpad("policy_weight", 14),
             rpad("open", 8),
-            rpad(">=min", 8),
-            rpad("<min", 8),
-            rpad("travel", 14),
-            rpad("penalty", 14),
-            "mean_t (min)")
+            rpad(">=min_students", 8),
+            rpad("<min_students", 8),
+            rpad("travel_cost", 14),
+            rpad("facility_cost", 14),
+            rpad("mean_t (min)", 14),
+            rpad("t<=15", 10),
+            rpad("15<t<=30", 10),
+            "t>30")
 
     for min_students in min_students_values
         for w in ws
             open_set, assigned, fload, cur_cost, cur_time, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp = run_scenario(min_students, w)
+
+            b1 = sum(client_pop[i] for (i, t) in cur_time if t <= 15; init=0.0)
+            b2 = sum(client_pop[i] for (i, t) in cur_time if 15 < t <= 30; init=0.0)
+            b3 = sum(client_pop[i] for (i, t) in cur_time if t > 30; init=0.0)
+
             println(rpad(min_students, 14),
                     rpad(w, 14),
                     rpad(n_open_full + n_open_small, 8),
@@ -295,11 +303,18 @@ if grid
                     rpad(n_open_small, 8),
                     rpad(round(travel_lp, digits=0), 14),
                     rpad(round(penalty_lp, digits=0), 14),
-                    round(mean_travel_min, digits=2))
+                    rpad(round(mean_travel_min, digits=2), 14),
+                    rpad(round(Int, b1), 10),
+                    rpad(round(Int, b2), 10),
+                    round(Int, b3))
         end
     end
 else
     open_set, assigned, fload, cur_cost, cur_time, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp = run_scenario(min_students_single, w_single)
+
+    b1 = sum(client_pop[i] for (i, t) in cur_time if t <= 15; init=0.0)
+    b2 = sum(client_pop[i] for (i, t) in cur_time if 15 < t <= 30; init=0.0)
+    b3 = sum(client_pop[i] for (i, t) in cur_time if t > 30; init=0.0)
 
     n_open = n_open_full + n_open_small
     println("\nresults (travel=$(travel), min_students=$(min_students_single), w=$(w_single)):")
@@ -310,6 +325,9 @@ else
     println("travel (LP reassign): ", round(travel_lp, digits=0))
     println("penalty (LP reassign): ", round(penalty_lp, digits=0))
     println("mean travel time (min): ", round(mean_travel_min, digits=2))
+    println("t <= 15 min: ", round(Int, b1))
+    println("15 < t <= 30 min: ", round(Int, b2))
+    println("t > 30 min: ", round(Int, b3))
     println("unassigned clients: ", sum(1 for i in keys(locations) if !haskey(assigned, i); init=0))
 
     open_vec = zeros(Int, M)

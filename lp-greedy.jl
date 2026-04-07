@@ -1,6 +1,6 @@
 using Arrow, JuMP, HiGHS
 
-country = "Netherlands"
+country = "Romania"
 flag = 1
 
 od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
