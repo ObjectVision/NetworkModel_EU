@@ -66,7 +66,14 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<float32>   travelcost_ij(OD) := ../travelcost_ij;
 			attribute<float32>   Deterrence_ij(OD) := ../Deterrence_ij;
 		}
-		
+
+		unit<uint32> ResultingClientAssignment
+			:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_i_travel.arrow'"
+			,	StorageType = "gdal.vect"
+			,	StorageReadOnly = "True";
+			
+		attribute<float64> ClientTravelTime(Client) := rjoin(ID(client), convert(ResultingClientAssignment/id, Client), ResultingClientAssignment/t_ij);
+
 		unit<uint32> ResultingFacilityClosure
 			:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_j_greedy.arrow'"
 			,	StorageType = "gdal.vect"

@@ -1,8 +1,8 @@
 using Arrow
 
 country = "Romania"
-travel = "quadratic"  # "linear", "quadratic", or "piecewise"
-grid = true
+travel = "linear"  # "linear", "quadratic", or "piecewise"
+grid = false
 
 od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
@@ -350,8 +350,8 @@ function single_run(min_students, w)
     sorted_ids = sort(collect(keys(cur_time)))
     Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_i_travel.arrow", (
         id     = sorted_ids,
-        t_ij   = [cur_time[i] for i in sorted_ids],
-        t_band = [cur_time[i] < 15 ? 1 : cur_time[i] < 30 ? 2 : cur_time[i] < 45 ? 3 : cur_time[i] < 60 ? 4 : 5 for i in sorted_ids]
+        t_ij   = [cur_time[i] for i in sorted_ids] #,
+        # t_band = [cur_time[i] < 15 ? 1 : cur_time[i] < 30 ? 2 : cur_time[i] < 45 ? 3 : cur_time[i] < 60 ? 4 : 5 for i in sorted_ids]
     ))
 end
 
@@ -359,5 +359,5 @@ end
 if grid
     grid_search()
 else
-    single_run(50.0, 0.00001)
+    single_run(50.0, 0.0001)
 end
