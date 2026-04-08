@@ -41,7 +41,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		parameter<uint8>   NumberOfIterations       := 5b,           Descr = "Number of iterations for balancing assignment.";
 		
 		attribute<float32> SchoolCount_j     (Dest) := Dest/count_schools_per_cell                                        , Descr = "Number of school facilities on destination cell j";
-		attribute<float32> Pop_i              (Org) := float32(Org/Population)                                            , Descr = "Eligible student population in origin cell i";
+		attribute<float32> Pop_i              (Org) := float32(Org/Pop_PrimarySchool)                                            , Descr = "Eligible student population in origin cell i";
 		attribute<float32> LocalPotential_j  (Dest) := sum(Pop_i[client_rel] * float32(d_ij <= PotRadiusKm), facility_rel), Descr = "Eligible student population within PotRadiusKm of destination j.";
 		attribute<float32> CapTarget_j       (Dest) := UK_k * pow(max_elem(LocalPotential_j, 1f), UK_theta)               , Descr = "Exogenous expected capacity per facility at destination j";
 	

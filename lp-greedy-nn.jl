@@ -257,7 +257,7 @@ function run_scenario(min_students, w)
         end
     end
 
-    # no re-solve — all metrics from nearest assignment
+    # no re-solve
     travel_nearest  = sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
     penalty_nearest = sum(facility_penalty(fload[j], min_students, w, facility_cost) for j in open_set)
     mean_travel_min = sum(cur_time[i] for i in keys(cur_time)) / length(cur_time)

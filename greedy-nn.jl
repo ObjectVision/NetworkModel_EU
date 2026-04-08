@@ -2,7 +2,7 @@ using Arrow
 
 country = "Romania"
 travel = "quadratic"  # "linear", "quadratic", or "piecewise"
-grid = false
+grid = true
 
 od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
@@ -23,7 +23,7 @@ for k in 1:N
     haskey(locations, i) ? push!(locations[i], k) : (locations[i] = [k])
 end
 
-client_pop = Dict(i => population[i+1]*0.1 for i in keys(locations))
+client_pop = Dict(i => population[i+1] for i in keys(locations))
 
 function c(t)
     if travel == "quadratic"

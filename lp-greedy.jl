@@ -17,7 +17,7 @@ facilities     = Int.(fac[:id])
 N = length(clients_col)
 M = length(facilities)
 
-wpop = [population[clients_col[k]+1] * 0.1 for k in 1:N]
+wpop = [population[clients_col[k]+1] for k in 1:N]
 
 locations = Dict{Int, Vector{Int}}()
 for k in 1:N
