@@ -28,7 +28,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		attribute<Client>   client_rel   := OrgZone_rel;
 		attribute<Facility> facility_rel := DstZone_rel;
 		
-		parameter<km>      MinDist                  := 0.001[km],       Descr = "Minimum distance to be used between i and j, to avoid zero distances.";
+		parameter<km>      MinDist                  := 0.001[km],    Descr = "Minimum distance to be used between i and j, to avoid zero distances.";
 		parameter<s_f>     MinTime                  := 1[s_f],       Descr = "Minimum traveltime to be used between i and j, to avoid zero time.";
 		parameter<float32> α                        := 1f,           Descr = "Scale factor in distance-decay function f(c)=Alpha*c^Beta.";
 		parameter<float32> β                        := -2f,          Descr = "Distance-decay exponent (<0) controlling sensitivity to distance.";
@@ -41,14 +41,14 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		parameter<uint8>   NumberOfIterations       := 5b,           Descr = "Number of iterations for balancing assignment.";
 		
 		attribute<float32> SchoolCount_j     (Dest) := Dest/count_schools_per_cell                                        , Descr = "Number of school facilities on destination cell j";
-		attribute<float32> Pop_i              (Org) := float32(Org/Pop_PrimarySchool)                                            , Descr = "Eligible student population in origin cell i";
+		attribute<float32> Pop_i              (Org) := ='float32(Org/'+Modelparameters/Client+')'                         , Descr = "Eligible student population in origin cell i";
 		attribute<float32> LocalPotential_j  (Dest) := sum(Pop_i[client_rel] * float32(d_ij <= PotRadiusKm), facility_rel), Descr = "Eligible student population within PotRadiusKm of destination j.";
 		attribute<float32> CapTarget_j       (Dest) := UK_k * pow(max_elem(LocalPotential_j, 1f), UK_theta)               , Descr = "Exogenous expected capacity per facility at destination j";
 	
 		attribute<float32> d_ij                     := value(max_elem(alt_imp, MinDist),float32)                          , Descr = "Distance between i and j"; 
 		attribute<float32> t_ij                     := value(max_elem(impedance, MinTime),float32)                        , Descr = "Traveltime between i and j based on shortest travel path";
 		attribute<float32> ClosestDist_i      (Org) := min(d_ij, client_rel)                                              , Descr = "Distance from origin i to its nearest school (min over j)";
-		attribute<float32> c_ij                     := max_elem(d_ij - ClosestDist_i[client_rel], value(MinDist, float32))                , Descr = "'Extra' distance beyond the nearest option"; 
+		attribute<float32> c_ij                     := max_elem(d_ij - ClosestDist_i[client_rel], value(MinDist, float32)), Descr = "'Extra' distance beyond the nearest option"; 
 		attribute<float32> Deterrence_ij            := α * c_ij^β                                                         , Descr = "Distance-decay weight based on surplus distance.";
 		attribute<euro>    travelcost_ij            := float32(d_ij[km] * ModelParameters/cost_per_km);
 
@@ -68,40 +68,46 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		}
 
 		unit<uint32> ResultingClientAssignment
-			:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_i_travel.arrow'"
-			,	StorageType = "gdal.vect"
-			,	StorageReadOnly = "True";
+		:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_i_travel.arrow'"
+		,	StorageType = "gdal.vect"
+		,	StorageReadOnly = "True"
+		{
+			attribute<min_f> t_ij;
+		}
 			
-		attribute<float64> ClientTravelTime(Client) := rjoin(ID(client), convert(ResultingClientAssignment/id, Client), ResultingClientAssignment/t_ij);
+		attribute<min_f>             ClientTravelTime            (Client) := rjoin(ID(client), convert(ResultingClientAssignment/id, Client), ResultingClientAssignment/t_ij);
+		attribute<ClientTravelTimeK> ClientTravelTime_Classified (Client) := classify(ClientTravelTime, ClientTravelTimeK/ClassBreaks);
+
 
 		unit<uint32> ResultingFacilityClosure
-			:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_j_greedy.arrow'"
-			,	StorageType = "gdal.vect"
-			,	StorageReadOnly = "True";
+		:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_j_greedy.arrow'"
+		,	StorageType = "gdal.vect"
+		,	StorageReadOnly = "True";
 			
-		attribute<int64> FacilityRemainsOpen(Facility) := rjoin(ID(facility), convert(ResultingFacilityClosure/id, Facility), ResultingFacilityClosure/Open);
+		attribute<int64> FacilityRemainsOpen (Facility) := rjoin(ID(facility), convert(ResultingFacilityClosure/id, Facility), ResultingFacilityClosure/Open);
+		
 		unit<uint32> OpenFacilities := select_with_org_rel(FacilityRemainsOpen)
 		{
 			attribute<BaseProjection> geometry := org_rel->Geometry;
 		}
-		attribute<Float64> FacilityProximity    (Geography/Base_grid_1km) := potential(Float64(IsDefined(invert(      Facility/geometry[Geography/Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
-		attribute<Float64> OpenFacilityProximity(Geography/Base_grid_1km) := potential(Float64(IsDefined(invert(OpenFacilities/geometry[Geography/Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
 		
-		attribute<Float64> Openness(Geography/Base_grid_1km) := OpenFacilityProximity / FacilityProximity;
+		attribute<Float64> FacilityProximity     (Base_grid_1km) := potential(Float64(IsDefined(invert(      Facility/geometry[Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
+		attribute<Float64> OpenFacilityProximity (Base_grid_1km) := potential(Float64(IsDefined(invert(OpenFacilities/geometry[Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
+		attribute<Float64> Openness              (Base_grid_1km) := OpenFacilityProximity / FacilityProximity;
 		
 		container ClientExport
-			:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_i.arrow'"
-			,	StorageType = "gdalwrite.vect"
-			,	StorageReadOnly = "False"
+		:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_i.arrow'"
+		,	StorageType = "gdalwrite.vect"
+		,	StorageReadOnly = "False"
 		{
-			attribute<client> id(client) := id(client);
-			attribute<float32> pop(client) := Pop_i;
+			attribute<client>  id  (client) := id(client);
+			attribute<float32> pop (client) := Pop_i;
 		}
 		
 		container FacilityExport
-			:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_j.arrow'"
-			,	StorageType = "gdalwrite.vect"
-			,	StorageReadOnly = "False"
+		:	StorageName = "='%localDataProjDir%/'+ModelParameters/StudyArea+'_j.arrow'"
+		,	StorageType = "gdalwrite.vect"
+		,	StorageReadOnly = "False"
 		{
 			attribute<Facility> id(Facility) := id(Facility);
 		}
@@ -116,21 +122,22 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		attribute<float32> MeanSize_j_r0     (Dest) := Assignment_j_r0 / SchoolCount_j                                    , Descr = "Round-1 realized mean size per facility at j.";
 
 		// Final outputs
-		container results {
-			attribute<float32> FinalSize_j       (Dest) := Iters/LastIter/MeanSize_j                                          , Descr = "Final mean size per facility.";
-			attribute<float32> F_ij              (OD)  := Iters/LastIter/F_ij                                                , Descr = "Final OD allocation";
-			attribute<float32> F_i               (Org)  := sum(F_ij, client_rel); 
-			attribute<float32> mean_imp          (Org)  := sum(F_ij * float32(impedance)) / F_i;
-			attribute<float32> min_imp           (Org)  := min(F_ij* (float32(impedance) / F_ij), client_rel);
+		container results 
+		{
+			attribute<float32> FinalSize_j         (Dest) := Iters/LastIter/MeanSize_j                                          , Descr = "Final mean size per facility.";
+			attribute<float32> F_ij                  (OD) := Iters/LastIter/F_ij                                                , Descr = "Final OD allocation";
+			attribute<float32> F_i                  (Org) := sum(F_ij, client_rel); 
+			attribute<float32> mean_imp             (Org) := sum(F_ij * float32(impedance)) / F_i;
+			attribute<float32> min_imp              (Org) := min(F_ij* (float32(impedance) / F_ij), client_rel);
 			
-			attribute<euro>    travel_costs      (Org)  := sum(F_ij * travelcost_ij, client_rel) / F_i;
-			attribute<float32> F_j               (Dest) := sum(F_ij, facility_rel); 
-			attribute<euro>    CostFactor_j      (Dest) := ModelParameters/ConstCostsPerFacility / F_j; 
+			attribute<euro>    travel_costs         (Org) := sum(F_ij * travelcost_ij, client_rel) / F_i;
+			attribute<float32> F_j                 (Dest) := sum(F_ij, facility_rel); 
+			attribute<euro>    CostFactor_j        (Dest) := ModelParameters/ConstCostsPerFacility / F_j; 
 			
-			attribute<euro>    total_facility_costs(Org):= sum(F_ij * CostFactor_j[facility_rel], client_rel);
-			attribute<euro>    avg_facility_costs(Org)  := total_facility_costs / Pop_i;
-			attribute<euro>    avg_costs         (Org)  := travel_costs + avg_facility_costs;
-			attribute<euro>    total_costs       (Org)  := travel_costs * Pop_i + total_facility_costs;
+			attribute<euro>    total_facility_costs (Org) := sum(F_ij * CostFactor_j[facility_rel], client_rel);
+			attribute<euro>    avg_facility_costs   (Org) := total_facility_costs / Pop_i;
+			attribute<euro>    avg_costs            (Org) := travel_costs + avg_facility_costs;
+			attribute<euro>    total_costs          (Org) := travel_costs * Pop_i + total_facility_costs;
 			
 //			attribute<float32> CatchmentShare_ij        := F_ij / max_elem(Pop_i[client_rel], 1f)                            , Descr = "Final share of origin i to destination j.";
 			// TODO: number of (un)serviced clients
@@ -169,7 +176,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<float32> DestWeight_j_adj  (Dest) := min_elem(max_elem(pow(max_elem(CapRatio_j, 1e-3f), -γ), W_floor), W_ceiling)         , Descr = "Adjusted destination weight (oversubscribed -> lower weight).";
 			attribute<float32> A_i                (Org) := 1f / sum(DestWeight_j_adj[facility_rel] * Deterrence_ij, client_rel)                 , Descr = "Origin balancing factor.";
 			attribute<float32> F_ij                (OD) := Pop_i[client_rel] * A_i[client_rel] * DestWeight_j_adj[facility_rel] * Deterrence_ij, Descr = "Rebalanced flow.";
-			attribute<float32> Assignment_j        (Dest) := sum(F_ij, facility_rel)                                                             , Descr = "Assignment to destination j";
+			attribute<float32> Assignment_j      (Dest) := sum(F_ij, facility_rel)                                                             , Descr = "Assignment to destination j";
 			attribute<float32> MeanSize_j        (Dest) := Assignment_j / float32(SchoolCount_j)                                                , Descr = "Mean size per facility";
 		}
 	}

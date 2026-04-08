@@ -94,4 +94,13 @@ container Classifications: Using = "Units"
 																						: 'Y'+string(from) + '_'+string(to) 
 																					: 'Over85', descr = "descriptive name of age class";
 	}
+	
+	unit<uint8> ClientTravelTimeK := cat_range(0b, 9b)
+	{
+		attribute<string>  label       := id(.) == max(id(.)) ? '> '+last(string(ClassBreaks))+' min' : name + ' - ' +next_name+' min';
+		attribute<float64> ClassBreaks : [0, 2, 4, 6, 8, 10, 20, 30, 60];
+		attribute<string>  name        := string(ClassBreaks); 
+		attribute<string>  next_name   := name[add_or_null(id(.),1b)];
+		attribute<uint32>  SymbolColor : [rgb(0,104,55),rgb(49,163,84),rgb(120,198,121),rgb(194,230,153),rgb(255,255,178),rgb(254,217,142),rgb(253,174,97),rgb(215,48,39),rgb(127,0,0)];
+	}
 }
