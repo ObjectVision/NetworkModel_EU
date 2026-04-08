@@ -1,7 +1,8 @@
 using Arrow, JuMP, HiGHS
 
 country = "Romania"
-flag = 1
+travel  = "quadratic"  # "linear" or "quadratic"
+grid    = true
 
 od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
@@ -9,7 +10,7 @@ fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_j.arrow")
 
 clients_col    = Int.(od[:client_rel])
 facilities_col = Int.(od[:facility_rel])
-t_ij_col       = od[:t_ij]
+t_ij_col       = od[:t_ij] ./ 60
 population     = loc[:pop]
 facilities     = Int.(fac[:id])
 
@@ -19,277 +20,173 @@ M = length(facilities)
 wpop = [population[clients_col[k]+1] * 0.1 for k in 1:N]
 
 locations = Dict{Int, Vector{Int}}()
-
 for k in 1:N
     i = clients_col[k]
-    if haskey(locations, i)
-        push!(locations[i], k)
-    else
-        locations[i] = [k]
-    end
+    haskey(locations, i) ? push!(locations[i], k) : (locations[i] = [k])
 end
 
 facility_rows = Dict{Int, Vector{Int}}()
-
 for k in 1:N
-    j = facilities_col[k]   # facility of od row k
+    j = facilities_col[k]
     if !haskey(facility_rows, j)
         facility_rows[j] = Int[]
     end
     push!(facility_rows[j], k)
 end
-
 for j in facilities
     if !haskey(facility_rows, j)
-        facility_rows[j] = Int[]   # empty vector if no od rows
+        facility_rows[j] = Int[]
     end
 end
 
 client_pop = Dict(i => wpop[rows[1]] for (i, rows) in locations)
 
-min_students  = 100
-total_time    = sum(0.2 * t_ij_col[k] * wpop[k] for k in 1:N)
-facility_cost = (2 * total_time * 200) / M
-λ             = facility_cost / (min_students / 2)
-
-model = Model(HiGHS.Optimizer)
-set_optimizer_attribute(model, "presolve", "on")
-set_optimizer_attribute(model, "user_objective_scale", -2)
-
-@variable(model, 0 <= y[1:N] <= 1)
-@variable(model, 0 <= x[j in facilities] <= 1)
-@variable(model, deficit[j in facilities] >= 0)
-
-@expression(model, load[j in facilities],
-    sum(y[k] * wpop[k] for k in facility_rows[j])
-)
-
-@objective(model, Min,
-    sum(y[k] * t_ij_col[k] * wpop[k] for k in 1:N) +
-    flag * sum(deficit[j] * λ for j in facilities)
-)
-
-for (i, rows) in locations
-    @constraint(model, sum(y[k] for k in rows) == 1)
+function c(t)
+    if travel == "quadratic"
+        return 0.05 * t^2 + 0.5 * t
+    else
+        return t
+    end
 end
 
-for k in 1:N
-    @constraint(model, y[k] <= x[facilities_col[k]])
+function facility_penalty(load, min_students, w, c0)
+    isinf(min_students) ? w * c0 : w * c0 * max(0.0, min_students - load)
 end
 
-for j in facilities
-    @constraint(model, deficit[j] >= min_students * x[j] - load[j])
-end
+function run_scenario(min_students, w)
+    facility_cost = 99699
+    λ = w * facility_cost
 
-println("solving LP relaxation...")
-optimize!(model)
+    model = Model(HiGHS.Optimizer)
+    set_optimizer_attribute(model, "presolve", "on")
+    set_optimizer_attribute(model, "output_flag", false)
 
-x_relaxed = value.(x)
+    @variable(model, 0 <= y[1:N] <= 1)
+    @variable(model, 0 <= x[j in facilities] <= 1)
 
-tol = 1e-6
-fixed_open   = [j for j in facilities if x_relaxed[j] >= 1 - tol]
-fixed_closed = [j for j in facilities if x_relaxed[j] <= tol]
-fractional   = [j for j in facilities if tol < x_relaxed[j] < 1 - tol]
-
-println("LP: $(length(fixed_open)) open, $(length(fixed_closed)) closed, $(length(fractional)) fractional")
-println("travel: ", sum(value(y[k]) * t_ij_col[k] * wpop[k] for k in 1:N))
-println("penalty: ", sum(value(deficit[j]) * λ for j in facilities))
-
-fixed_open_set   = Set(fixed_open)
-fixed_closed_set = Set(fixed_closed)
-fractional_set   = Set(fractional)
-
-function drop_heuristic()
-    open_set = union(fixed_open_set, fractional_set)
-
-    # initial assignment
-    assigned = Dict{Int, Int}()
-    cur_cost = Dict{Int, Float64}()
-    fload    = Dict(j => 0.0 for j in facilities)
+    if !isinf(min_students)
+        @variable(model, deficit[j in facilities] >= 0)
+        @expression(model, load[j in facilities],
+            sum(y[k] * wpop[k] for k in facility_rows[j])
+        )
+        @objective(model, Min,
+            sum(y[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N) +
+            sum(deficit[j] * λ for j in facilities)
+        )
+        for j in facilities
+            @constraint(model, deficit[j] >= min_students * x[j] - load[j])
+        end
+    else
+        @objective(model, Min,
+            sum(y[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N) +
+            sum(x[j] * λ for j in facilities)
+        )
+    end
 
     for (i, rows) in locations
-        best_k    = nothing
-        best_cost = Inf
-        for k in rows
-            j = facilities_col[k]
-            if j in open_set && t_ij_col[k] < best_cost
-                best_cost = t_ij_col[k]
-                best_k    = k
-            end
-        end
-        if best_k !== nothing
-            j = facilities_col[best_k]
-            assigned[i] = j
-            cur_cost[i] = best_cost
-            fload[j]   += client_pop[i]
-        end
+        @constraint(model, sum(y[k] for k in rows) == 1)
+    end
+    for k in 1:N
+        @constraint(model, y[k] <= x[facilities_col[k]])
     end
 
-    # build facility_clients index
-    facility_clients = Dict(j => Int[] for j in facilities)
-    for (i, j) in assigned
-        push!(facility_clients[j], i)
+    optimize!(model)
+
+    x_relaxed      = value.(x)
+    tol            = 1e-6
+    fixed_open_set = Set([j for j in facilities if x_relaxed[j] >= 1 - tol])
+    fractional     = [j for j in facilities if tol < x_relaxed[j] < 1 - tol]
+    open_set       = union(fixed_open_set, Set(fractional))
+
+    # fix and re-solve
+    for j in facilities
+        fix(x[j], j in open_set ? 1.0 : 0.0; force=true)
+    end
+    optimize!(model)
+
+    # compute fload from LP assignment for reporting
+    fload = Dict(j => 0.0 for j in facilities)
+    for k in 1:N
+        fload[facilities_col[k]] += value(y[k]) * wpop[k]
     end
 
-    # compute second best for all clients
-    second_best = Dict{Int, Tuple{Int, Float64}}()
-    for (i, rows) in locations
-        if !haskey(assigned, i)
-            continue
-        end
-        j_cur      = assigned[i]
-        best_alt   = Inf
-        best_alt_j = -1
-        for k in rows
-            jj = facilities_col[k]
-            if jj != j_cur && jj in open_set && t_ij_col[k] < best_alt
-                best_alt   = t_ij_col[k]
-                best_alt_j = jj
-            end
-        end
-        if best_alt_j != -1
-            second_best[i] = (best_alt_j, best_alt)
-        end
-    end
+    # mean travel time: LP-weighted average
+    total_weight  = sum(wpop[k] for k in 1:N)
+    mean_travel_min = sum(value(y[k]) * t_ij_col[k] * wpop[k] for k in 1:N) / total_weight
 
-    travel_cost  = sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
-    penalty_cost = flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set)
-    current_cost = travel_cost + penalty_cost
+    # travel bands: LP-weighted
+    b1 = sum(value(y[k]) * wpop[k] for k in 1:N if t_ij_col[k] < 15)
+    b2 = sum(value(y[k]) * wpop[k] for k in 1:N if 15 <= t_ij_col[k] < 30)
+    b3 = sum(value(y[k]) * wpop[k] for k in 1:N if t_ij_col[k] >= 30)
 
-    println("initial cost: ", round(current_cost, digits=0),
-            " (travel=", round(travel_cost, digits=0),
-            " penalty=", round(penalty_cost, digits=0), ")")
+    travel_lp  = sum(value(y[k]) * c(t_ij_col[k]) * wpop[k] for k in 1:N)
+    penalty_lp = isinf(min_students) ?
+                    sum(value(x[j]) * facility_cost * w for j in facilities) :
+                    sum(value(deficit[j]) * λ for j in facilities)
 
-    improved = true
-    while improved
-        improved    = false
-        best_saving = 0.0
-        best_j      = nothing
+    n_open_full  = isinf(min_students) ? length(open_set) : sum(1 for j in open_set if fload[j] >= min_students; init=0)
+    n_open_small = isinf(min_students) ? 0                : sum(1 for j in open_set if fload[j] < min_students;  init=0)
 
-        for j in fractional
-            if !(j in open_set)
-                continue
-            end
-
-            penalty_saving = flag * λ * max(0.0, min_students - fload[j])
-
-            travel_increase = 0.0
-            feasible = true
-            for i in facility_clients[j]
-                if !haskey(second_best, i)
-                    feasible = false
-                    break
-                end
-                travel_increase += (second_best[i][2] - cur_cost[i]) * client_pop[i]
-            end
-
-            if !feasible
-                continue
-            end
-
-            saving = penalty_saving - travel_increase
-            if saving > best_saving
-                best_saving = saving
-                best_j      = j
-            end
-        end
-
-        if best_j !== nothing
-            open_set   = setdiff(open_set, [best_j])
-            reassigned = Set(facility_clients[best_j])
-
-            # reassign clients of best_j to their second best
-            for i in reassigned
-                if !haskey(second_best, i)
-                    continue
-                end
-                new_j    = second_best[i][1]
-                new_cost = second_best[i][2]
-
-                fload[best_j] -= client_pop[i]
-                fload[new_j]  += client_pop[i]
-                assigned[i]    = new_j
-                cur_cost[i]    = new_cost
-
-                push!(facility_clients[new_j], i)
-            end
-            facility_clients[best_j] = Int[]
-
-            # update second_best only for affected clients
-            for i in keys(assigned)
-                if i in reassigned || (haskey(second_best, i) && second_best[i][1] == best_j)
-                    j_cur      = assigned[i]
-                    best_alt   = Inf
-                    best_alt_j = -1
-                    for k in locations[i]
-                        jj = facilities_col[k]
-                        if jj != j_cur && jj in open_set && t_ij_col[k] < best_alt
-                            best_alt   = t_ij_col[k]
-                            best_alt_j = jj
-                        end
-                    end
-                    if best_alt_j != -1
-                        second_best[i] = (best_alt_j, best_alt)
-                    else
-                        delete!(second_best, i)
-                    end
-                end
-            end
-
-            travel_cost  = sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
-            penalty_cost = flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set)
-            current_cost = travel_cost + penalty_cost
-
-            println("closed $(best_j), saving=$(round(best_saving,digits=0)), cost=$(round(current_cost,digits=0))")
-            improved = true
-        end
-    end
-
-    return open_set, assigned, fload, current_cost
+    return open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, b1, b2, b3
 end
 
-open_set, assigned, fload, total_cost = drop_heuristic()
 
-# fix x and re-solve for optimal assignment
-for j in facilities
-    fix(x[j], j in open_set ? 1.0 : 0.0; force=true)
-end
+if grid
+    min_students_values = [25.0, 50.0, 100.0, 150.0, 200.0, Inf]
+    ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
 
-println("\nsolving assignment LP...")
-optimize!(model)
+    println("\ngrid search (travel=$(travel))")
+    println(rpad("min_students", 14),
+            rpad("policy_weight", 14),
+            rpad("open", 8),
+            rpad(">=min", 8),
+            rpad("<min", 8),
+            rpad("travel", 14),
+            rpad("penalty", 14),
+            rpad("mean_t (min)", 14),
+            rpad("t<=15", 10),
+            rpad("15<t<=30", 10),
+            "t>30")
 
-# open_vec = [j in open_set for j in facilities]
-# n_open   = sum(open_vec)
-# n_closed = M - n_open
-
-# println("\nresults:")
-# println("open: $n_open, closed: $n_closed")
-# println("travel: ", sum(value(y[k]) * t_ij_col[k] * wpop[k] for k in 1:N))
-# println("penalty: ", sum(value(deficit[j]) * λ for j in facilities))
-
-open_vec = zeros(Int, M)
-for (idx, j) in enumerate(facilities)
-    if j in open_set
-        open_vec[idx] = fload[j] >= min_students ? 1 : 2
+    for min_students in min_students_values
+        for w in ws
+            open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, b1, b2, b3 = run_scenario(min_students, w)
+            ms_label = isinf(min_students) ? "Inf" : string(round(Int, min_students))
+            println(rpad(ms_label, 14),
+                    rpad(w, 14),
+                    rpad(n_open_full + n_open_small, 8),
+                    rpad(n_open_full, 8),
+                    rpad(n_open_small, 8),
+                    rpad(round(travel_lp, digits=0), 14),
+                    rpad(round(penalty_lp, digits=0), 14),
+                    rpad(round(mean_travel_min, digits=2), 14),
+                    rpad(round(Int, b1), 10),
+                    rpad(round(Int, b2), 10),
+                    round(Int, b3))
+        end
     end
+else
+    open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, b1, b2, b3 = run_scenario(50.0, 1.0)
+    n_open = n_open_full + n_open_small
+    println("\nresults (travel=$(travel), min_students=50, w=1.0):")
+    println("open (>= min_students): $n_open_full")
+    println("open (< min_students): $n_open_small")
+    println("closed: $(M - n_open)")
+    println("total: $M")
+    println("travel (LP): ", round(travel_lp, digits=0))
+    println("penalty (LP): ", round(penalty_lp, digits=0))
+    println("mean travel time (min): ", round(mean_travel_min, digits=2))
+    println("t < 15 min: ", round(Int, b1))
+    println("15 <= t < 30 min: ", round(Int, b2))
+    println("t >= 30 min: ", round(Int, b3))
+
+    open_vec = zeros(Int, M)
+    for (idx, j) in enumerate(facilities)
+        if j in open_set
+            open_vec[idx] = isinf(50.0) || fload[j] >= 50.0 ? 1 : 2
+        end
+    end
+    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_lp.arrow", (
+        id = facilities, open = open_vec
+    ))
 end
-
-n_open_full = sum(open_vec .== 1)
-n_open_small = sum(open_vec .== 2)
-n_closed = sum(open_vec .== 0)
-
-println("\nresults:")
-println("open (>= min_students): $n_open_full")
-println("open (< min_students): $n_open_small")
-println("closed: $n_closed")
-println("total: $M")
-println("travel: ", sum(value(y[k]) * t_ij_col[k] * wpop[k] for k in 1:N))
-println("penalty: ", sum(value(deficit[j]) * λ for j in facilities))
-
-unassigned_list = [i for i in keys(locations) if !haskey(assigned, i)]
-println("unassigned clients: ", length(unassigned_list))
-
-Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_greedy.arrow", (
-    id = facilities,
-    open = open_vec
-))

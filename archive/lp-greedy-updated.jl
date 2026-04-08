@@ -1,10 +1,10 @@
 using Arrow, JuMP, HiGHS
 
 country       = "Romania"
-travel        = "quadratic"   # "linear" or "quadratic"
+travel        = "linear"   # "linear" or "quadratic"
 facility_cost = 99699
-grid          = true       # set to false for single run
-w_single      = 1     # used when grid = false
+grid          = false       # set to false for single run
+w_single      = 0.0001     # used when grid = false
 min_students_single = 50  # used when grid = false
 
 od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
@@ -20,7 +20,7 @@ facilities     = Int.(fac[:id])
 N = length(clients_col)
 M = length(facilities)
 
-wpop = [population[clients_col[k]+1] * 0.1 for k in 1:N]
+wpop = [population[clients_col[k]+1]*0.1 for k in 1:N]
 
 locations = Dict{Int, Vector{Int}}()
 for k in 1:N

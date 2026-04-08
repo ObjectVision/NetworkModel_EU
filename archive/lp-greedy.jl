@@ -19,6 +19,7 @@ M = length(facilities)
 wpop = [population[clients_col[k]+1] * 0.1 for k in 1:N]
 
 locations = Dict{Int, Vector{Int}}()
+
 for k in 1:N
     i = clients_col[k]
     if haskey(locations, i)
@@ -29,16 +30,18 @@ for k in 1:N
 end
 
 facility_rows = Dict{Int, Vector{Int}}()
+
 for k in 1:N
-    j = facilities_col[k]
+    j = facilities_col[k]   # facility of od row k
     if !haskey(facility_rows, j)
         facility_rows[j] = Int[]
     end
     push!(facility_rows[j], k)
 end
+
 for j in facilities
     if !haskey(facility_rows, j)
-        facility_rows[j] = Int[]
+        facility_rows[j] = Int[]   # empty vector if no od rows
     end
 end
 
@@ -99,6 +102,7 @@ fractional_set   = Set(fractional)
 function drop_heuristic()
     open_set = union(fixed_open_set, fractional_set)
 
+    # initial assignment
     assigned = Dict{Int, Int}()
     cur_cost = Dict{Int, Float64}()
     fload    = Dict(j => 0.0 for j in facilities)
@@ -121,11 +125,13 @@ function drop_heuristic()
         end
     end
 
+    # build facility_clients index
     facility_clients = Dict(j => Int[] for j in facilities)
     for (i, j) in assigned
         push!(facility_clients[j], i)
     end
 
+    # compute second best for all clients
     second_best = Dict{Int, Tuple{Int, Float64}}()
     for (i, rows) in locations
         if !haskey(assigned, i)
@@ -192,6 +198,7 @@ function drop_heuristic()
             open_set   = setdiff(open_set, [best_j])
             reassigned = Set(facility_clients[best_j])
 
+            # reassign clients of best_j to their second best
             for i in reassigned
                 if !haskey(second_best, i)
                     continue
@@ -208,6 +215,7 @@ function drop_heuristic()
             end
             facility_clients[best_j] = Int[]
 
+            # update second_best only for affected clients
             for i in keys(assigned)
                 if i in reassigned || (haskey(second_best, i) && second_best[i][1] == best_j)
                     j_cur      = assigned[i]
@@ -237,10 +245,18 @@ function drop_heuristic()
         end
     end
 
-    return open_set, assigned, fload, cur_cost, current_cost
+    return open_set, assigned, fload, current_cost
 end
 
-open_set, assigned, fload, cur_cost, total_cost = drop_heuristic()
+open_set, assigned, fload, total_cost = drop_heuristic()
+
+# fix x and re-solve for optimal assignment
+for j in facilities
+    fix(x[j], j in open_set ? 1.0 : 0.0; force=true)
+end
+
+println("\nsolving assignment LP...")
+optimize!(model)
 
 # open_vec = [j in open_set for j in facilities]
 # n_open   = sum(open_vec)
@@ -248,8 +264,8 @@ open_set, assigned, fload, cur_cost, total_cost = drop_heuristic()
 
 # println("\nresults:")
 # println("open: $n_open, closed: $n_closed")
-# println("travel: ", sum(cur_cost[i] * client_pop[i] for i in keys(assigned)))
-# println("penalty: ", flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set))
+# println("travel: ", sum(value(y[k]) * t_ij_col[k] * wpop[k] for k in 1:N))
+# println("penalty: ", sum(value(deficit[j]) * λ for j in facilities))
 
 open_vec = zeros(Int, M)
 for (idx, j) in enumerate(facilities)
@@ -267,8 +283,8 @@ println("open (>= min_students): $n_open_full")
 println("open (< min_students): $n_open_small")
 println("closed: $n_closed")
 println("total: $M")
-println("travel: ", sum(cur_cost[i] * client_pop[i] for i in keys(assigned)))
-println("penalty: ", flag * sum(λ * max(0.0, min_students - fload[j]) for j in open_set))
+println("travel: ", sum(value(y[k]) * t_ij_col[k] * wpop[k] for k in 1:N))
+println("penalty: ", sum(value(deficit[j]) * λ for j in facilities))
 
 unassigned_list = [i for i in keys(locations) if !haskey(assigned, i)]
 println("unassigned clients: ", length(unassigned_list))
