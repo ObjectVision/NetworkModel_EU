@@ -102,27 +102,38 @@ function run_scenario(min_students, w)
     for j in facilities
         fix(x[j], j in open_set ? 1.0 : 0.0; force=true)
     end
+
     optimize!(model)
 
-    # compute fload from LP assignment for reporting
-    fload = Dict(j => 0.0 for j in facilities)
-    for k in 1:N
-        fload[facilities_col[k]] += value(y[k]) * wpop[k]
+    # round LP solution: assign each client to their argmax y[k]
+    assigned_k = Dict{Int, Int}()
+    for (i, rows) in locations
+        best_k, best_val = rows[1], value(y[rows[1]])
+        for k in rows[2:end]
+            v = value(y[k])
+            if v > best_val
+                best_val = v; best_k = k
+            end
+        end
+        assigned_k[i] = best_k
     end
 
-    # mean travel time: LP-weighted average
-    total_weight  = sum(wpop[k] for k in 1:N)
-    mean_travel_min = sum(value(y[k]) * t_ij_col[k] * wpop[k] for k in 1:N) / total_weight
+    fload = Dict(j => 0.0 for j in facilities)
+    for (i, k) in assigned_k
+        fload[facilities_col[k]] += wpop[k]
+    end
 
-    # travel bands: LP-weighted
-    b1 = sum(value(y[k]) * wpop[k] for k in 1:N if t_ij_col[k] < 15)
-    b2 = sum(value(y[k]) * wpop[k] for k in 1:N if 15 <= t_ij_col[k] < 30)
-    b3 = sum(value(y[k]) * wpop[k] for k in 1:N if t_ij_col[k] >= 30)
+    total_client_pop = sum(wpop[rows[1]] for (i, rows) in locations)
+    mean_travel_min  = sum(t_ij_col[k] * wpop[k] for (i, k) in assigned_k) / total_client_pop
 
-    travel_lp  = sum(value(y[k]) * c(t_ij_col[k]) * wpop[k] for k in 1:N)
+    b1 = sum(wpop[k] for (i, k) in assigned_k if t_ij_col[k] < 15;       init=0.0)
+    b2 = sum(wpop[k] for (i, k) in assigned_k if 15 <= t_ij_col[k] < 30; init=0.0)
+    b3 = sum(wpop[k] for (i, k) in assigned_k if t_ij_col[k] >= 30;      init=0.0)
+
+    travel_lp  = sum(c(t_ij_col[k]) * wpop[k] for (i, k) in assigned_k)
     penalty_lp = isinf(min_students) ?
                     sum(value(x[j]) * facility_cost * w for j in facilities) :
-                    sum(value(deficit[j]) * λ for j in facilities)
+                    sum(max(0.0, min_students - fload[j]) * λ for j in open_set)
 
     n_open_full  = isinf(min_students) ? length(open_set) : sum(1 for j in open_set if fload[j] >= min_students; init=0)
     n_open_small = isinf(min_students) ? 0                : sum(1 for j in open_set if fload[j] < min_students;  init=0)
@@ -132,7 +143,7 @@ end
 
 
 if grid
-    min_students_values = [25.0, 50.0, 100.0, 150.0, 200.0, Inf]
+    min_students_values = [25.0, 50.0, 100.0, 150.0, 200.0]
     ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
 
     println("\ngrid search (travel=$(travel))")

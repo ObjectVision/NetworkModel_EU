@@ -3,6 +3,7 @@ using Arrow, JuMP, HiGHS
 country = "Romania"
 travel  = "quadratic"  # "linear" or "quadratic"
 grid    = true
+policy  = true         # true: vary min_students [25..200]; false: Inf (no minimum)
 
 od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
@@ -260,7 +261,8 @@ function run_scenario(min_students, w)
     # no re-solve
     travel_nearest  = sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
     penalty_nearest = sum(facility_penalty(fload[j], min_students, w, facility_cost) for j in open_set)
-    mean_travel_min = sum(cur_time[i] for i in keys(cur_time)) / length(cur_time)
+    total_client_pop = sum(client_pop[i] for i in keys(cur_time))
+    mean_travel_min = sum(cur_time[i] * client_pop[i] for i in keys(cur_time)) / total_client_pop
 
     b1 = sum(client_pop[i] for (i, t) in cur_time if t < 15;       init=0.0)
     b2 = sum(client_pop[i] for (i, t) in cur_time if 15 <= t < 30; init=0.0)
@@ -274,7 +276,7 @@ end
 
 
 if grid
-    min_students_values = [25.0, 50.0, 100.0, 150.0, 200.0, Inf]
+    min_students_values = policy ? [25.0, 50.0, 100.0, 150.0, 200.0] : [Inf]
     ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
 
     println("\ngrid search (travel=$(travel))")

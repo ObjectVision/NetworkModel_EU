@@ -1,8 +1,9 @@
 using Arrow
 
 country = "Romania"
-travel = "linear"  # "linear", "quadratic", or "piecewise"
-grid = false
+travel  = "linear"   # "linear", "quadratic", or "piecewise"
+grid    = true
+policy  = true       # true: vary min_students [25..200]; false: Inf (no minimum)
 
 od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
@@ -263,14 +264,15 @@ function run_scenario(min_students, w)
     travel  = isempty(assigned) ? 0.0 : sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
     penalty = isempty(open_set) ? 0.0 : sum(facility_penalty(fload[j], min_students, w, facility_cost) for j in open_set)
 
-    mean_travel_min = sum(cur_time[i] for i in keys(cur_time)) / length(cur_time)
+    total_client_pop = sum(client_pop[i] for i in keys(cur_time))
+    mean_travel_min = sum(cur_time[i] * client_pop[i] for i in keys(cur_time)) / total_client_pop
 
     return open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small, mean_travel_min
 end
 
 
 function grid_search()
-    min_students_values = [25.0, 50.0, 100.0, 150.0, 200.0, Inf]
+    min_students_values = policy ? [25.0, 50.0, 100.0, 150.0, 200.0] : [Inf]
     ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1]
 
     println("\ngrid search (travel cost function=$(travel))")
