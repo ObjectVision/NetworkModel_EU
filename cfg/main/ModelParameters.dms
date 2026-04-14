@@ -22,6 +22,7 @@
 	parameter<bool>     Use_Country_selection          := StudyArea != 'EU'; 
 	parameter<string>   Client                         := 'pop_primaryschool'; // 'population' 'pop_primaryschool'
 	parameter<string>   OSM_file_date                  := '20211004';
+	parameter<uint32>   MinPopSizeVoorPotentialSchoolLocation := 1;
 
 	container Advanced
 	{

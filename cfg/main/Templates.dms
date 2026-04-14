@@ -18,21 +18,21 @@ container Templates: Using = "Units;Classifications;geography;Classifications/To
 		unit<uint32> DestDomain := DestDomain0
 		{
 			attribute<UniqueLocations> UniqueLocations_rel := rlookup(ipoint(geometry), ipoint(UniqueLocations/geometry));
-			attribute<uint32>		   id_rel:= DestDomain0/id_rel;
+			// attribute<uint32>		   id_rel:= DestDomain0/id_rel;
 		}
 		
 		attribute<BaseProjection>                      OrgLocations          (OrgDomain) := orgDomain/geometry;
 		attribute<BaseProjection>                      destLocations        (DestDomain) := destDomain/geometry;
 		attribute<spoint>                              OrgLocations_spoint   (OrgDomain) := orgDomain/Base_grid_1km_spoint_rel ;
-		attribute<ipoint>                              destLocations_spoint (DestDomain) := destDomain/Base_grid_rel ;
+		// attribute<ipoint>                              destLocations_spoint (DestDomain) := destDomain/Base_grid_rel ;
 		
 		unit<uint32> Locations := union_unit(orgDomain, destDomain)
 		{
 			attribute<BaseProjection>                  geometry                       := union_data(.,orgLocations, destLocations);
-			attribute<spoint>                          as_spoint                      := union_data(.,OrgLocations_spoint, destLocations_spoint);
+			// attribute<spoint>                          as_spoint                      := union_data(.,OrgLocations_spoint, destLocations_spoint);
 			attribute<bool>                            IsOrg                          := union_data(.,const(TRUE , OrgDomain), const(FALSE,DestDomain));
 			attribute<bool>                            IsDest                         := union_data(.,const(FALSE, OrgDomain), const(TRUE ,DestDomain));
-			attribute<uint32>                          Population                     := union_data(.,OrgDomain/Population, DestDomain/Population);
+			// attribute<uint32>                          Population                     := union_data(.,OrgDomain/Population, DestDomain/Population);
 		}
 		
 		unit<uint32> UniqueLocations    := unique(Locations/geometry) 
@@ -42,9 +42,9 @@ container Templates: Using = "Units;Classifications;geography;Classifications/To
 			attribute<OrgDomain>                    OrgDomain_rel  := rlookup(geometry, OrgLocations);
 			attribute<uint32>                       Org_id_rel     := OrgDomain/id_rel[OrgDomain_rel];
 			attribute<DestDomain>                   DestDomain_rel := rlookup(geometry, DestLocations);
-			attribute<uint32>                       Dest_id_rel    := DestDomain/id_rel[DestDomain_rel];
+			// attribute<uint32>                       Dest_id_rel    := DestDomain/id_rel[DestDomain_rel];
 			attribute<bool>                         IsOrg          := rjoin(geometry, Locations/geometry, Locations/IsOrg);
-			attribute<uint32>                       Population     := Locations/Population[Locations_rel];
+			// attribute<uint32>                       Population     := Locations/Population[Locations_rel];
 		}
 		
 		

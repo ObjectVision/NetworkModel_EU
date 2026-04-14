@@ -2,65 +2,67 @@ container Geography : using = "units"
 {
 	#include <ngr_layer_lea.dms>
 
-	unit<dpoint> wgs84_base       : SpatialReference = "EPSG:4326";
 	unit<dpoint> LambertEA        : SpatialReference = "EPSG:3035", DialogData = "ngr_layer_lea";
 	unit<dpoint> WebMercator_base : SpatialReference = "EPSG:3857";
 	unit<dpoint> rdc_meter_base   : SpatialReference = "EPSG:28992";
 	unit<dpoint> BaseProjection    := LambertEA;
 	unit<ipoint> BaseProjection_ip := gridset(BaseProjection, point_xy(1d, 1d), point_xy(0d, 0d), ipoint);
 	
-	unit<uint32> selection_polygon : nrofrows = 1, Using = "units"
-	{
-		container Extent_EU
-		{
-			//EU extent basemap
-			parameter<float64> x_min :=  2300000d;
-			parameter<float64> x_max :=  6500000d;
-			parameter<float64> y_min :=  1300000d;
-			parameter<float64> y_max :=  5500000d;
-		}
-		container Extent_Finland
-		{
-			//Extent North Finland
-			parameter<float64> x_min :=  4700000d;
-			parameter<float64> x_max :=  5300000d;
-			parameter<float64> y_min :=  4700000d;
-			parameter<float64> y_max :=  5230000d;
-		}
-		container Extent_Amsterdam
-		{
-			//Extent Amsterdam
-			parameter<float64> x_min :=  3960000d;
-			parameter<float64> x_max :=  3987000d;
-			parameter<float64> y_min :=  3250000d;
-			parameter<float64> y_max :=  3270000d;
-		}
-		container Extent_Netherlands
-		{
-			parameter<float64> x_min :=  3851000d;
-			parameter<float64> x_max :=  4136000d;
-			parameter<float64> y_min :=  3070000d;
-			parameter<float64> y_max :=  3400000d;
-		}
+	unit<dpoint> wgs84_base  : SpatialReference = "EPSG:4326", DialogData = "wms_layer_latlong", Descr = "1 degree = 60 arc min; 1 arc min = 60 arc seconds; 1 degree = 3600 arc seconds; 1 arc second is about 30m at the equator.";
+	
+	
+	// unit<uint32> selection_polygon : nrofrows = 1, Using = "units"
+	// {
+		// container Extent_EU
+		// {
+			// EU extent basemap
+			// parameter<float64> x_min :=  2300000d;
+			// parameter<float64> x_max :=  6500000d;
+			// parameter<float64> y_min :=  1300000d;
+			// parameter<float64> y_max :=  5500000d;
+		// }
+		// container Extent_Finland
+		// {
+			// Extent North Finland
+			// parameter<float64> x_min :=  4700000d;
+			// parameter<float64> x_max :=  5300000d;
+			// parameter<float64> y_min :=  4700000d;
+			// parameter<float64> y_max :=  5230000d;
+		// }
+		// container Extent_Amsterdam
+		// {
+			// Extent Amsterdam
+			// parameter<float64> x_min :=  3960000d;
+			// parameter<float64> x_max :=  3987000d;
+			// parameter<float64> y_min :=  3250000d;
+			// parameter<float64> y_max :=  3270000d;
+		// }
+		// container Extent_Netherlands
+		// {
+			// parameter<float64> x_min :=  3851000d;
+			// parameter<float64> x_max :=  4136000d;
+			// parameter<float64> y_min :=  3070000d;
+			// parameter<float64> y_max :=  3400000d;
+		// }
 		
-		container Extent := ='Extent_'+ModelParameters/StudyArea;
+		// container Extent := ='Extent_'+ModelParameters/StudyArea;
 		
-		parameter<BaseProjection> top_left     := point_xy(Extent/x_min, Extent/y_max, BaseProjection); 
-		parameter<BaseProjection> top_right    := point_xy(Extent/x_max, Extent/y_max, BaseProjection);
-		parameter<BaseProjection> bottom_left  := point_xy(Extent/x_min, Extent/y_min, BaseProjection);
-		parameter<BaseProjection> bottom_right := point_xy(Extent/x_max, Extent/y_min, BaseProjection);
+		// parameter<BaseProjection> top_left     := point_xy(Extent/x_min, Extent/y_max, BaseProjection); 
+		// parameter<BaseProjection> top_right    := point_xy(Extent/x_max, Extent/y_max, BaseProjection);
+		// parameter<BaseProjection> bottom_left  := point_xy(Extent/x_min, Extent/y_min, BaseProjection);
+		// parameter<BaseProjection> bottom_right := point_xy(Extent/x_max, Extent/y_min, BaseProjection);
 		
-		unit<uint32> point_set : nrofrows = 5
-		{
-			attribute<BaseProjection>  point        := union_data(., top_left, top_right, bottom_right, bottom_left, top_left);
-			attribute<..>              sequence_rel := const(0, .);
-			attribute<.>               ordinal      := id(.);
-		}
+		// unit<uint32> point_set : nrofrows = 5
+		// {
+			// attribute<BaseProjection>  point        := union_data(., top_left, top_right, bottom_right, bottom_left, top_left);
+			// attribute<..>              sequence_rel := const(0, .);
+			// attribute<.>               ordinal      := id(.);
+		// }
 		
-		attribute<BaseProjection> geometry (poly)      := points2sequence(point_set/point, point_set/sequence_rel, point_set/ordinal);
+		// attribute<BaseProjection> geometry (poly)      := points2sequence(point_set/point, point_set/sequence_rel, point_set/ordinal);
 		
-		unit<uint32> result := selection_polygon;
-	}
+		// unit<uint32> result := selection_polygon;
+	// }
 	
 	unit<ipoint> Base_grid_100m       := SourceData/Locations/Population_2021_IGOR_Total, DialogData = "BaseProjection"
 	{

@@ -1,10 +1,17 @@
 container NetworkSetup : using = "units;Geography;SourceData;Classifications"
 {
-	container School_Analysis := =
+	container ExistingSchool_Analysis := =
 		'Call_CreateNetwork_T('
-			 'Analyses/Org'   //Org
-			',Analyses/Dest'  //Dest
-			',''Schools'''
+			 'Analyses/AllocateKidsToExistingSchools/Org'   //Org
+			',Analyses/AllocateKidsToExistingSchools/Dest'  //Dest
+			',''ExistingSchools'''
+		')';
+		
+	container NewSchool_Analysis := =
+		'Call_CreateNetwork_T('
+			 'Analyses/AllocateKidsToNewSchools/Org'   //Org
+			',Analyses/AllocateKidsToNewSchools/Dest'  //Dest
+			',''NewSchools'''
 		')';
 
 	Template Call_CreateNetwork_T

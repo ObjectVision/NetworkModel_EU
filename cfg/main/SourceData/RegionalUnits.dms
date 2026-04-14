@@ -63,6 +63,7 @@ container RegionalUnits : using = "geography"
 		attribute<bool>      IsEFTA          := EFTA_STAT == 'T'; 
 		attribute<bool>      IsCC            := CC_STAT == 'T'; 
 		attribute<bool>      IsTerritory       := strcount(SVRG_UN, 'Territory') > 0; 
+		
 		unit<uint32> Subset := select_with_attr_by_cond(.,(ModelParameters/Use_Country_selection ? name_engl == /ModelParameters/StudyArea : IsEu || IsEFTA))
 		{
 			attribute<LambertEA>    geometry_BB (poly, BoundingBox) := points2sequence(BoundingBox/point_set/point, BoundingBox/point_set/Sequence_rel, BoundingBox/point_set/ordinal);
@@ -97,20 +98,60 @@ container RegionalUnits : using = "geography"
 
 	unit<uint32> EUplus         := select_with_attr_by_cond(Country, (Country/IsEU || Country/IsEFTA) && !Country/IsTerritory);
 	
-	unit<uint32> Continental_EU_undissolved := select_with_org_rel((Country_Split/IsEU || Country_Split/IsEFTA) && !Country_Split/IsTerritory && Country_Split/IsWithinStudyArea)
-	{
-		attribute<LambertEA>      geometry        (poly) := Country_Split/geometry_lea[org_rel];
-		attribute<string>         name                   := Country_Split/name[org_rel];
-		attribute<Continental_EU> Continental_EU_rel     := rlookup(name, Continental_EU/values);
+	// unit<uint32> Continental_EU_undissolved := select_with_org_rel((Country_Split/IsEU || Country_Split/IsEFTA) && !Country_Split/IsTerritory && Country_Split/IsWithinStudyArea)
+	// {
+		// attribute<LambertEA>      geometry        (poly) := Country_Split/geometry_lea[org_rel];
+		// attribute<string>         name                   := Country_Split/name[org_rel];
+		// attribute<Continental_EU> Continental_EU_rel     := rlookup(name, Continental_EU/values);
 		
-	}
+	// }
 	
-	unit<uint8> Continental_EU := unique_uint8(Continental_EU_undissolved/name)
+	// unit<uint8> Continental_EU := unique_uint8(Continental_EU_undissolved/name)
+	// {
+		// attribute<LambertEA>       geometry (poly) := geos_union_polygon(Continental_EU_undissolved/geometry, Continental_EU_undissolved/Continental_EU_rel);
+		// attribute<string>          name            := values;
+		// attribute<string>          label           := values;
+		// attribute<Country/Subset>  Country_rel     := rlookup(name, Country/Subset/name_engl);
+		// attribute<string>          country_id      := Country/Subset/CNTR_ID[Country_rel];
+	// }
+	
+	unit<uint8> Continents := Classifications/Continents
+	// , storagename = "= propvalue(store_Continents, 'storagename')", storagereadonly = "True"
 	{
-		attribute<LambertEA>       geometry (poly) := geos_union_polygon(Continental_EU_undissolved/geometry, Continental_EU_undissolved/Continental_EU_rel);
-		attribute<string>          name            := values;
-		attribute<string>          label           := values;
-		attribute<Country/Subset>  Country_rel     := rlookup(name, Country/Subset/name_engl);
-		attribute<string>          country_id      := Country/Subset/CNTR_ID[Country_rel];
+		attribute<wgs84_base>    geometry_LL       (poly);
+		attribute<string>   name                  := Classifications/Continents/name;
+		attribute<string> 	code				  := '00'+string(id(.)+1b)+'_'+name;
+		attribute<.>        per_grid     (domain) := poly2grid(geometry_LL, domain);
+		attribute<World>    World_rel             := const(0[WOrld],.);
+		
+		container V := for_each_nedv(AsItemName(name), String(ID(.))+'[..]', void, .);
+		
+		container GetPerContinentGeometry := 
+			for_each_ne(
+				name
+				, 'GetPerContinentGeometry_T('+quote(name)+')'
+			);
+			
+		Template GetPerContinentGeometry_T
+		{
+			parameter<string> name;
+			///
+			parameter<LatLong_base>   geometry_LL    (poly) := ='Continents/geometry_LL[Continents/v/'+name+']';
+			parameter<Mollweide_base> geometry_MW    (poly) := ='Continents/geometry_MW[Continents/v/'+name+']';
+			
+			unit<uint32> unit : nrofrows = 1
+			{
+				attribute<LatLong_base>   geometry_LL    (poly) := union_data(., ../geometry_LL);
+				attribute<Mollweide_base> geometry_MW    (poly) := union_data(., ../geometry_MW);
+			}
+		}
+		
+		// NOTE: only use after 15.3 has been made available
+		container PerContinentGeometry :=  // available in GeoDms 15.3, see https://github.com/ObjectVision/GeoDMS/issues/742; 
+			for_each_nedvvcp(name
+			,	'Continents/geometry_MW[Continents/v/'+name+']'
+			,	void
+			, LatLong_base
+			);
 	}
 }

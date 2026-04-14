@@ -269,16 +269,17 @@ container Locations : using = "geography;units"
 	, StorageType = "gdal.vect"
 	, StorageReadOnly = "True"
 	{
-		attribute<wgs84_base>     geometry_wgs := point_xy(float64(lon), float64(lat), wgs84_base);
-		attribute<BaseProjection> geometry     := geometry_wgs[BaseProjection];
+		attribute<wgs84_base>     geometry_wgs           := point_xy(float64(lon), float64(lat), wgs84_base);
+		attribute<BaseProjection> geometry               := geometry_wgs[BaseProjection];
+		// attribute<Base_grid>      Base_grid_rel          := geometry[Base_grid];
 		
-		//attribute<Schoollevel>         SchoolLevel_rel := rlookup(uint8(levels_fixed), id(Schoollevel));
-		
-		container check_schoollevel:= for_each_nedv(Schoollevel/Name
-			, 'strcount(levels_fixed, '+quote(string(id(Schoollevel)))+') > 0'
-			, Schools
-			, bool
-		);
+		container check_schoollevel:= 
+			for_each_nedv(
+				Schoollevel/Name
+				, 'strcount(levels_fixed, '+quote(string(id(Schoollevel)))+') > 0'
+				, Schools
+				, bool
+			);
 		
 		attribute<bool>           IsStudyArea  := IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry));
 		
@@ -286,22 +287,31 @@ container Locations : using = "geography;units"
 		{
 			attribute<BaseProjection>       geometry                     := org_rel -> geometry;
 			attribute<Base_grid>            Base_grid_rel                := geometry[Base_grid];
-			attribute<float32>              LocalPopulation              := rjoin(Base_grid_rel, Analyses/Populated_grid/Base_grid_rel, Analyses/Populated_grid/LocalPopulation);
 			attribute<uq_school_cells>      uq_school_cells_rel          := rlookup(Base_grid_rel, uq_school_cells/values);
-			
-			
 			
 			unit<uint32> uq_school_cells := unique(./Base_grid_rel)
 			{
 				attribute<Base_grid>      Base_grid_rel := values;
-				
 				attribute<BaseProjection> geometry               := values[BaseProjection] + Base_grid/center_delta;
-				
-				attribute<float32>        count_schools_per_cell := float32(pcount(uq_school_cells_rel));
-				attribute<float32>        LocalPopulation        := ../LocalPopulation[invert(uq_school_cells_rel)];
+				attribute<float32>        Count_Objects_Per_Cell := float32(pcount(uq_school_cells_rel));
+				attribute<float32>        CountCurrentObjects := float32(pcount(uq_school_cells_rel));
 			}
-			
-			unit<ipoint> Base_grid := ='/Geography/Base_grid_'+ModelParameters/OrgGridsize;
+		}
+	}
+	
+	unit<ipoint> Base_grid := ='/Geography/Base_grid_'+ModelParameters/OrgGridsize;
+	
+	unit<uint32> NewSchoolLocations := select_with_org_rel(/Geography/Base_grid_1km/points/population >= ModelParameters/MinPopSizeVoorPotentialSchoolLocation)
+	{
+		attribute<BaseProjection> geometry            := org_rel -> geometry;
+		attribute<bool>           IsStudyArea         := IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry));
+		
+		unit<uint32> within_StudyArea := select_with_org_rel(IsStudyArea)
+		{
+			attribute<BaseProjection>       geometry                     := org_rel -> geometry;
+			attribute<Base_grid>            Base_grid_rel                := geometry[Base_grid];
+			attribute<float32>              Count_Objects_Per_Cell       := const(1f, .);
+			attribute<float32>              CountCurrentObjects          := rjoin(Base_grid_rel, Schools/within_StudyArea/uq_school_cells/Base_grid_rel, Schools/within_StudyArea/uq_school_cells/CountCurrentObjects);
 		}
 	}
 }
