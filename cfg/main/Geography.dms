@@ -64,7 +64,7 @@ container Geography : using = "units"
 		// unit<uint32> result := selection_polygon;
 	// }
 	
-	unit<ipoint> Base_grid_100m       := SourceData/Locations/Population_2021_IGOR_Total, DialogData = "BaseProjection"
+	unit<ipoint> Base_grid_100m       := SourceData/Locations/Population_IGOR_Total, DialogData = "BaseProjection"
 	{
 		attribute<Base_grid_1km>      grid_1k_rel    := id(.)[Base_grid_1km];
 		attribute<Base_grid_5km>      grid_5k_rel    := id(.)[Base_grid_5km];
@@ -76,7 +76,7 @@ container Geography : using = "units"
 		attribute<bool>               IsEU           := IsDefined(point_in_polygon(point, SourceData/RegionalUnits/NUTS/geometry));
 		attribute<SourceData/RegionalUnits/Country/subset> Country_rel:= point_in_polygon(point, SourceData/RegionalUnits/Country/subset/geometry);
 		attribute<bool>               IsCountry      := IsDefined(Country_rel);
-		attribute<uint32>             Population     := SourceData/Locations/Population_2021_IGOR_Total/ReadData[uint32];
+		attribute<uint32>             Population     := SourceData/Locations/Population_IGOR_Total/ReadData[uint32];
 		
 		attribute<Base_grid_1km_spoint> Base_grid_1km_spoint_rel     := point[Base_grid_1km_spoint];
 		attribute<bool>                 Select_criterium             := =ModelParameters/Use_Country_OD_selection ? 'isDefined(id) && IsCountry' : 'isDefined(id) && IsEU';

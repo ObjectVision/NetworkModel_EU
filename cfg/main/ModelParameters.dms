@@ -15,6 +15,7 @@
 	// parameter<km>       max_dist_to_facility           := 1000[km];
 	parameter<min_f>    max_traveltime_to_facility     := 120[min_f];
 	
+	parameter<string>   IGOR_Pop_year                  := '2011';
 	parameter<string>   PopVersie                      := '2021_Ardeco'; //2021_v1_0 2018
 	parameter<string>   Roads_path                     := '%NetworkModelDataDir%/Infrastructure/TomTom/'+StudyArea+'/NW2021_SP_streets_subset.mmd';
 	

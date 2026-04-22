@@ -1,5 +1,18 @@
 container Locations : using = "geography;units"
 {
+	container Pop_2011_per_SexAgeClasses := 
+		for_each_ndvat(
+			SexAgeClasses/name
+			, Base_Grid_100m
+			, float32
+			, '%NetworkModelDataDir%/Population/EU_Ardeco_2011_100_x0/'+SexAgeClasses/name+'.tif'
+			, 'gdal.grid'
+		)
+	{
+		// primary school age = 6 tm 12 year.
+		attribute<float32> pop_primaryschool (Base_Grid_100m) := F_Y05_09 * 0.8f + M_Y05_09 * 0.8f + F_Y10_14 * 0.6f + M_Y10_14 * 0.6f;
+	
+	}
 	container Pop_2021_per_SexAgeClasses := 
 		for_each_ndvat(
 			SexAgeClasses/name
@@ -14,8 +27,22 @@ container Locations : using = "geography;units"
 	
 	}
 	
-	attribute<float32> Pop_primaryschool (Base_Grid_1km) := sum(Pop_2021_per_SexAgeClasses/pop_primaryschool, Base_Grid_100m/grid_1k_rel);
+	attribute<float32> Pop_primaryschool (Base_Grid_1km) := ='sum(Pop_'+ModelParameters/IGOR_Pop_year+'_per_SexAgeClasses/pop_primaryschool, Base_Grid_100m/grid_1k_rel)';
 
+	unit<ipoint> Population_IGOR_Total := ='Population_'+ModelParameters/IGOR_Pop_year+'_IGOR_Total';
+	
+	unit<ipoint> Population_2011_IGOR_Total
+	: StorageName = "%NetworkModelDataDir%/Population/EU_Ardeco_2011_100_x0/Total.tif"
+	, StorageType = "gdal.grid"
+	, StorageReadOnly = "True"
+	, DialogData = "BaseProjection"
+	, DialogType = "map"
+	, Descr = "IGOR output totals"
+	{
+		attribute<uint16> GridData;
+		attribute<uint16> ReadData (Base_Grid_100m);
+	}
+	
 	unit<ipoint> Population_2021_IGOR_Total
 	: StorageName = "%NetworkModelDataDir%/Population/EU_Ardeco_2021_100_x0/Total.tif"
 	, StorageType = "gdal.grid"
