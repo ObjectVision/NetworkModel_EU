@@ -1,9 +1,9 @@
 using Arrow
 
-country = "Romania"
-travel  = "linear"   # "linear", "quadratic", or "piecewise"
+country = "Netherlands"
+travel  = "quadratic"   # "linear", "quadratic", or "piecewise"
 grid    = true
-policy  = true       # true: vary min_students [25..200]; false: Inf (no minimum)
+policy  = false       # true: vary min_students [25..200]; false: Inf (no minimum)
 
 od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
@@ -17,6 +17,7 @@ facilities     = Int.(fac[:id])
 
 N = length(clients_col)
 M = length(facilities)
+println(M)
 
 locations = Dict{Int, Vector{Int}}()
 for k in 1:N
@@ -261,28 +262,29 @@ function run_scenario(min_students, w)
     n_open_full  = isinf(min_students) ? sum(1 for j in open_set if fload[j] >= 50; init=0) : sum(1 for j in open_set if fload[j] >= min_students; init=0)
     n_open_small = isinf(min_students) ? sum(1 for j in open_set if fload[j] < 50;  init=0) : sum(1 for j in open_set if fload[j] < min_students;  init=0)
 
-    travel  = isempty(assigned) ? 0.0 : sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
-    penalty = isempty(open_set) ? 0.0 : sum(facility_penalty(fload[j], min_students, w, facility_cost) for j in open_set)
+    travel      = isempty(assigned) ? 0.0 : sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
+    penalty     = isempty(open_set) ? 0.0 : sum(facility_penalty(fload[j], min_students, w, facility_cost) for j in open_set)
+    raw_penalty = isempty(open_set) ? 0.0 : sum(isinf(min_students) ? facility_cost : facility_cost * max(0.0, min_students - fload[j]) for j in open_set)
 
     total_client_pop = sum(client_pop[i] for i in keys(cur_time))
     mean_travel_min = sum(cur_time[i] * client_pop[i] for i in keys(cur_time)) / total_client_pop
 
-    return open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small, mean_travel_min
+    return open_set, assigned, fload, cur_cost, cur_time, travel, penalty, raw_penalty, n_open_full, n_open_small, mean_travel_min
 end
 
 
 function grid_search()
-    min_students_values = policy ? [25.0, 50.0, 100.0, 150.0, 200.0] : [Inf]
+    min_students_values = policy ? [25.0, 50.0, 100.0] : [Inf]
     ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1]
 
     println("\ngrid search (travel cost function=$(travel))")
     println(rpad("min_students", 14),
             rpad("policy_weight", 14),
             rpad("open", 8),
-            rpad(">=min_students", 8),
-            rpad("<min_students", 8),
+            rpad(">=min_students", 16),
+            rpad("<min_students", 16),
             rpad("travel_cost", 14),
-            rpad("facility_cost", 14),
+            rpad("facility_cost", 16),
             rpad("mean_t (min)", 14),
             rpad("t<=15", 10),
             rpad("15<t<=30", 10),
@@ -290,7 +292,7 @@ function grid_search()
 
     for min_students in min_students_values
         for w in ws
-            open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, w)
+            open_set, assigned, fload, cur_cost, cur_time, travel, penalty, raw_penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, w)
 
             b1 = sum(client_pop[i] for (i, t) in cur_time if t < 15; init=0.0)
             b2 = sum(client_pop[i] for (i, t) in cur_time if 15 <= t < 30; init=0.0)
@@ -301,10 +303,10 @@ function grid_search()
             println(rpad(ms_label, 14),
                     rpad(w, 14),
                     rpad(n_open_full + n_open_small, 8),
-                    rpad(n_open_full, 8),
-                    rpad(n_open_small, 8),
+                    rpad(n_open_full, 16),
+                    rpad(n_open_small, 16),
                     rpad(round(travel, digits=0), 14),
-                    rpad(round(penalty, digits=0), 14),
+                    rpad(round(raw_penalty, digits=0), 16),
                     rpad(round(mean_travel_min, digits=2), 14),
                     rpad(round(Int, b1), 10),
                     rpad(round(Int, b2), 10),
@@ -315,7 +317,7 @@ end
 
 
 function single_run(min_students, w)
-    open_set, assigned, fload, cur_cost, cur_time, travel, penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, w)
+    open_set, assigned, fload, cur_cost, cur_time, travel, penalty, raw_penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, w)
 
     b1 = sum(client_pop[i] for (i, t) in cur_time if t < 15; init=0.0)
     b2 = sum(client_pop[i] for (i, t) in cur_time if 15 <= t < 30; init=0.0)
@@ -330,7 +332,7 @@ function single_run(min_students, w)
     println("closed: $(M - n_open)")
     println("total: $M")
     println("travel: ", round(travel, digits=0))
-    println("penalty: ", round(penalty, digits=0))
+    println("penalty: ", round(raw_penalty, digits=0))
     println("mean travel time (min): ", round(mean_travel_min, digits=2))
     println("unassigned clients: ", sum(1 for i in keys(locations) if !haskey(assigned, i); init=0))
     println("t < 15 min: ", round(Int, b1))

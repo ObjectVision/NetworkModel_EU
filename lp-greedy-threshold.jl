@@ -1,8 +1,9 @@
 using Arrow, JuMP, HiGHS
 
-country = "Romania"
-travel  = "quadratic"  # "linear" or "quadratic"
-grid    = true
+country          = "Romania"
+travel           = "quadratic"  # "linear" or "quadratic"
+grid             = true
+max_extra_travel = 15.0         # max extra minutes vs nearest facility; Inf = no restriction
 
 od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
@@ -41,6 +42,16 @@ end
 
 client_pop = Dict(i => wpop[rows[1]] for (i, rows) in locations)
 
+# minimum travel time per client to any facility
+t_min_client = Dict(i => minimum(t_ij_col[k] for k in rows) for (i, rows) in locations)
+
+# precompute which OD rows are within threshold
+# the nearest row per client is always allowed (t_min_client[i] <= t_min_client[i] + threshold)
+# so the LP assignment constraint sum(y[k]) == 1 is always feasible
+allowed_y = isinf(max_extra_travel) ?
+    fill(true, N) :
+    Bool[t_ij_col[k] <= t_min_client[clients_col[k]] + max_extra_travel for k in 1:N]
+
 function c(t)
     if travel == "quadratic"
         return 0.05 * t^2 + 0.5 * t
@@ -63,6 +74,15 @@ function run_scenario(min_students, w)
 
     @variable(model, 0 <= y[1:N] <= 1)
     @variable(model, 0 <= x[j in facilities] <= 1)
+
+    # block assignments beyond the travel time threshold
+    if !isinf(max_extra_travel)
+        for k in 1:N
+            if !allowed_y[k]
+                fix(y[k], 0.0; force=true)
+            end
+        end
+    end
 
     if !isinf(min_students)
         @variable(model, deficit[j in facilities] >= 0)
@@ -149,7 +169,7 @@ if grid
     min_students_values = [25.0, 50.0, 100.0, 150.0, 200.0]
     ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
 
-    println("\ngrid search (travel=$(travel))")
+    println("\ngrid search (travel=$(travel), max_extra_travel=$(max_extra_travel) min)")
     println(rpad("min_students", 14),
             rpad("policy_weight", 14),
             rpad("open", 8),
@@ -182,7 +202,7 @@ if grid
 else
     open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3 = run_scenario(50.0, 1.0)
     n_open = n_open_full + n_open_small
-    println("\nresults (travel=$(travel), min_students=50, w=1.0):")
+    println("\nresults (travel=$(travel), min_students=50, w=1.0, max_extra_travel=$(max_extra_travel) min):")
     println("open (>= min_students): $n_open_full")
     println("open (< min_students): $n_open_small")
     println("closed: $(M - n_open)")
