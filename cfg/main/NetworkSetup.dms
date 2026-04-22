@@ -1,5 +1,12 @@
 container NetworkSetup : using = "units;Geography;SourceData;Classifications"
 {
+	container StudentAccess_Analysis := =
+		'Call_CreateNetwork_T('
+			 'Analyses/StudentAccessibility/Org'   //Org
+			',Analyses/StudentAccessibility/Dest'  //Dest
+			',''StudentAccessibility'''
+		')';
+		
 	container ExistingSchool_Analysis := =
 		'Call_CreateNetwork_T('
 			 'Analyses/AllocateKidsToExistingSchools/Org'   //Org

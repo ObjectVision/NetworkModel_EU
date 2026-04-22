@@ -321,7 +321,9 @@ container Locations : using = "geography;units"
 				attribute<Base_grid>      Base_grid_rel := values;
 				attribute<BaseProjection> geometry               := values[BaseProjection] + Base_grid/center_delta;
 				attribute<float32>        Count_Objects_Per_Cell := float32(pcount(uq_school_cells_rel));
-				attribute<float32>        CountCurrentObjects := float32(pcount(uq_school_cells_rel));
+				attribute<float32>        CountCurrentObjects    := float32(pcount(uq_school_cells_rel));
+				
+				attribute<uint32>         CountSchools_grid (Base_grid) := MakeDefined(sum(CountCurrentObjects, Base_grid_rel)[uint32], 0);
 			}
 		}
 	}

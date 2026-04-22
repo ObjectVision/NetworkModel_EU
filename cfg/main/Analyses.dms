@@ -201,4 +201,39 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<float32> MeanSize_j        (Dest) := Assignment_j / float32(SchoolCount_j)                                                , Descr = "Mean size per facility";
 		}
 	}
+	
+	container StudentAccessibility
+	{
+		unit<uint32> Org          := Client;                         // populated cells (j)
+		unit<uint32> Dest         := Base_grid_1km/points;           // alle cellen (i)
+		container    NetwerkSpec  := NetworkSetup/StudentAccess_Analysis/NetwerkSpec;
+		unit<uint32> FinalLinkSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalSet/FinalLinkSet;
+		unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalSet/FinalNodeSet;
+
+		unit<uint64> OD :=
+			impedance_matrix_od64(
+				'bidirectional(link_flag);startPoint(Node_rel);endPoint(Node_rel);cut(OrgZone_max_imp);od:OrgZone_rel,DstZone_rel,impedance'
+				, FinalLinkSet/Impedance
+				, FinalLinkSet/F1
+				, FinalLinkSet/F2
+				
+				, !FinalLinkSet/IsOneDirection
+				, FinalNodeSet/OrgNode_rel
+				, FinalNodeSet/DestNode_rel
+				, 1800[s_f]   // 30 min cutoff
+			)
+		{
+			attribute<s_f>        t_ji     := max_elem(impedance, 1[s_f]);   // voorkom delen door 0
+			attribute<min_f>      t_min    := t_ji[min_f];
+			attribute<uint32>     Pop_j    := Org/Pop_PrimarySchool[OrgZone_rel];
+			attribute<float32>    contrib  := float32(Pop_j) / value(t_min * t_min, float32);
+		}
+
+		// Resultaat: één score per cel
+		attribute<float32> StudentAccessibility                           (Dest) := sum(OD/contrib, OD/DstZone_rel);
+		
+		attribute<float32> StudentAccessibility_grid (SourceData/Locations/Base_grid) := sum(StudentAccessibility, Dest/geometry[SourceData/Locations/Base_grid]);
+		attribute<uint32>  NumberOfSchools_grid      (SourceData/Locations/Base_grid) := /SourceData/Locations/Schools/within_StudyArea/uq_school_cells/CountSchools_grid;
+
+	}
 }
