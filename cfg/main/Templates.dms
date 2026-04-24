@@ -45,6 +45,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 			attribute<uint32>                       Dest_id_rel    := DestDomain/id_rel[DestDomain_rel];
 			attribute<bool>                         IsOrg          := rjoin(geometry, Locations/geometry, Locations/IsOrg);
 			attribute<uint32>                       Population     := Locations/Population[Locations_rel];
+			attribute<uint32>						Permutation	   := rnd_permutation(0, .);
+			attribute<uint32>						Rnd_pop_cells_c:= Population > 0 ? Permutation : max(Permutation);
 		}
 		unit<uint32> uq_OD_points:= UniqueLocations, descr = "reference to UniqueLocations added to avoid ambiguity issues";
 		
@@ -262,6 +264,8 @@ container Templates: Using = "Units;Classifications;geometries;Classifications/T
 				attribute<uint32>   		NrConnectedLinks := pcount(LinkSet/F1) + pcount(LinkSet/F2);
 				attribute<bool>				OD_node:= any(LinkSet/IsOD_connection_road, LinkSet/F1);
 				attribute<BaseProjection> 	Geometry:= makedefined(first(first_point(LinkSet/Geometry), LinkSet/F1), first(last_point(LinkSet/Geometry), LinkSet/F2));
+				attribute<.> OrgNode_rel  (OrgDomain)  := OD_nodes/org_rel[rlookup(OrgDomain/geometry,  OD_nodes/geometry)];
+				attribute<.> DestNode_rel (DestDomain) := OD_nodes/org_rel[rlookup(DestDomain/geometry, OD_nodes/geometry)];				
 				
 				unit<uint32> OD_nodes:= select_with_org_rel(OD_node) 
 				{

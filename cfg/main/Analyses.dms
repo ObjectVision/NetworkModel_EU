@@ -34,6 +34,7 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 			',60[min_f]'
 		')';
 	
+	#include<compression_verification.dms>
 	#include<LUISA2_variables.dms>
 	#include<Settlement_Hierarchies.dms>
 	#include<Create_Catchments.dms>
@@ -301,16 +302,14 @@ container Analyses: Using = "Units;Classifications;geometries;sourcedata"
 	{
 		unit<uint32>      Org;
 		unit<uint32>      Dest;
-		container         NetwerkSpec;
+		unit<uint32> 	  FinalLinkSet;
+		unit<uint32> 	  FinalNodeSet;
 		parameter<string> ProjName;
 		parameter<min_f>  timelimit:= 999999999[min_f];
 		///
 
 		container Basic_OD_matrix
 		{
-			unit<uint32> FinalLinkSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet;
-			unit<uint32> FinalNodeSet := NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet;
-			
 			unit<uint64> Dijkstra_fullOD := //calculation a full origin-destination matrix
 				dijkstra_m64('bidirectional;startPoint(Node_rel);endPoint(Node_rel);cut(OrgZone_max_imp);od:impedance,OrgZone_rel,DstZone_rel'
 					, FinalLinkSet/impedance

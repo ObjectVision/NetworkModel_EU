@@ -1,0 +1,53 @@
+container Compression_Verification {
+	
+	parameter<uint32> nLocations:= 5000, descr = "Governs the size of the random locations sample";
+	
+	unit<uint32> locations_sample:= select_with_attr_by_cond(NetworkSetup/Base_Analysis/NetwerkSpec/UniqueLocations, NetworkSetup/Base_Analysis/NetwerkSpec/UniqueLocations/Rnd_pop_cells_c < nth_element(NetworkSetup/Base_Analysis/NetwerkSpec/UniqueLocations/Rnd_pop_cells_c, nLocations)) {
+		attribute<string> label:= SourceData/RegionalUnits/Country/Label[point_in_polygon(Geometry, SourceData/RegionalUnits/Country/Geometry)]+')_random_'+string(id(.));
+	}
+	
+	unit<uint32> NodeSet_Uncompressed:= NetworkSetup/Base_Analysis/NetwerkSpec/CreateInitialWorkingNetwork/NodeSet {
+		attribute<.> orgnode_rel  (locations_sample):= rlookup(locations_sample/geometry, Geometry);
+		attribute<.> destnode_rel (locations_sample):= rlookup(locations_sample/geometry, Geometry);
+	}
+	unit<uint32> NodeSet_Compressed:= NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalNodeSet {
+		attribute<.> orgnode_rel  (locations_sample):= rlookup(locations_sample/geometry, Geometry);
+		attribute<.> destnode_rel (locations_sample):= rlookup(locations_sample/geometry, Geometry);
+	}
+	unit<uint32> od_matrix:= combine(locations_sample, locations_sample) {
+		attribute<string> from:= locations_sample/label[first_rel];
+		attribute<string> to:= locations_sample/label[second_rel];
+		attribute<upoint> unipt:= point_xy(first_rel, second_rel, upoint);
+		attribute<float64> impedance_uncompressed:= rjoin(unipt, point_xy(
+			uncompressed_net_results/Basic_OD_matrix/Dijkstra_fullOD/OrgZone_rel, uncompressed_net_results/Basic_OD_matrix/Dijkstra_fullOD/DstZone_rel, upoint), 
+			uncompressed_net_results/Basic_OD_matrix/Dijkstra_fullOD/impedance);
+		attribute<float64> impedance_compressed:= rjoin(unipt, point_xy(
+			compressed_net_results/Basic_OD_matrix/Dijkstra_fullOD/OrgZone_rel, compressed_net_results/Basic_OD_matrix/Dijkstra_fullOD/DstZone_rel, upoint), 
+			compressed_net_results/Basic_OD_matrix/Dijkstra_fullOD/impedance);
+		attribute<float32> eucl_dist_km:= dist(locations_sample/geometry[first_rel], locations_sample/geometry[second_rel])[float32] / (1000f);
+	}
+	
+	container uncompressed_net_results:= 
+		Basic_OD_matrix_T
+		( 
+		  locations_sample
+		, locations_sample 
+		, NetworkSetup/Base_Analysis/NetwerkSpec/CreateInitialWorkingNetwork/LinkSet
+		, NodeSet_Uncompressed
+		, 'uncompressed'
+		, 360[min_f]
+		);
+	
+	container compressed_net_results:= 
+		Basic_OD_matrix_T
+		( 
+		  locations_sample
+		, locations_sample
+		, NetworkSetup/Base_Analysis/NetwerkSpec/CreateMoreEfficientNetwork/FinalLinkSet
+		, NodeSet_Compressed
+		, 'compressed'
+		, 360[min_f]
+		);	
+	
+
+}	

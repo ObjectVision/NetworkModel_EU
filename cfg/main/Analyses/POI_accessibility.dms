@@ -34,6 +34,8 @@ Container POI_accessibility: using = "units", descr = "Automated computation of 
 	container NetContainerRef:= /NetworkSetup/POIs_and_grids/NetwerkSpec;
 	unit<uint32> Network:= NetContainerRef/CreateMoreEfficientNetwork/FinalLinkSet;
 	unit<uint32> NodeSet:= NetContainerRef/CreateMoreEfficientNetwork/FinalNodeSet;
+	//unit<uint32> Network:= NetContainerRef/CreateInitialWorkingNetwork/LinkSet;
+	//unit<uint32> NodeSet:= NetContainerRef/CreateInitialWorkingNetwork/NodeSet;
 	
 	
 	unit<uint32> ResultsPoints:= NetContainerRef/OrgDomain, descr = "The grid to which results are stored"
