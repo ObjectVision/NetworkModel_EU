@@ -4,9 +4,9 @@ country = "Romania"
 travel  = "quadratic"   # "linear", "quadratic", or "piecewise"
 grid    = true
 
-od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
-loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
-fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_j.arrow")
+od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_od.arrow")
+loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_i.arrow")
+fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_j.arrow")
 
 clients_col    = Int.(od[:client_rel])
 facilities_col = Int.(od[:facility_rel])
@@ -229,6 +229,10 @@ function drop_heuristic(open_set, w)
         end
     end
 
+    # post-hoc rerouting pass: try moving individual pupils between open facilities
+    # to find improvements the closure heuristic missed
+    rerouting_pass!(open_set, assigned, cur_cost, cur_time, fload, facility_clients, facility_cost_cache, w)
+
     travel  = sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
     penalty = sum(facility_penalty(fload[j], w) for j in open_set)
 
@@ -292,6 +296,12 @@ function rerouting_pass!(open_set, assigned, cur_cost, cur_time, fload, facility
  
                 improved = true
             end
+        end
+    end
+
+    for j in open_set
+        if fload[j] == 0
+            delete!(open_set, j)
         end
     end
 end

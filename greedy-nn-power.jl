@@ -4,9 +4,9 @@ country = "Romania"
 travel  = "quadratic"   # "linear", "quadratic", or "piecewise"
 grid    = true
 
-od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
-loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
-fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_j.arrow")
+od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_od.arrow")
+loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_i.arrow")
+fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_j.arrow")
 
 clients_col    = Int.(od[:client_rel])
 facilities_col = Int.(od[:facility_rel])
@@ -48,7 +48,7 @@ for (i, rows) in locations
     nearest_facility[i] = facilities_col[best_k]
 end
 
-# Power-law facility cost: total cost = 51712 * load^0.465
+# power-law facility cost: total cost = 51712 * load^0.465
 # (derived from fitted cost-per-pupil = 51712 * load^-0.535)
 function facility_penalty(load, w)
     load <= 0 ? 0.0 : w * 51712 * load^0.465

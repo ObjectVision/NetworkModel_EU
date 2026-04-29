@@ -5,9 +5,9 @@ travel  = "quadratic"   # "linear", "quadratic", or "piecewise"
 grid    = true
 policy  = true       # true: vary min_students [25..200]; false: Inf (no minimum)
 
-od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
-loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
-fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_j.arrow")
+od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_od.arrow")
+loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_i.arrow")
+fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_j.arrow")
 
 clients_col    = Int.(od[:client_rel])
 facilities_col = Int.(od[:facility_rel])
