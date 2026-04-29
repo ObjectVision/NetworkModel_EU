@@ -3,7 +3,6 @@ using Arrow
 country = "Romania"
 travel  = "quadratic"   # "linear", "quadratic", or "piecewise"
 grid    = true
-policy  = true       # true: vary min_students [25..200]; false: Inf (no minimum)
 
 od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
 loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
@@ -49,13 +48,13 @@ for (i, rows) in locations
     nearest_facility[i] = facilities_col[best_k]
 end
 
-# if min_students is Inf: fixed cost w * c0 per open facility
-# else: w * c0 * max(0, min_students - load)
-function facility_penalty(load, min_students, w, c0)
-    isinf(min_students) ? w * c0 : w * c0 * max(0.0, min_students - load)
+# Power-law facility cost: total cost = 51712 * load^0.465
+# (derived from fitted cost-per-pupil = 51712 * load^-0.535)
+function facility_penalty(load, w)
+    load <= 0 ? 0.0 : w * 51712 * load^0.465
 end
 
-function drop_heuristic(open_set, min_students, w, facility_cost)
+function drop_heuristic(open_set, w)
     open_set = copy(open_set)
 
     assigned = Dict{Int, Int}()
@@ -90,7 +89,7 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
         push!(facility_clients[j], i)
     end
 
-    facility_cost_cache = Dict(j => facility_penalty(fload[j], min_students, w, facility_cost) for j in keys(fload))
+    facility_cost_cache = Dict(j => facility_penalty(fload[j], w) for j in keys(fload))
 
     second_best = Dict{Int, Tuple{Int, Float64, Float64}}()
     for (i, rows) in locations
@@ -128,37 +127,8 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
         best_saving = 0.0
         best_j      = nothing
 
-        # for j in open_set
-        #     # saving from closing j: penalty we avoid by closing it
-        #     penalty_saving = facility_penalty(fload[j], min_students, w, facility_cost)
-        #     if penalty_saving == 0.0
-        #         continue
-        #     end
-
-        #     travel_increase = 0.0
-        #     feasible = true
-        #     for i in facility_clients[j]
-        #         if !haskey(second_best, i)
-        #             feasible = false
-        #             break
-        #         end
-        #         travel_increase += (second_best[i][2] - cur_cost[i]) * client_pop[i]
-        #     end
-
-        #     if !feasible
-        #         continue
-        #     end
-
-        #     saving = penalty_saving - travel_increase
-        #     if saving > best_saving
-        #         best_saving = saving
-        #         best_j      = j
-        #     end
-        # end
-
         for j in open_set
             # saving from closing j: its facility cost goes away
-            # penalty_saving = facility_penalty(fload[j], min_students, w, facility_cost)
             penalty_saving = facility_cost_cache[j]
 
             travel_increase = 0.0
@@ -181,16 +151,15 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
             # facility cost change at other facilities absorbing j's pupils
             other_facility_change = 0.0
             for (r, added) in other_facility_loads
-                # old_r = facility_penalty(fload[r], min_students, w, facility_cost)
                 old_r = facility_cost_cache[r]
-                new_r = facility_penalty(fload[r] + added, min_students, w, facility_cost)
+                new_r = facility_penalty(fload[r] + added, w)
                 other_facility_change += new_r - old_r
             end
 
             saving = penalty_saving - travel_increase - other_facility_change
             if saving > best_saving
                 best_saving = saving
-                best_j = j
+                best_j      = j
             end
         end
 
@@ -220,7 +189,7 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
             end
 
             for f in loads_changed
-                facility_cost_cache[f] = facility_penalty(fload[f], min_students, w, facility_cost)
+                facility_cost_cache[f] = facility_penalty(fload[f], w)
             end
 
             facility_clients[best_j] = Int[]
@@ -261,15 +230,73 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
     end
 
     travel  = sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
-    penalty = sum(facility_penalty(fload[j], min_students, w, facility_cost) for j in open_set)
+    penalty = sum(facility_penalty(fload[j], w) for j in open_set)
 
     return open_set, assigned, fload, cur_cost, cur_time, travel, penalty
 end
 
+function rerouting_pass!(open_set, assigned, cur_cost, cur_time, fload, facility_clients, facility_cost_cache, w)
+    improved = true
+    iterations = 0
+    max_iterations = 20  # safety cap
+ 
+    while improved && iterations < max_iterations
+        improved = false
+        iterations += 1
+ 
+        for i in collect(keys(assigned))
+            j_cur = assigned[i]
+            best_alt_j = j_cur
+            best_alt_k = nothing
+            best_saving = 0.0
+ 
+            for k in locations[i]
+                j_alt = facilities_col[k]
+                if j_alt == j_cur || !(j_alt in open_set)
+                    continue
+                end
+ 
+                travel_change = (c(t_ij_col[k]) - cur_cost[i]) * client_pop[i]
+ 
+                # facility cost change at both facilities
+                new_jcur_cost = facility_penalty(fload[j_cur] - client_pop[i], w)
+                new_jalt_cost = facility_penalty(fload[j_alt] + client_pop[i], w)
+                facility_change = (new_jcur_cost - facility_cost_cache[j_cur]) +
+                                  (new_jalt_cost - facility_cost_cache[j_alt])
+ 
+                saving = -travel_change - facility_change
+                if saving > best_saving
+                    best_saving = saving
+                    best_alt_j = j_alt
+                    best_alt_k = k
+                end
+            end
+ 
+            if best_alt_j != j_cur
+                # move pupil i from j_cur to best_alt_j
+                fload[j_cur] -= client_pop[i]
+                fload[best_alt_j] += client_pop[i]
+ 
+                # update cached costs
+                facility_cost_cache[j_cur] = facility_penalty(fload[j_cur], w)
+                facility_cost_cache[best_alt_j] = facility_penalty(fload[best_alt_j], w)
+ 
+                # update assignment
+                assigned[i] = best_alt_j
+                cur_cost[i] = c(t_ij_col[best_alt_k])
+                cur_time[i] = t_ij_col[best_alt_k]
+ 
+                # update facility_clients
+                filter!(x -> x != i, facility_clients[j_cur])
+                push!(facility_clients[best_alt_j], i)
+ 
+                improved = true
+            end
+        end
+    end
+end
 
-function run_scenario(min_students, w)
-    facility_cost = 99699
-
+function run_scenario(w)
     expected_load = Dict(j => 0.0 for j in facilities)
     for (i, j) in nearest_facility
         expected_load[j] += client_pop[i]
@@ -303,34 +330,29 @@ function run_scenario(min_students, w)
         end
     end
 
-    open_set, assigned, fload, cur_cost, cur_time, travel, penalty = drop_heuristic(initial_open, min_students, w, facility_cost)
+    open_set, assigned, fload, cur_cost, cur_time, travel, penalty = drop_heuristic(initial_open, w)
 
-    # n_open_full  = isinf(min_students) ? length(open_set) : sum(1 for j in open_set if fload[j] >= min_students; init=0)
-    # n_open_small = isinf(min_students) ? 0                : sum(1 for j in open_set if fload[j] < min_students;  init=0)
-    n_open_full  = isinf(min_students) ? sum(1 for j in open_set if fload[j] >= 50; init=0) : sum(1 for j in open_set if fload[j] >= min_students; init=0)
-    n_open_small = isinf(min_students) ? sum(1 for j in open_set if fload[j] < 50;  init=0) : sum(1 for j in open_set if fload[j] < min_students;  init=0)
+    n_open_full  = sum(1 for j in open_set if fload[j] >= 50; init=0)
+    n_open_small = sum(1 for j in open_set if fload[j] < 50;  init=0)
 
     travel      = isempty(assigned) ? 0.0 : sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
-    penalty     = isempty(open_set) ? 0.0 : sum(facility_penalty(fload[j], min_students, w, facility_cost) for j in open_set)
-    raw_penalty = isempty(open_set) ? 0.0 : sum(isinf(min_students) ? facility_cost : facility_cost * max(0.0, min_students - fload[j]) for j in open_set)
+    raw_penalty = isempty(open_set) ? 0.0 : sum(facility_penalty(fload[j], w) for j in open_set)
 
     total_client_pop = sum(client_pop[i] for i in keys(cur_time))
     mean_travel_min = sum(cur_time[i] * client_pop[i] for i in keys(cur_time)) / total_client_pop
 
-    return open_set, assigned, fload, cur_cost, cur_time, travel, penalty, raw_penalty, n_open_full, n_open_small, mean_travel_min
+    return open_set, assigned, fload, cur_cost, cur_time, travel, raw_penalty, n_open_full, n_open_small, mean_travel_min
 end
 
 
 function grid_search()
-    min_students_values = policy ? [25.0, 50.0, 100.0] : [Inf]
     ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1]
 
-    println("\ngrid search (travel cost function=$(travel))")
-    println(rpad("min_students", 14),
-            rpad("policy_weight", 14),
+    println("\ngrid search (travel cost function=$(travel), facility cost=power law)")
+    println(rpad("policy_weight", 14),
             rpad("open", 8),
-            rpad(">=min_students", 16),
-            rpad("<min_students", 16),
+            rpad(">=50", 10),
+            rpad("<50", 10),
             rpad("travel_cost", 14),
             rpad("facility_cost", 16),
             rpad("mean_t (min)", 14),
@@ -338,45 +360,39 @@ function grid_search()
             rpad("15<t<=30", 10),
             "t>30")
 
-    for min_students in min_students_values
-        for w in ws
-            open_set, assigned, fload, cur_cost, cur_time, travel, penalty, raw_penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, w)
+    for w in ws
+        open_set, assigned, fload, cur_cost, cur_time, travel, raw_penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(w)
 
-            b1 = sum(client_pop[i] for (i, t) in cur_time if t < 15; init=0.0)
-            b2 = sum(client_pop[i] for (i, t) in cur_time if 15 <= t < 30; init=0.0)
-            b3 = sum(client_pop[i] for (i, t) in cur_time if t >= 30; init=0.0)
+        b1 = sum(client_pop[i] for (i, t) in cur_time if t < 15; init=0.0)
+        b2 = sum(client_pop[i] for (i, t) in cur_time if 15 <= t < 30; init=0.0)
+        b3 = sum(client_pop[i] for (i, t) in cur_time if t >= 30; init=0.0)
 
-            ms_label = isinf(min_students) ? "None" : string(round(Int, min_students))
-
-            println(rpad(ms_label, 14),
-                    rpad(w, 14),
-                    rpad(n_open_full + n_open_small, 8),
-                    rpad(n_open_full, 16),
-                    rpad(n_open_small, 16),
-                    rpad(round(travel, digits=0), 14),
-                    rpad(round(raw_penalty, digits=0), 16),
-                    rpad(round(mean_travel_min, digits=2), 14),
-                    rpad(round(Int, b1), 10),
-                    rpad(round(Int, b2), 10),
-                    round(Int, b3))
-        end
+        println(rpad(w, 14),
+                rpad(n_open_full + n_open_small, 8),
+                rpad(n_open_full, 10),
+                rpad(n_open_small, 10),
+                rpad(round(travel, digits=0), 14),
+                rpad(round(raw_penalty, digits=0), 16),
+                rpad(round(mean_travel_min, digits=2), 14),
+                rpad(round(Int, b1), 10),
+                rpad(round(Int, b2), 10),
+                round(Int, b3))
     end
 end
 
 
-function single_run(min_students, w)
-    open_set, assigned, fload, cur_cost, cur_time, travel, penalty, raw_penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(min_students, w)
+function single_run(w)
+    open_set, assigned, fload, cur_cost, cur_time, travel, raw_penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(w)
 
     b1 = sum(client_pop[i] for (i, t) in cur_time if t < 15; init=0.0)
     b2 = sum(client_pop[i] for (i, t) in cur_time if 15 <= t < 30; init=0.0)
     b3 = sum(client_pop[i] for (i, t) in cur_time if t >= 30; init=0.0)
 
     n_open = n_open_full + n_open_small
-    ms_label = isinf(min_students) ? "None" : string(round(Int, min_students))
-    println("\nresults (travel=$(travel), min_students=$(ms_label), w=$(w)):")
+    println("\nresults (travel=$(travel), facility=power law, w=$(w)):")
     println("open: $n_open")
-    println("open (>= min_students): $n_open_full")
-    println("open (< min_students): $n_open_small")
+    println("open (>= 50): $n_open_full")
+    println("open (< 50): $n_open_small")
     println("closed: $(M - n_open)")
     println("total: $M")
     println("travel: ", round(travel, digits=0))
@@ -390,7 +406,7 @@ function single_run(min_students, w)
     open_vec = zeros(Int, M)
     for (idx, j) in enumerate(facilities)
         if j in open_set
-            open_vec[idx] = isinf(min_students) || fload[j] >= min_students ? 1 : 2
+            open_vec[idx] = fload[j] >= 50 ? 1 : 2
         end
     end
 
@@ -402,8 +418,7 @@ function single_run(min_students, w)
     sorted_ids = sort(collect(keys(cur_time)))
     Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_i_travel.arrow", (
         id     = sorted_ids,
-        t_ij   = [cur_time[i] for i in sorted_ids] #,
-        # t_band = [cur_time[i] < 15 ? 1 : cur_time[i] < 30 ? 2 : cur_time[i] < 45 ? 3 : cur_time[i] < 60 ? 4 : 5 for i in sorted_ids]
+        t_ij   = [cur_time[i] for i in sorted_ids]
     ))
 end
 
@@ -411,5 +426,5 @@ end
 if grid
     @time grid_search()
 else
-    @time single_run(50.0, 0.0001)
+    @time single_run(0.0001)
 end
