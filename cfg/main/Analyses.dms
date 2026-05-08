@@ -234,6 +234,15 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		
 		attribute<float32> StudentAccessibility_grid (SourceData/Locations/Base_grid) := sum(StudentAccessibility, Dest/geometry[SourceData/Locations/Base_grid]);
 		attribute<uint32>  NumberOfSchools_grid      (SourceData/Locations/Base_grid) := /SourceData/Locations/Schools/within_StudyArea/uq_school_cells/CountSchools_grid;
-
+		attribute<bool>    access_criterion_sel		 (SourceData/Locations/Base_grid) := StudentAccessibility_grid > exp(2f) && StudentAccessibility_grid < exp(10f) && SourceData/Locations/Population_2011_Ardeco/ReadData[uint32] > 0;
+		attribute<bool>	   schools_present_sel		 (SourceData/Locations/Base_grid) := isdefined(Geography/Base_grid_1km/Country_rel) && NumberOfSchools_grid > 0;
+		attribute<bool>    search_space				 (SourceData/Locations/Base_grid) := schools_present_sel || access_criterion_sel;
+		
+		unit<uint64> study_area_grid:= select_with_org_rel(isdefined(Geography/Base_grid_1km/Country_rel)) {
+			attribute<float32> sel_StudentAccessibility_grid := StudentAccessibility_grid[org_rel];
+			attribute<uint32>  sel_NumberOfSchools_grid      := NumberOfSchools_grid[org_rel];
+		}
+		
+		
 	}
 }
