@@ -6,7 +6,7 @@ REM run_oeso_pipeline.bat
 REM ----------------------------------------------------------------------------
 REM PURPOSE
 REM   Batch-generate the per-country input artefacts that feed the school-
-REM   network optimisation code in Julia (lp-greedy*.jl in this repository
+REM   network optimisation code in Julia (lp.jl and greedy.jl in this repository
 REM   root). For every supported OESO/OECD country the script
 REM     (1) builds the initial working road network         (LinkSet_Write),
 REM     (2) builds the more-efficient (cleaned) network     (Generate),
@@ -18,7 +18,7 @@ REM
 REM   The resulting .mmd / .arrow files are written to %LocalDataProjDir%
 REM   (see cfg\main\Templates.dms and cfg\main\Analyses.dms for the exact
 REM   StorageName expressions). Those files are the inputs that
-REM   lp-greedy-merge.jl / lp-greedy.jl read to solve the LP / greedy
+REM   lp.jl / greedy.jl read to solve the LP / greedy
 REM   facility-location problem.
 REM
 REM ----------------------------------------------------------------------------
@@ -194,7 +194,7 @@ if "%OVERALL_RC%"=="0" (
     echo ============================================================
     echo  All countries / steps completed successfully.
     echo  Outputs are under %%LocalDataProjDir%%\^<ProjName^>\^<Country^>\
-    echo  Feed those files to lp-greedy-merge.jl / lp-greedy.jl.
+    echo  Feed those files to lp.jl / greedy.jl.
     echo ============================================================
 ) else (
     echo ============================================================
