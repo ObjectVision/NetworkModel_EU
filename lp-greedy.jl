@@ -10,13 +10,13 @@ function c(t)
 end
 
 function load_country(country, apply_threshold)
-    # od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_od.arrow")
-    # loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_i.arrow")
-    # fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_j.arrow")
+    od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_od.arrow")
+    loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_i.arrow")
+    fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_j.arrow")
 
-    od  = Arrow.Table("/Users/lola/Downloads/$(country)_od.arrow")
-    loc = Arrow.Table("/Users/lola/Downloads/$(country)_i.arrow")
-    fac = Arrow.Table("/Users/lola/Downloads/$(country)_j.arrow")
+    # od  = Arrow.Table("/Users/lola/Downloads/$(country)_od.arrow")
+    # loc = Arrow.Table("/Users/lola/Downloads/$(country)_i.arrow")
+    # fac = Arrow.Table("/Users/lola/Downloads/$(country)_j.arrow")
 
     clients_col    = Int.(od[:client_rel])
     facilities_col = Int.(od[:facility_rel])
@@ -167,8 +167,10 @@ end
 
 
 if grid
-    min_students_values = [25.0, 50.0, 100.0, 150.0, 200.0]
-    ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
+    # min_students_values = [25.0, 50.0, 100.0, 150.0, 200.0]
+    # ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
+    min_students_values = [50.0, 100.0, 200.0]
+    ws = [0.0001, 0.01, 1.0]
 
     for country in countries
         max_facility_load = 0.0
