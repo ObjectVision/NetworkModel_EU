@@ -23,13 +23,9 @@ function c(t)
 end
 
 function load_country(country)
-    # od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_od.arrow")
-    # loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_i.arrow")
-    # fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_j.arrow")
-
-    od  = Arrow.Table("/Users/lola/Downloads/$(country)_od.arrow")
-    loc = Arrow.Table("/Users/lola/Downloads/$(country)_i.arrow")
-    fac = Arrow.Table("/Users/lola/Downloads/$(country)_j.arrow")
+    od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_od.arrow")
+    loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_i.arrow")
+    fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_j.arrow")
 
     clients_col    = Int.(od[:client_rel])
     facilities_col = Int.(od[:facility_rel])
