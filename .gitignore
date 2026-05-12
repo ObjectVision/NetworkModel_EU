@@ -1,2 +1,5 @@
 /git.txt
 /.vs
+/logs
+/cfg/main/ModelParameters.dms.bak
+/logs_run.txt
