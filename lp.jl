@@ -2,7 +2,7 @@ using Arrow, JuMP, HiGHS
 
 countries         = ["Netherlands"]  # add more countries here
 travel            = "quadratic"  # "linear" or "quadratic"
-grid              = true
+grid              = false
 apply_thresholds  = [true]       # add false to also run without max-travel filter
 nearests          = [true, false]      # true: assign each client to nearest open school; false: re-solve LP for assignments
 
@@ -230,39 +230,50 @@ if grid
         println("\n$country — max facility load across all configurations: ", round(Int, max_facility_load))
     end
 else
-    country         = countries[1]
-    apply_threshold = apply_thresholds[1]
-    data            = load_country(country)
-    open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, 50.0, 1.0, apply_threshold, nearests[1])
-    n_open = n_open_full + n_open_small
-    println("\nresults (travel=$(travel), min_students=50, w=1.0, max_travel=60 min):")
-    println("open (>= min_students): $n_open_full")
-    println("open (< min_students): $n_open_small")
-    println("closed: $(data.M - n_open)")
-    println("total: $(data.M)")
-    println("travel (LP): ", round(travel_lp, digits=0))
-    println("penalty (LP): ", round(raw_penalty_lp, digits=0))
-    println("mean travel time (min): ", round(mean_travel_min, digits=2))
-    println("t < 15 min: ", round(Int, b1))
-    println("15 <= t < 30 min: ", round(Int, b2))
-    println("30 <= t < 60 min: ", round(Int, b3))
-    println("t >= 60 min: ", round(Int, b4))
+    min_students = 50.0
+    w            = 0.01
 
-    open_vec = zeros(Int, data.M)
-    for (idx, j) in enumerate(data.facilities)
-        if j in open_set
-            open_vec[idx] = isinf(50.0) || fload[j] >= 50.0 ? 1 : 2
+    for country in countries
+        local data = load_country(country)
+
+        for apply_threshold in apply_thresholds
+            for nearest in nearests
+                threshold_label  = apply_threshold ? "max_travel=60 min" : "no max_travel"
+                assignment_label = nearest ? "nearest" : "central"
+
+                open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, min_students, w, apply_threshold, nearest)
+                n_open = n_open_full + n_open_small
+
+                println("\n$country — results (travel=$(travel), min_students=$(round(Int, min_students)), w=$(w), $(threshold_label), assignment=$(assignment_label)):")
+                println("open (>= min_students): $n_open_full")
+                println("open (< min_students): $n_open_small")
+                println("closed: $(data.M - n_open)")
+                println("total: $(data.M)")
+                println("travel (LP): ", round(travel_lp, digits=0))
+                println("penalty (LP): ", round(raw_penalty_lp, digits=0))
+                println("mean travel time (min): ", round(mean_travel_min, digits=2))
+                println("t < 15 min: ", round(Int, b1))
+                println("15 <= t < 30 min: ", round(Int, b2))
+                println("30 <= t < 60 min: ", round(Int, b3))
+                println("t >= 60 min: ", round(Int, b4))
+
+                open_vec = zeros(Int, data.M)
+                for (idx, j) in enumerate(data.facilities)
+                    if j in open_set
+                        open_vec[idx] = isinf(min_students) || fload[j] >= min_students ? 1 : 2
+                    end
+                end
+
+                Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_lp_$(assignment_label).arrow", (
+                    id = data.facilities, open = open_vec
+                ))
+
+                sorted_ids = sort(collect(keys(assigned_k)))
+                Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_i_travel_$(assignment_label).arrow", (
+                    id   = sorted_ids,
+                    t_ij = [data.t_ij_col[assigned_k[i]] for i in sorted_ids]
+                ))
+            end
         end
     end
-
-    assignment_label = nearests[1] ? "nearest" : "central"
-    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_lp_$(assignment_label).arrow", (
-        id = data.facilities, open = open_vec
-    ))
-
-    sorted_ids = sort(collect(keys(assigned_k)))
-    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_i_travel_$(assignment_label).arrow", (
-        id   = sorted_ids,
-        t_ij = [data.t_ij_col[assigned_k[i]] for i in sorted_ids]
-    ))
 end

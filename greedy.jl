@@ -2,7 +2,7 @@ using Arrow, JuMP, HiGHS
 
 countries          = ["Finland"]
 travel             = "quadratic"   # "linear", "quadratic", or "piecewise"
-grid               = true
+grid               = false
 policy             = true          # true: vary min_students [25..200]; false: Inf (no minimum)
 use_power_laws = [false] # false: fixed cost + deficit penalty; true: power-law facility cost
 nearests       = [true, false] # true: keep nearest-open assignments from drop heuristic; false: re-solve LP for optimal assignments
@@ -494,5 +494,21 @@ end
 if grid
     @time grid_search()
 else
-    @time single_run(countries[1], 50.0, 0.0001, use_power_laws[1])
+    min_students = 50.0
+    w            = 0.01
+
+    for country in countries
+        local data = load_country(country)
+        (; M, facilities, client_pop, locations) = data
+
+        for use_power_law in use_power_laws
+            for nearest in nearests
+                if !nearest && use_power_law
+                    continue
+                end
+
+                @time single_run(country, min_students, w, use_power_law, nearest)
+            end
+        end
+    end
 end
