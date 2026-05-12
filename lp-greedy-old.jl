@@ -9,7 +9,7 @@ function c(t)
     travel == "quadratic" ? 0.05 * t^2 + 0.5 * t : t
 end
 
-function load_country(country)
+function load_country(country, apply_threshold)
     od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_od.arrow")
     loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_i.arrow")
     fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_j.arrow")
@@ -49,11 +49,24 @@ function load_country(country)
         end
     end
 
-    return (; N, M, facilities, wpop, t_ij_col, facilities_col, locations, facility_rows)
+    if apply_threshold
+        allowed_y = Bool[t_ij_col[k] <= 60.0 for k in 1:N]
+        for (_, rows) in locations
+            if !any(allowed_y[k] for k in rows)
+                for k in rows
+                    allowed_y[k] = true
+                end
+            end
+        end
+    else
+        allowed_y = trues(N)
+    end
+
+    return (; N, M, facilities, allowed_y, wpop, t_ij_col, facilities_col, locations, facility_rows)
 end
 
-function run_scenario(data, min_students, w, apply_threshold)
-    (; N, facilities, wpop, t_ij_col, facilities_col, locations, facility_rows) = data
+function run_scenario(data, min_students, w)
+    (; N, facilities, allowed_y, wpop, t_ij_col, facilities_col, locations, facility_rows) = data
 
     facility_cost = 99699
     λ = w * facility_cost
@@ -64,6 +77,12 @@ function run_scenario(data, min_students, w, apply_threshold)
 
     @variable(model, 0 <= y[1:N] <= 1)
     @variable(model, 0 <= x[j in facilities] <= 1)
+
+    for k in 1:N
+        if !allowed_y[k]
+            fix(y[k], 0.0; force=true)
+        end
+    end
 
     if !isinf(min_students)
         @variable(model, deficit[j in facilities] >= 0)
@@ -99,24 +118,9 @@ function run_scenario(data, min_students, w, apply_threshold)
     fractional     = [j for j in facilities if tol < x_relaxed[j] < 1 - tol]
     open_set       = union(fixed_open_set, Set(fractional))
 
-    # fix x based on first LP
+    # fix and re-solve
     for j in facilities
         fix(x[j], j in open_set ? 1.0 : 0.0; force=true)
-    end
-
-    # apply 60-min cap after facilities are decided
-    if apply_threshold
-        for (_, rows) in locations
-            open_rows_within_60 = [k for k in rows if facilities_col[k] in open_set && t_ij_col[k] <= 60.0]
-            if !isempty(open_rows_within_60)
-                for k in rows
-                    if t_ij_col[k] > 60.0
-                        fix(y[k], 0.0; force=true)
-                    end
-                end
-            end
-            # if no open facility within 60 min, leave all rows free (fallback: client goes wherever)
-        end
     end
 
     optimize!(model)
@@ -171,9 +175,8 @@ if grid
     for country in countries
         max_facility_load = 0.0
 
-        local data = load_country(country)
-
         for apply_threshold in apply_thresholds
+            local data = load_country(country, apply_threshold)
             threshold_label = apply_threshold ? "max_travel=60 min" : "no max_travel"
 
             println("\n$country — grid search (travel=$(travel), $(threshold_label))")
@@ -192,7 +195,7 @@ if grid
 
             for min_students in min_students_values
                 for w in ws
-                    local open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, min_students, w, apply_threshold)
+                    local open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, min_students, w)
                     if !isempty(open_set)
                         max_facility_load = max(max_facility_load, maximum(fload[j] for j in open_set))
                     end
@@ -217,8 +220,8 @@ if grid
 else
     country         = countries[1]
     apply_threshold = apply_thresholds[1]
-    data            = load_country(country)
-    open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, 50.0, 1.0, apply_threshold)
+    data            = load_country(country, apply_threshold)
+    open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, 50.0, 1.0)
     n_open = n_open_full + n_open_small
     println("\nresults (travel=$(travel), min_students=50, w=1.0, max_travel=60 min):")
     println("open (>= min_students): $n_open_full")
@@ -239,7 +242,7 @@ else
             open_vec[idx] = isinf(50.0) || fload[j] >= 50.0 ? 1 : 2
         end
     end
-
+    
     Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_lp.arrow", (
         id = data.facilities, open = open_vec
     ))
