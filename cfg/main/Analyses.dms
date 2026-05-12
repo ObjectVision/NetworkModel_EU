@@ -124,6 +124,8 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			{
 				attribute<client>  id  (client) := id(client);
 				attribute<float32> pop (client) := Pop_i;
+				attribute<float64> x   (client) := client/x;
+				attribute<float64> y   (client) := client/y;
 			}
 			
 			container FacilityExport
@@ -132,6 +134,8 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			,	StorageReadOnly = "False"
 			{
 				attribute<Facility> id(Facility) := id(Facility);
+				attribute<float64> x   (Facility) := Get_X( Facility/geometry );
+				attribute<float64> y   (Facility) := Get_Y( Facility/geometry );
 			}
 			
 			//Inital round 
