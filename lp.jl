@@ -1,6 +1,6 @@
 using Arrow, JuMP, HiGHS
 
-countries         = ["Netherlands"]  # add more countries here
+countries         = ["Albania", "Austria", "Belgium", "Bulgaria", "Switzerland", "Denmark", "Spain", "Estonia", "Greece", "Cyprus", "Czechia", "Germany", "France", "Finland", "Croatia", "Hungary", "Ireland", "Iceland", "Italy", "Liechtenstein", "Lithuania", "Luxembourg", "Latvia", "Malta", "Netherlands", "Norway", "Romania", "Poland", "Portugal", "Sweden", "Slovenia", "Slovakia"]
 travel            = "quadratic"  # "linear" or "quadratic"
 grid              = false
 apply_thresholds  = [true]       # add false to also run without max-travel filter

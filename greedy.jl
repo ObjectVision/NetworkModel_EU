@@ -1,6 +1,6 @@
 using Arrow, JuMP, HiGHS
 
-countries          = ["Finland"]
+countries          = ["Albania", "Austria", "Belgium", "Bulgaria", "Switzerland", "Denmark", "Spain", "Estonia", "Greece", "Cyprus", "Czechia", "Germany", "France", "Finland", "Croatia", "Hungary", "Ireland", "Iceland", "Italy", "Liechtenstein", "Lithuania", "Luxembourg", "Latvia", "Malta", "Netherlands", "Norway", "Romania", "Poland", "Portugal", "Sweden", "Slovenia", "Slovakia"]
 travel             = "quadratic"   # "linear", "quadratic", or "piecewise"
 grid               = false
 policy             = true          # true: vary min_students [25..200]; false: Inf (no minimum)
