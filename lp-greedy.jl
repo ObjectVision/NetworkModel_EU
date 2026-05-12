@@ -1,59 +1,73 @@
 using Arrow, JuMP, HiGHS
 
-country = "Romania"
-travel  = "quadratic"  # "linear" or "quadratic"
-grid    = true
-
-od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_od.arrow")
-loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_i.arrow")
-fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_j.arrow")
-
-clients_col    = Int.(od[:client_rel])
-facilities_col = Int.(od[:facility_rel])
-t_ij_col       = od[:t_ij] ./ 60
-population     = loc[:pop]
-facilities     = Int.(fac[:id])
-
-N = length(clients_col)
-M = length(facilities)
-
-wpop = [population[clients_col[k]+1] for k in 1:N]
-
-locations = Dict{Int, Vector{Int}}()
-for k in 1:N
-    i = clients_col[k]
-    haskey(locations, i) ? push!(locations[i], k) : (locations[i] = [k])
-end
-
-facility_rows = Dict{Int, Vector{Int}}()
-for k in 1:N
-    j = facilities_col[k]
-    if !haskey(facility_rows, j)
-        facility_rows[j] = Int[]
-    end
-    push!(facility_rows[j], k)
-end
-for j in facilities
-    if !haskey(facility_rows, j)
-        facility_rows[j] = Int[]
-    end
-end
-
-client_pop = Dict(i => wpop[rows[1]] for (i, rows) in locations)
+countries         = ["Netherlands", "Finland", "Romania"]  # add more countries here
+travel            = "quadratic"  # "linear" or "quadratic"
+grid              = true
+apply_thresholds  = [true, false]       # add false to also run without max-travel filter
 
 function c(t)
-    if travel == "quadratic"
-        return 0.05 * t^2 + 0.5 * t
-    else
-        return t
+    travel == "quadratic" ? 0.05 * t^2 + 0.5 * t : t
+end
+
+function load_country(country, apply_threshold)
+    # od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_od.arrow")
+    # loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_i.arrow")
+    # fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_j.arrow")
+
+    od  = Arrow.Table("/Users/lola/Downloads/$(country)_od.arrow")
+    loc = Arrow.Table("/Users/lola/Downloads/$(country)_i.arrow")
+    fac = Arrow.Table("/Users/lola/Downloads/$(country)_j.arrow")
+
+    clients_col    = Int.(od[:client_rel])
+    facilities_col = Int.(od[:facility_rel])
+    t_ij_col       = od[:t_ij] ./ 60
+    population     = loc[:pop]
+    facilities     = Int.(fac[:id])
+
+    N = length(clients_col)
+    M = length(facilities)
+
+    wpop = [population[clients_col[k]+1] for k in 1:N]
+
+    locations = Dict{Int, Vector{Int}}()
+    for k in 1:N
+        i = clients_col[k]
+        haskey(locations, i) ? push!(locations[i], k) : (locations[i] = [k])
     end
+
+    facility_rows = Dict{Int, Vector{Int}}()
+    for k in 1:N
+        j = facilities_col[k]
+        if !haskey(facility_rows, j)
+            facility_rows[j] = Int[]
+        end
+        push!(facility_rows[j], k)
+    end
+    for j in facilities
+        if !haskey(facility_rows, j)
+            facility_rows[j] = Int[]
+        end
+    end
+
+    if apply_threshold
+        allowed_y = Bool[t_ij_col[k] <= 60.0 for k in 1:N]
+        for (_, rows) in locations
+            if !any(allowed_y[k] for k in rows)
+                for k in rows
+                    allowed_y[k] = true
+                end
+            end
+        end
+    else
+        allowed_y = trues(N)
+    end
+
+    return (; N, M, facilities, allowed_y, wpop, t_ij_col, facilities_col, locations, facility_rows)
 end
 
-function facility_penalty(load, min_students, w, c0)
-    isinf(min_students) ? w * c0 : w * c0 * max(0.0, min_students - load)
-end
+function run_scenario(data, min_students, w)
+    (; N, facilities, allowed_y, wpop, t_ij_col, facilities_col, locations, facility_rows) = data
 
-function run_scenario(min_students, w)
     facility_cost = 99699
     λ = w * facility_cost
 
@@ -63,6 +77,12 @@ function run_scenario(min_students, w)
 
     @variable(model, 0 <= y[1:N] <= 1)
     @variable(model, 0 <= x[j in facilities] <= 1)
+
+    for k in 1:N
+        if !allowed_y[k]
+            fix(y[k], 0.0; force=true)
+        end
+    end
 
     if !isinf(min_students)
         @variable(model, deficit[j in facilities] >= 0)
@@ -83,7 +103,7 @@ function run_scenario(min_students, w)
         )
     end
 
-    for (i, rows) in locations
+    for (_, rows) in locations
         @constraint(model, sum(y[k] for k in rows) == 1)
     end
     for k in 1:N
@@ -119,29 +139,30 @@ function run_scenario(min_students, w)
     end
 
     fload = Dict(j => 0.0 for j in facilities)
-    for (i, k) in assigned_k
+    for (_, k) in assigned_k
         fload[facilities_col[k]] += wpop[k]
     end
 
     total_client_pop = sum(wpop[rows[1]] for (i, rows) in locations)
     mean_travel_min  = sum(t_ij_col[k] * wpop[k] for (i, k) in assigned_k) / total_client_pop
 
-    b1 = sum(wpop[k] for (i, k) in assigned_k if t_ij_col[k] < 15;       init=0.0)
-    b2 = sum(wpop[k] for (i, k) in assigned_k if 15 <= t_ij_col[k] < 30; init=0.0)
-    b3 = sum(wpop[k] for (i, k) in assigned_k if t_ij_col[k] >= 30;      init=0.0)
+    b1 = sum(wpop[k] for (i, k) in assigned_k if t_ij_col[k] < 15;        init=0.0)
+    b2 = sum(wpop[k] for (i, k) in assigned_k if 15 <= t_ij_col[k] < 30;  init=0.0)
+    b3 = sum(wpop[k] for (i, k) in assigned_k if 30 <= t_ij_col[k] < 60;  init=0.0)
+    b4 = sum(wpop[k] for (i, k) in assigned_k if t_ij_col[k] >= 60;       init=0.0)
 
     travel_lp      = sum(c(t_ij_col[k]) * wpop[k] for (i, k) in assigned_k)
     penalty_lp     = isinf(min_students) ?
                          sum(value(x[j]) * facility_cost * w for j in facilities) :
-                         sum(max(0.0, min_students - fload[j]) * λ for j in open_set)
+                         sum(max(0.0, min_students - fload[j]) * λ for j in open_set; init=0.0)
     raw_penalty_lp = isinf(min_students) ?
                          sum(value(x[j]) * facility_cost for j in facilities) :
-                         sum(max(0.0, min_students - fload[j]) * facility_cost for j in open_set)
+                         sum(max(0.0, min_students - fload[j]) * facility_cost for j in open_set; init=0.0)
 
     n_open_full  = isinf(min_students) ? length(open_set) : sum(1 for j in open_set if fload[j] >= min_students; init=0)
     n_open_small = isinf(min_students) ? 0                : sum(1 for j in open_set if fload[j] < min_students;  init=0)
 
-    return open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3
+    return open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4
 end
 
 
@@ -149,58 +170,78 @@ if grid
     min_students_values = [25.0, 50.0, 100.0, 150.0, 200.0]
     ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
 
-    println("\ngrid search (travel=$(travel))")
-    println(rpad("min_students", 14),
-            rpad("policy_weight", 14),
-            rpad("open", 8),
-            rpad(">=min", 8),
-            rpad("<min", 8),
-            rpad("travel", 14),
-            rpad("penalty", 14),
-            rpad("mean_t (min)", 14),
-            rpad("t<=15", 10),
-            rpad("15<t<=30", 10),
-            "t>30")
+    for country in countries
+        max_facility_load = 0.0
 
-    for min_students in min_students_values
-        for w in ws
-            open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3 = run_scenario(min_students, w)
-            ms_label = isinf(min_students) ? "Inf" : string(round(Int, min_students))
-            println(rpad(ms_label, 14),
-                    rpad(w, 14),
-                    rpad(n_open_full + n_open_small, 8),
-                    rpad(n_open_full, 8),
-                    rpad(n_open_small, 8),
-                    rpad(round(travel_lp, digits=0), 14),
-                    rpad(round(raw_penalty_lp, digits=0), 14),
-                    rpad(round(mean_travel_min, digits=2), 14),
-                    rpad(round(Int, b1), 10),
-                    rpad(round(Int, b2), 10),
-                    round(Int, b3))
+        for apply_threshold in apply_thresholds
+            local data = load_country(country, apply_threshold)
+            threshold_label = apply_threshold ? "max_travel=60 min" : "no max_travel"
+
+            println("\n$country — grid search (travel=$(travel), $(threshold_label))")
+            println(rpad("min_students", 14),
+                    rpad("policy_weight", 14),
+                    rpad("open", 8),
+                    rpad(">=min", 8),
+                    rpad("<min", 8),
+                    rpad("travel", 14),
+                    rpad("penalty", 16),
+                    rpad("mean_t (min)", 14),
+                    rpad("t<=15", 10),
+                    rpad("15<t<=30", 10),
+                    rpad("30<t<=60", 10),
+                    "t>60")
+
+            for min_students in min_students_values
+                for w in ws
+                    local open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, min_students, w)
+                    if !isempty(open_set)
+                        max_facility_load = max(max_facility_load, maximum(fload[j] for j in open_set))
+                    end
+                    ms_label = isinf(min_students) ? "Inf" : string(round(Int, min_students))
+                    println(rpad(ms_label, 14),
+                            rpad(w, 14),
+                            rpad(n_open_full + n_open_small, 8),
+                            rpad(n_open_full, 8),
+                            rpad(n_open_small, 8),
+                            rpad(round(travel_lp, digits=0), 14),
+                            rpad(round(raw_penalty_lp, digits=0), 16),
+                            rpad(round(mean_travel_min, digits=2), 14),
+                            rpad(round(Int, b1), 10),
+                            rpad(round(Int, b2), 10),
+                            rpad(round(Int, b3), 10),
+                            round(Int, b4))
+                end
+            end
         end
+        println("\n$country — max facility load across all configurations: ", round(Int, max_facility_load))
     end
 else
-    open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3 = run_scenario(50.0, 1.0)
+    country         = countries[1]
+    apply_threshold = apply_thresholds[1]
+    data            = load_country(country, apply_threshold)
+    open_set, fload, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, 50.0, 1.0)
     n_open = n_open_full + n_open_small
-    println("\nresults (travel=$(travel), min_students=50, w=1.0):")
+    println("\nresults (travel=$(travel), min_students=50, w=1.0, max_travel=60 min):")
     println("open (>= min_students): $n_open_full")
     println("open (< min_students): $n_open_small")
-    println("closed: $(M - n_open)")
-    println("total: $M")
+    println("closed: $(data.M - n_open)")
+    println("total: $(data.M)")
     println("travel (LP): ", round(travel_lp, digits=0))
     println("penalty (LP): ", round(raw_penalty_lp, digits=0))
     println("mean travel time (min): ", round(mean_travel_min, digits=2))
     println("t < 15 min: ", round(Int, b1))
     println("15 <= t < 30 min: ", round(Int, b2))
-    println("t >= 30 min: ", round(Int, b3))
+    println("30 <= t < 60 min: ", round(Int, b3))
+    println("t >= 60 min: ", round(Int, b4))
 
-    open_vec = zeros(Int, M)
-    for (idx, j) in enumerate(facilities)
+    open_vec = zeros(Int, data.M)
+    for (idx, j) in enumerate(data.facilities)
         if j in open_set
             open_vec[idx] = isinf(50.0) || fload[j] >= 50.0 ? 1 : 2
         end
     end
+    
     Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_lp.arrow", (
-        id = facilities, open = open_vec
+        id = data.facilities, open = open_vec
     ))
 end
