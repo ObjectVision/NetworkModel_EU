@@ -86,7 +86,10 @@ REM of writing the source data dir contains:
 REM   EU, Finland, France, Netherlands, Romania
 REM EU is the all-countries meta-region and is not iterated here. Extend the
 REM list as more per-country TomTom datasets become available.
-set "DEFAULT_COUNTRIES=Finland France Netherlands Romania"
+REM --- first: all c
+REM set "DEFAULT_COUNTRIES=Albania Austria Belgium Bulgaria Switzerland Denmark Spain Estonia Greece Cyprus Czechia Germany France Finland Croatia Hungary Ireland Iceland Italy Liechtenstein Lithuania Luxembourg Latvia Malta Netherlands Norway Romania Poland Portugal Sweden Slovenia Slovakia
+set "DEFAULT_COUNTRIES=Albania Austria Belgium Bulgaria Denmark Spain Estonia Greece Cyprus Czechia France Finland Croatia Hungary Ireland Italy Liechtenstein Lithuania Luxembourg Latvia Malta Netherlands Norway Romania Poland Portugal Sweden Slovenia Slovakia
+
 
 REM Items (GeoDms tree paths) to compute, grouped per step. Each item is a
 REM separately-quoted token so GeoDmsRun receives them as distinct args
