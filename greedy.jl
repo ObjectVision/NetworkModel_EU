@@ -1,10 +1,11 @@
-using Arrow
+using Arrow, JuMP, HiGHS
 
 countries          = ["Finland"]
 travel             = "quadratic"   # "linear", "quadratic", or "piecewise"
 grid               = true
 policy             = true          # true: vary min_students [25..200]; false: Inf (no minimum)
-use_power_laws = [false, true] # false: fixed cost + deficit penalty; true: power-law facility cost
+use_power_laws = [false] # false: fixed cost + deficit penalty; true: power-law facility cost
+nearests       = [true, false] # true: keep nearest-open assignments from drop heuristic; false: re-solve LP for optimal assignments
 
 function c(t)
     if travel == "quadratic"
@@ -245,7 +246,80 @@ function drop_heuristic(open_set, min_students, w, facility_cost, data, use_powe
 end
 
 
-function run_scenario(data, min_students, w, use_power_law)
+function lp_assignment(open_set, min_students, w, facility_cost, data)
+    (; N, facilities, clients_col, facilities_col, t_ij_col, locations, client_pop) = data
+
+    facility_rows = Dict(j => Int[] for j in open_set)
+    for k in 1:N
+        j = facilities_col[k]
+        if j in open_set
+            push!(facility_rows[j], k)
+        end
+    end
+
+    model = Model(HiGHS.Optimizer)
+    set_optimizer_attribute(model, "presolve", "on")
+    set_optimizer_attribute(model, "output_flag", false)
+
+    @variable(model, 0 <= y[1:N] <= 1)
+
+    for k in 1:N
+        if facilities_col[k] ∉ open_set
+            fix(y[k], 0.0; force=true)
+        end
+    end
+
+    if !isinf(min_students)
+        @variable(model, deficit[j in open_set] >= 0)
+        @expression(model, load[j in open_set],
+            sum(y[k] * client_pop[clients_col[k]] for k in facility_rows[j])
+        )
+        @objective(model, Min,
+            sum(y[k] * c(t_ij_col[k]) * client_pop[clients_col[k]] for k in 1:N) +
+            sum(deficit[j] * w * facility_cost for j in open_set)
+        )
+        for j in open_set
+            @constraint(model, deficit[j] >= min_students - load[j])
+        end
+    else
+        @objective(model, Min,
+            sum(y[k] * c(t_ij_col[k]) * client_pop[clients_col[k]] for k in 1:N)
+        )
+    end
+
+    for (_, rows) in locations
+        @constraint(model, sum(y[k] for k in rows) == 1)
+    end
+
+    optimize!(model)
+
+    assigned = Dict{Int, Int}()
+    cur_cost = Dict{Int, Float64}()
+    cur_time = Dict{Int, Float64}()
+
+    for (i, rows) in locations
+        best_k, best_val = rows[1], value(y[rows[1]])
+        for k in rows[2:end]
+            v = value(y[k])
+            if v > best_val
+                best_val = v; best_k = k
+            end
+        end
+        assigned[i] = facilities_col[best_k]
+        cur_cost[i] = c(t_ij_col[best_k])
+        cur_time[i] = t_ij_col[best_k]
+    end
+
+    fload = Dict(j => 0.0 for j in facilities)
+    for (i, j) in assigned
+        fload[j] += client_pop[i]
+    end
+
+    return assigned, fload, cur_cost, cur_time
+end
+
+
+function run_scenario(data, min_students, w, use_power_law, nearest)
     (; facilities, facilities_col, t_ij_col, locations, client_pop, nearest_facility) = data
     facility_cost = 99699
 
@@ -284,6 +358,10 @@ function run_scenario(data, min_students, w, use_power_law)
 
     open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty = drop_heuristic(initial_open, min_students, w, facility_cost, data, use_power_law)
 
+    if !nearest
+        assigned, fload, cur_cost, cur_time = lp_assignment(open_set, min_students, w, facility_cost, data)
+    end
+
     n_open_full  = isinf(min_students) ? sum(1 for j in open_set if fload[j] >= 50; init=0) : sum(1 for j in open_set if fload[j] >= min_students; init=0)
     n_open_small = isinf(min_students) ? sum(1 for j in open_set if fload[j] < 50;  init=0) : sum(1 for j in open_set if fload[j] < min_students;  init=0)
 
@@ -301,7 +379,8 @@ end
 
 
 function grid_search()
-    ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1]
+    # ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1]
+    ws = [0.0001, 0.01, 1]
 
     for country in countries
         local data = load_country(country)
@@ -309,25 +388,31 @@ function grid_search()
 
         for use_power_law in use_power_laws
             cost_label          = use_power_law ? "power-law" : "fixed"
-            min_students_values = use_power_law ? [Inf] : (policy ? [25.0, 50.0, 100.0] : [Inf])
+            min_students_values = use_power_law ? [Inf] : (policy ? [50.0, 100.0, 200.0] : [Inf])
 
-            println("\n$country — grid search (travel=$(travel), facility=$(cost_label))")
-            println(rpad("min_students", 14),
-                    rpad("policy_weight", 14),
-                    rpad("open", 8),
-                    rpad(">=min_students", 16),
-                    rpad("<min_students", 16),
-                    rpad("travel_cost", 14),
-                    rpad("facility_cost", 16),
-                    rpad("mean_t (min)", 14),
-                    rpad("t<=15", 10),
-                    rpad("15<t<=30", 10),
-                    rpad("30<t<=60", 10),
-                    "t>60")
+            for nearest in nearests
+                if !nearest && use_power_law
+                    continue
+                end
 
-            for min_students in min_students_values
-                for w in ws
-                    local open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty, raw_penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(data, min_students, w, use_power_law)
+                assignment_label = nearest ? "nearest" : "central"
+                println("\n$country — grid search (travel=$(travel), facility=$(cost_label), assignment=$(assignment_label))")
+                println(rpad("min_students", 14),
+                        rpad("policy_weight", 14),
+                        rpad("open", 8),
+                        rpad(">=min_students", 16),
+                        rpad("<min_students", 16),
+                        rpad("travel_cost", 14),
+                        rpad("facility_cost", 16),
+                        rpad("mean_t (min)", 14),
+                        rpad("t<=15", 10),
+                        rpad("15<t<=30", 10),
+                        rpad("30<t<=60", 10),
+                        "t>60")
+
+                for min_students in min_students_values
+                    for w in ws
+                        local open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty, raw_penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(data, min_students, w, use_power_law, nearest)
 
                     b1 = sum(client_pop[i] for (i, t) in cur_time if t < 15;       init=0.0)
                     b2 = sum(client_pop[i] for (i, t) in cur_time if 15 <= t < 30; init=0.0)
@@ -348,6 +433,7 @@ function grid_search()
                             rpad(round(Int, b2), 10),
                             rpad(round(Int, b3), 10),
                             round(Int, b4))
+                    end
                 end
             end
         end
@@ -355,11 +441,11 @@ function grid_search()
 end
 
 
-function single_run(country, min_students, w, use_power_law)
+function single_run(country, min_students, w, use_power_law, nearest=true)
     data = load_country(country)
     (; M, facilities, client_pop, locations) = data
 
-    open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty, raw_penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(data, min_students, w, use_power_law)
+    open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty, raw_penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(data, min_students, w, use_power_law, nearest)
 
     b1 = sum(client_pop[i] for (i, t) in cur_time if t < 15;       init=0.0)
     b2 = sum(client_pop[i] for (i, t) in cur_time if 15 <= t < 30; init=0.0)
@@ -391,13 +477,14 @@ function single_run(country, min_students, w, use_power_law)
         end
     end
 
-    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_greedy.arrow", (
+    assignment_label = nearest ? "nearest" : "central"
+    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_greedy_$(assignment_label).arrow", (
         id   = facilities,
         open = open_vec
     ))
 
     sorted_ids = sort(collect(keys(cur_time)))
-    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_i_travel.arrow", (
+    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_i_travel_$(assignment_label).arrow", (
         id   = sorted_ids,
         t_ij = [cur_time[i] for i in sorted_ids]
     ))

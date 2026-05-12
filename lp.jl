@@ -4,7 +4,7 @@ countries         = ["Netherlands"]  # add more countries here
 travel            = "quadratic"  # "linear" or "quadratic"
 grid              = true
 apply_thresholds  = [true]       # add false to also run without max-travel filter
-nearest           = true               # true: assign each client to nearest open school; false: re-solve LP for assignments
+nearests          = [true, false]      # true: assign each client to nearest open school; false: re-solve LP for assignments
 
 function c(t)
     travel == "quadratic" ? 0.05 * t^2 + 0.5 * t : t
@@ -49,7 +49,7 @@ function load_country(country)
     return (; N, M, facilities, wpop, t_ij_col, facilities_col, locations, facility_rows)
 end
 
-function run_scenario(data, min_students, w, apply_threshold)
+function run_scenario(data, min_students, w, apply_threshold, nearest)
     (; N, facilities, wpop, t_ij_col, facilities_col, locations, facility_rows) = data
 
     facility_cost = 99699
@@ -188,40 +188,42 @@ if grid
         for apply_threshold in apply_thresholds
             threshold_label = apply_threshold ? "max_travel=60 min" : "no max_travel"
 
-            assignment_label = nearest ? "nearest" : "central"
-            println("\n$country — grid search (travel=$(travel), $(threshold_label), assignment=$(assignment_label))")
-            println(rpad("min_students", 14),
-                    rpad("policy_weight", 14),
-                    rpad("open", 8),
-                    rpad(">=min", 8),
-                    rpad("<min", 8),
-                    rpad("travel", 14),
-                    rpad("penalty", 16),
-                    rpad("mean_t (min)", 14),
-                    rpad("t<=15", 10),
-                    rpad("15<t<=30", 10),
-                    rpad("30<t<=60", 10),
-                    "t>60")
+            for nearest in nearests
+                assignment_label = nearest ? "nearest" : "central"
+                println("\n$country — grid search (travel=$(travel), $(threshold_label), assignment=$(assignment_label))")
+                println(rpad("min_students", 14),
+                        rpad("policy_weight", 14),
+                        rpad("open", 8),
+                        rpad(">=min", 8),
+                        rpad("<min", 8),
+                        rpad("travel", 14),
+                        rpad("penalty", 16),
+                        rpad("mean_t (min)", 14),
+                        rpad("t<=15", 10),
+                        rpad("15<t<=30", 10),
+                        rpad("30<t<=60", 10),
+                        "t>60")
 
-            for min_students in min_students_values
-                for w in ws
-                    local open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, min_students, w, apply_threshold)
-                    if !isempty(open_set)
-                        max_facility_load = max(max_facility_load, maximum(fload[j] for j in open_set))
+                for min_students in min_students_values
+                    for w in ws
+                        local open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, min_students, w, apply_threshold, nearest)
+                        if !isempty(open_set)
+                            max_facility_load = max(max_facility_load, maximum(fload[j] for j in open_set))
+                        end
+                        ms_label = isinf(min_students) ? "Inf" : string(round(Int, min_students))
+                        println(rpad(ms_label, 14),
+                                rpad(w, 14),
+                                rpad(n_open_full + n_open_small, 8),
+                                rpad(n_open_full, 8),
+                                rpad(n_open_small, 8),
+                                rpad(round(travel_lp, digits=0), 14),
+                                rpad(round(raw_penalty_lp, digits=0), 16),
+                                rpad(round(mean_travel_min, digits=2), 14),
+                                rpad(round(Int, b1), 10),
+                                rpad(round(Int, b2), 10),
+                                rpad(round(Int, b3), 10),
+                                round(Int, b4))
                     end
-                    ms_label = isinf(min_students) ? "Inf" : string(round(Int, min_students))
-                    println(rpad(ms_label, 14),
-                            rpad(w, 14),
-                            rpad(n_open_full + n_open_small, 8),
-                            rpad(n_open_full, 8),
-                            rpad(n_open_small, 8),
-                            rpad(round(travel_lp, digits=0), 14),
-                            rpad(round(raw_penalty_lp, digits=0), 16),
-                            rpad(round(mean_travel_min, digits=2), 14),
-                            rpad(round(Int, b1), 10),
-                            rpad(round(Int, b2), 10),
-                            rpad(round(Int, b3), 10),
-                            round(Int, b4))
                 end
             end
         end
@@ -231,7 +233,7 @@ else
     country         = countries[1]
     apply_threshold = apply_thresholds[1]
     data            = load_country(country)
-    open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, 50.0, 1.0, apply_threshold)
+    open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, 50.0, 1.0, apply_threshold, nearests[1])
     n_open = n_open_full + n_open_small
     println("\nresults (travel=$(travel), min_students=50, w=1.0, max_travel=60 min):")
     println("open (>= min_students): $n_open_full")
@@ -253,12 +255,13 @@ else
         end
     end
 
-    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_lp.arrow", (
+    assignment_label = nearests[1] ? "nearest" : "central"
+    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_lp_$(assignment_label).arrow", (
         id = data.facilities, open = open_vec
     ))
 
     sorted_ids = sort(collect(keys(assigned_k)))
-    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_i_travel.arrow", (
+    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_i_travel_$(assignment_label).arrow", (
         id   = sorted_ids,
         t_ij = [data.t_ij_col[assigned_k[i]] for i in sorted_ids]
     ))
