@@ -18,6 +18,51 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			, NetworkSetup/NewSchool_Analysis/ProjName
 		);
 
+	parameter<string> GDAL_DRIVER := 'Arrow';
+	Template ReadResults_T
+	{
+		parameter<string> type;       // 'lp' or 'greedy'
+		parameter<string> assignment; // 'central' or 'nearest'
+		///
+
+		parameter<string> GDAL_DRIVER := 'Arrow';
+		unit<uint32> ResultingClientAssignment
+		:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'/'+type+'/'+assignment+'/traveltime.arrow'"
+		,	StorageType = "gdal.vect"
+		,	StorageReadOnly = "True"
+		{
+			attribute<min_f> t_ij;
+		}
+
+		attribute<min_f>             ClientTravelTime            (Client) := rjoin(ID(Client), convert(ResultingClientAssignment/id, Client), ResultingClientAssignment/t_ij);
+		attribute<ClientTravelTimeK> ClientTravelTime_Classified (Client) := classify(ClientTravelTime, ClientTravelTimeK/ClassBreaks);
+
+		unit<uint8> OpenEnum := range(0b, 3b)
+		{
+			attribute<string> label : [ 'Closed', 'Open', 'Underfilled'];
+			container V := for_each_nedv(label, string(ID(.))+'[..]', void, .);
+		}
+
+		unit<uint32> ResultingFacilityClosure
+		:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'/'+type+'/'+assignment+'/assignment.arrow'"
+		,	StorageType = "gdal.vect"
+		,	StorageReadOnly = "True"
+		{
+			attribute<Facility> id;
+			attribute<OpenEnum> open;
+		}
+		attribute<OpenEnum> FacilityRemainsOpen (Facility) := rjoin(ID(Facility), convert(ResultingFacilityClosure/id, Facility), ResultingFacilityClosure/Open);
+
+		unit<uint32> OpenFacilities := select_with_org_rel(FacilityRemainsOpen > OpenEnum/V/Closed)
+		{
+			attribute<BaseProjection> geometry := org_rel->Geometry;
+		}
+
+		attribute<Float64> FacilityProximity     (Base_grid_1km) := potential(Float64(IsDefined(invert(      Facility/geometry[Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
+		attribute<Float64> OpenFacilityProximity (Base_grid_1km) := potential(Float64(IsDefined(invert(OpenFacilities/geometry[Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
+		attribute<Float64> Openness              (Base_grid_1km) := OpenFacilityProximity / FacilityProximity;
+	}
+
 	Template Allocate_T
 	{
 		unit<uint32>      Org;
@@ -89,41 +134,31 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 				attribute<float32>   Deterrence_ij(OD) := ../Deterrence_ij;
 			}
 
-			unit<uint32> ResultingClientAssignment
-			:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'/lp/central/traveltime.arrow'"
-			,	StorageType = "gdal.vect"
-			,	StorageReadOnly = "True"
+			container SolverResults
 			{
-				attribute<min_f> t_ij;
+				parameter<string> GDAL_DRIVER := 'Arrow';
+
+				container lp_central     := ReadResults_T('lp'    , 'central');
+				container lp_nearest     := ReadResults_T('lp'    , 'nearest');
+				container greedy_central := ReadResults_T('greedy', 'central');
+				container greedy_nearest := ReadResults_T('greedy', 'nearest');
 			}
 
-			attribute<min_f>             ClientTravelTime            (Client) := rjoin(ID(client), convert(ResultingClientAssignment/id, Client), ResultingClientAssignment/t_ij);
-			attribute<ClientTravelTimeK> ClientTravelTime_Classified (Client) := classify(ClientTravelTime, ClientTravelTimeK/ClassBreaks);
-
-			unit<uint8> OpenEnum := range(0b, 3b)
+			container Summary
 			{
-				attribute<string> label : [ 'Closed', 'Open', 'Underfilled'];
-				container V := for_each_nedv(label, string(ID(.))+'[..]', void, .);
+				attribute<min_f>             ClientTravelTime_lp_central                (Client)        := SolverResults/lp_central/ClientTravelTime;
+				attribute<ClientTravelTimeK> ClientTravelTime_Classified_lp_central     (Client)        := SolverResults/lp_central/ClientTravelTime_Classified;
+				attribute<Float64>           Openness_lp_central                        (Base_grid_1km) := SolverResults/lp_central/Openness;
+				attribute<min_f>             ClientTravelTime_lp_nearest                (Client)        := SolverResults/lp_nearest/ClientTravelTime;
+				attribute<ClientTravelTimeK> ClientTravelTime_Classified_lp_nearest     (Client)        := SolverResults/lp_nearest/ClientTravelTime_Classified;
+				attribute<Float64>           Openness_lp_nearest                        (Base_grid_1km) := SolverResults/lp_nearest/Openness;
+				attribute<min_f>             ClientTravelTime_greedy_central            (Client)        := SolverResults/greedy_central/ClientTravelTime;
+				attribute<ClientTravelTimeK> ClientTravelTime_Classified_greedy_central (Client)        := SolverResults/greedy_central/ClientTravelTime_Classified;
+				attribute<Float64>           Openness_greedy_central                    (Base_grid_1km) := SolverResults/greedy_central/Openness;
+				attribute<min_f>             ClientTravelTime_greedy_nearest            (Client)        := SolverResults/greedy_nearest/ClientTravelTime;
+				attribute<ClientTravelTimeK> ClientTravelTime_Classified_greedy_nearest (Client)        := SolverResults/greedy_nearest/ClientTravelTime_Classified;
+				attribute<Float64>           Openness_greedy_nearest                    (Base_grid_1km) := SolverResults/greedy_nearest/Openness;
 			}
-			
-			unit<uint32> ResultingFacilityClosure
-			:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'/lp/central/assignment.arrow'"
-			,	StorageType = "gdal.vect"
-			,	StorageReadOnly = "True"
-			{
-				attribute<Facility> id;
-				attribute<OpenEnum> open;
-			}
-			attribute<OpenEnum> FacilityRemainsOpen (Facility) := rjoin(ID(facility), convert(ResultingFacilityClosure/id, Facility), ResultingFacilityClosure/Open);
-			
-			unit<uint32> OpenFacilities := select_with_org_rel(FacilityRemainsOpen > OpenEnum/V/Closed)
-			{
-				attribute<BaseProjection> geometry := org_rel->Geometry;
-			}
-			
-			attribute<Float64> FacilityProximity     (Base_grid_1km) := potential(Float64(IsDefined(invert(      Facility/geometry[Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
-			attribute<Float64> OpenFacilityProximity (Base_grid_1km) := potential(Float64(IsDefined(invert(OpenFacilities/geometry[Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
-			attribute<Float64> Openness              (Base_grid_1km) := OpenFacilityProximity / FacilityProximity;
 			
 			container ClientExport
 			:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'_i.arrow'"
