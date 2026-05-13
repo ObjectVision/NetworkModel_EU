@@ -383,7 +383,21 @@ function grid_search()
     ws = [0.0001, 0.01, 1]
 
     for country in countries
-        local data = load_country(country)
+        local data
+        try
+            data = load_country(country)
+        catch e
+            if e isa SystemError
+                println("\n$country — skipped (input file missing: $(e.prefix))")
+                continue
+            else
+                rethrow()
+            end
+        end
+        if data.N == 0
+            println("\n$country — skipped (no OD rows / no clients in input data)")
+            continue
+        end
         (; client_pop) = data
 
         for use_power_law in use_power_laws
@@ -498,7 +512,21 @@ else
     w            = 0.01
 
     for country in countries
-        local data = load_country(country)
+        local data
+        try
+            data = load_country(country)
+        catch e
+            if e isa SystemError
+                println("\n$country — skipped (input file missing: $(e.prefix))")
+                continue
+            else
+                rethrow()
+            end
+        end
+        if data.N == 0
+            println("\n$country — skipped (no OD rows / no clients in input data)")
+            continue
+        end
         (; M, facilities, client_pop, locations) = data
 
         for use_power_law in use_power_laws

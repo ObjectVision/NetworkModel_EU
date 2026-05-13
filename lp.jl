@@ -183,7 +183,21 @@ if grid
     for country in countries
         max_facility_load = 0.0
 
-        local data = load_country(country)
+        local data
+        try
+            data = load_country(country)
+        catch e
+            if e isa SystemError
+                println("\n$country — skipped (input file missing: $(e.prefix))")
+                continue
+            else
+                rethrow()
+            end
+        end
+        if data.N == 0
+            println("\n$country — skipped (no OD rows / no clients in input data)")
+            continue
+        end
 
         for apply_threshold in apply_thresholds
             threshold_label = apply_threshold ? "max_travel=60 min" : "no max_travel"
@@ -234,7 +248,21 @@ else
     w            = 0.01
 
     for country in countries
-        local data = load_country(country)
+        local data
+        try
+            data = load_country(country)
+        catch e
+            if e isa SystemError
+                println("\n$country — skipped (input file missing: $(e.prefix))")
+                continue
+            else
+                rethrow()
+            end
+        end
+        if data.N == 0
+            println("\n$country — skipped (no OD rows / no clients in input data)")
+            continue
+        end
 
         for apply_threshold in apply_thresholds
             for nearest in nearests
