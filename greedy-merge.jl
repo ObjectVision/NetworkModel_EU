@@ -3,7 +3,7 @@ using Arrow
 countries      = ["Netherlands"]
 travel         = "quadratic"
 grid           = true
-baseline       = true
+baseline       = false
 policy         = true
 use_power_laws = [true]
 
@@ -34,9 +34,10 @@ function load_existing_facilities(country)
     facilities_col = Int.(od[:facility_rel])
     t_ij_col       = od[:t_ij] ./ 60
 
-    assigned = Dict{Int, Int}()
-    cur_cost = Dict{Int, Float64}()
-    cur_time = Dict{Int, Float64}()
+    assigned      = Dict{Int, Int}()
+    cur_cost      = Dict{Int, Float64}()
+    cur_time      = Dict{Int, Float64}()
+    existing_time = Dict{Int, Dict{Int, Float64}}()
 
     for k in 1:length(clients_col)
         i  = clients_col[k]
@@ -48,9 +49,15 @@ function load_existing_facilities(country)
             cur_cost[i] = ck
             cur_time[i] = t
         end
+        if !haskey(existing_time, i)
+            existing_time[i] = Dict{Int, Float64}()
+        end
+        if t < get(existing_time[i], j, Inf)
+            existing_time[i][j] = t
+        end
     end
 
-    return fac_id_set, assigned, cur_cost, cur_time
+    return fac_id_set, assigned, cur_cost, cur_time, existing_time
 end
 
 function load_potential_facilities(country)
@@ -101,7 +108,7 @@ function facility_penalty(load, min_students, w, c0, use_power_law)
 end
 
 function merge_heuristic(open_set, initial_assigned, initial_cur_cost, initial_cur_time,
-                         min_students, w, facility_cost, opening_cost, pot_data, use_power_law)
+                         existing_time, min_students, w, facility_cost, opening_cost, pot_data, use_power_law)
     (; potential_facs, locations, clients_col, facilities_col, t_ij_col,
        client_pop, potential_time) = pot_data
 
@@ -162,7 +169,19 @@ function merge_heuristic(open_set, initial_assigned, initial_cur_cost, initial_c
                 for i in combined_clients
                     t_ip = get(get(potential_time, i, Dict{Int,Float64}()), p, Inf)
                     if isinf(t_ip)
-                        new_travel += cur_cost[i] * client_pop[i]
+                        # displaced — find true best alternative excluding j_a and j_b
+                        best_alt = Inf
+                        for (j, t) in get(existing_time, i, Dict{Int,Float64}())
+                            if j in open_set && j != j_a && j != j_b
+                                best_alt = min(best_alt, c(t))
+                            end
+                        end
+                        for (j, t) in get(potential_time, i, Dict{Int,Float64}())
+                            if j in open_set && j != j_a && j != j_b
+                                best_alt = min(best_alt, c(t))
+                            end
+                        end
+                        new_travel += (isinf(best_alt) ? cur_cost[i] : best_alt) * client_pop[i]
                     else
                         cp = c(t_ip)
                         new_travel += cp * client_pop[i]
@@ -301,7 +320,7 @@ function run_scenario(country, pot_data, min_students, w, use_power_law)
     facility_cost = 99699
     opening_cost  = 5000
 
-    initial_open, initial_assigned, initial_cur_cost, initial_cur_time =
+    initial_open, initial_assigned, initial_cur_cost, initial_cur_time, existing_time =
         load_existing_facilities(country)
 
     if baseline
@@ -322,7 +341,7 @@ function run_scenario(country, pot_data, min_students, w, use_power_law)
         !grid && println("    [merge] starting with $(length(initial_open)) existing facilities...")
         open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty, n_merges =
             merge_heuristic(initial_open, initial_assigned, initial_cur_cost, initial_cur_time,
-                            min_students, w, facility_cost, opening_cost, pot_data, use_power_law)
+                            existing_time, min_students, w, facility_cost, opening_cost, pot_data, use_power_law)
     end
 
     thr          = isinf(min_students) ? 50 : min_students
