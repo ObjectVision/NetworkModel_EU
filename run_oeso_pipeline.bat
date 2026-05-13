@@ -38,12 +38,11 @@ REM   3. The GeoDms config-settings LocalDataDir, LocalDataProjDir and
 REM      SourceDataDir must be set in your GeoDms registry (HKCU\Software\
 REM      ObjectVision\DMS) -- the same settings the GeoDms GUI uses.
 REM
-REM   4. The script TEMPORARILY rewrites cfg\main\ModelParameters.dms to set
-REM      /ModelParameters/StudyArea per iteration. It saves a backup at
-REM      cfg\main\ModelParameters.dms.bak and restores it on completion or
-REM      when interrupted. If a previous run was killed and you see
-REM      ModelParameters.dms.bak lying around, restore manually:
-REM        copy /Y cfg\main\ModelParameters.dms.bak cfg\main\ModelParameters.dms
+REM   4. cfg\main\ModelParameters.dms picks up the StudyArea from the
+REM      STUDY_AREA environment variable via:
+REM          parameter<string> StudyArea_ext := Expand(., '%%env:STUDY_AREA%%');
+REM      This script sets STUDY_AREA per iteration; ModelParameters.dms is
+REM      NOT modified on disk.
 REM
 REM ----------------------------------------------------------------------------
 REM USAGE
@@ -66,7 +65,7 @@ REM   Exit codes:
 REM     0   all countries / steps succeeded
 REM     1   at least one GeoDmsRun call returned a non-zero exit code; check
 REM         the corresponding .log file under %LOG_DIR%
-REM     2   prerequisite check failed (missing GeoDmsRun / config / dms file)
+REM     2   prerequisite check failed (missing GeoDmsRun or config)
 REM ============================================================================
 
 REM -------- 1. Configuration --------------------------------------------------
@@ -74,9 +73,6 @@ if "%GEODMS_EXE%"=="" set "GEODMS_EXE=C:\Program Files\ObjectVision\GeoDms20.0.0
 if "%CFG%"=="" set "CFG=%~dp0cfg\main.dms"
 if "%LOG_DIR%"=="" set "LOG_DIR=%~dp0logs"
 if "%STEPS%"=="" set "STEPS=network1 network2 alloc"
-
-set "MODEL_PARAMS=%~dp0cfg\main\ModelParameters.dms"
-set "MODEL_PARAMS_BAK=%MODEL_PARAMS%.bak"
 
 REM Supported OESO/OECD countries. Must match the country sub-folders that
 REM actually exist under %NetworkModelDataDir%\Infrastructure\TomTom\ AND the
@@ -88,7 +84,7 @@ REM EU is the all-countries meta-region and is not iterated here. Extend the
 REM list as more per-country TomTom datasets become available.
 REM --- first: all c
 REM set "DEFAULT_COUNTRIES=Albania Austria Belgium Bulgaria Switzerland Denmark Spain Estonia Greece Cyprus Czechia Germany France Finland Croatia Hungary Ireland Iceland Italy Liechtenstein Lithuania Luxembourg Latvia Malta Netherlands Norway Romania Poland Portugal Sweden Slovenia Slovakia
-set "DEFAULT_COUNTRIES=Albania Austria Belgium Bulgaria Denmark Spain Estonia Greece Cyprus Czechia France Finland Croatia Hungary Ireland Italy Liechtenstein Lithuania Luxembourg Latvia Malta Netherlands Norway Romania Poland Portugal Sweden Slovenia Slovakia
+set "DEFAULT_COUNTRIES=Latvia Romania
 
 
 REM Items (GeoDms tree paths) to compute, grouped per step. Each item is a
@@ -109,10 +105,6 @@ if not exist "%CFG%" (
     echo [ERROR] Config file not found at "%CFG%".
     exit /b 2
 )
-if not exist "%MODEL_PARAMS%" (
-    echo [ERROR] ModelParameters.dms not found at "%MODEL_PARAMS%".
-    exit /b 2
-)
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
 REM -------- 3. Country list ---------------------------------------------------
@@ -122,21 +114,10 @@ if "%~1"=="" (
     set "COUNTRIES=%*"
 )
 
-REM -------- 4. Backup ModelParameters.dms (so we can restore on exit/CTRL-C) --
-if exist "%MODEL_PARAMS_BAK%" (
-    echo [WARN] Stale backup %MODEL_PARAMS_BAK% exists. Refusing to overwrite.
-    echo        If the original is intact, delete the backup and rerun.
-    echo        Otherwise restore manually:
-    echo          copy /Y "%MODEL_PARAMS_BAK%" "%MODEL_PARAMS%"
-    exit /b 2
-)
-copy /Y "%MODEL_PARAMS%" "%MODEL_PARAMS_BAK%" > nul
-
-REM -------- 5. Main loop ------------------------------------------------------
-REM We pass paths + country to PowerShell via environment variables so the
-REM PS command line itself contains no literal quotes that cmd.exe could mangle.
-set "MP_BAK=%MODEL_PARAMS_BAK%"
-set "MP_DST=%MODEL_PARAMS%"
+REM -------- 4. Main loop ------------------------------------------------------
+REM STUDY_AREA is exported as an environment variable each iteration; GeoDmsRun
+REM picks it up via Expand(., '%%env:STUDY_AREA%%') in cfg\main\ModelParameters.dms,
+REM so the repository file is left untouched.
 
 set "OVERALL_RC=0"
 for %%C in (%COUNTRIES%) do (
@@ -144,20 +125,8 @@ for %%C in (%COUNTRIES%) do (
     set "STUDY_AREA=%%C"
     echo.
     echo ============================================================
-    echo  Processing country: !COUNTRY!
+    echo  Processing country: !COUNTRY!  (STUDY_AREA=!STUDY_AREA!)
     echo ============================================================
-
-    REM Rewrite ModelParameters.dms from the pristine backup, replacing the
-    REM whole 'parameter<string>   StudyArea := '...';' assignment with the
-    REM current country. The regex matches whichever default value was
-    REM committed. [char]39 is used in place of literal single quotes so the
-    REM PowerShell command line stays quote-free.
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "$q=[char]39; $rx=New-Object System.Text.RegularExpressions.Regex('(parameter<string>\s+StudyArea\s+:=\s+)' + $q + '[^' + $q + ']*' + $q); $c = Get-Content -Raw -LiteralPath $env:MP_BAK; $c = $rx.Replace($c, '${1}' + $q + $env:STUDY_AREA + $q); Set-Content -LiteralPath $env:MP_DST -Value $c -Encoding ASCII"
-    if errorlevel 1 (
-        echo [ERROR] Failed to rewrite StudyArea for !COUNTRY!.
-        set "OVERALL_RC=1"
-        goto :cleanup
-    )
 
     for %%S in (%STEPS%) do (
         set "STEP=%%S"
@@ -180,13 +149,6 @@ for %%C in (%COUNTRIES%) do (
             )
         )
     )
-)
-
-:cleanup
-REM -------- 6. Always restore ModelParameters.dms -----------------------------
-if exist "%MODEL_PARAMS_BAK%" (
-    copy /Y "%MODEL_PARAMS_BAK%" "%MODEL_PARAMS%" > nul
-    del /Q "%MODEL_PARAMS_BAK%"
 )
 
 echo.
