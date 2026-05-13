@@ -69,7 +69,7 @@ REM     2   prerequisite check failed (missing GeoDmsRun or config)
 REM ============================================================================
 
 REM -------- 1. Configuration --------------------------------------------------
-if "%GEODMS_EXE%"=="" set "GEODMS_EXE=C:\Program Files\ObjectVision\GeoDms20.0.0.m\GeoDmsRun.exe"
+if "%GEODMS_EXE%"=="" set "GEODMS_EXE=C:\Program Files\ObjectVision\GeoDms19.5.0\GeoDmsRun.exe"
 if "%CFG%"=="" set "CFG=%~dp0cfg\main.dms"
 if "%LOG_DIR%"=="" set "LOG_DIR=%~dp0logs"
 if "%STEPS%"=="" set "STEPS=network1 network2 alloc"
@@ -83,8 +83,8 @@ REM   EU, Finland, France, Netherlands, Romania
 REM EU is the all-countries meta-region and is not iterated here. Extend the
 REM list as more per-country TomTom datasets become available.
 REM --- first: all c
-REM set "DEFAULT_COUNTRIES=Albania Austria Belgium Bulgaria Switzerland Denmark Spain Estonia Greece Cyprus Czechia Germany France Finland Croatia Hungary Ireland Iceland Italy Liechtenstein Lithuania Luxembourg Latvia Malta Netherlands Norway Romania Poland Portugal Sweden Slovenia Slovakia
-set "DEFAULT_COUNTRIES=Latvia Romania
+set "DEFAULT_COUNTRIES=Albania Austria Belgium Bulgaria Switzerland Denmark Spain Estonia Greece Cyprus Czechia Germany France Finland Croatia Hungary Ireland Iceland Italy Liechtenstein Lithuania Luxembourg Latvia Malta Netherlands Norway Romania Poland Portugal Sweden Slovenia Slovakia
+REM set "DEFAULT_COUNTRIES=Latvia Romania
 
 
 REM Items (GeoDms tree paths) to compute, grouped per step. Each item is a

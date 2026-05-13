@@ -1,8 +1,8 @@
 include("settings.jl")
 
 grid              = false
-apply_thresholds  = [true]       # add false to also run without max-travel filter
-nearests          = [true, false]      # true: assign each client to nearest open school; false: re-solve LP for assignments
+apply_thresholds  = [true, false]       # add false to also run without max-travel filter
+nearests          = [false]      # true: assign each client to nearest open school; false: re-solve LP for assignments
 
 function run_scenario(data, min_students, w, apply_threshold, nearest)
     (; N, facilities, wpop, t_ij_col, facilities_col, locations, facility_rows) = data
