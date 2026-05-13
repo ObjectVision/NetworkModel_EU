@@ -90,25 +90,33 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			}
 
 			unit<uint32> ResultingClientAssignment
-			:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'_i_travel.arrow'"
+			:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'/lp/central/traveltime.arrow'"
 			,	StorageType = "gdal.vect"
 			,	StorageReadOnly = "True"
 			{
 				attribute<min_f> t_ij;
 			}
-				
+
 			attribute<min_f>             ClientTravelTime            (Client) := rjoin(ID(client), convert(ResultingClientAssignment/id, Client), ResultingClientAssignment/t_ij);
 			attribute<ClientTravelTimeK> ClientTravelTime_Classified (Client) := classify(ClientTravelTime, ClientTravelTimeK/ClassBreaks);
 
-
-			unit<uint32> ResultingFacilityClosure
-			:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'_j_greedy.arrow'"
-			,	StorageType = "gdal.vect"
-			,	StorageReadOnly = "True";
-				
-			attribute<int64> FacilityRemainsOpen (Facility) := rjoin(ID(facility), convert(ResultingFacilityClosure/id, Facility), ResultingFacilityClosure/Open);
+			unit<uint8> OpenEnum := range(0b, 3b)
+			{
+				attribute<string> label : [ 'Closed', 'Open', 'Underfilled'];
+				container V := for_each_nedv(label, string(ID(.))+'[..]', void, .);
+			}
 			
-			unit<uint32> OpenFacilities := select_with_org_rel(FacilityRemainsOpen)
+			unit<uint32> ResultingFacilityClosure
+			:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'/lp/central/assignment.arrow'"
+			,	StorageType = "gdal.vect"
+			,	StorageReadOnly = "True"
+			{
+				attribute<Facility> id;
+				attribute<OpenEnum> open;
+			}
+			attribute<OpenEnum> FacilityRemainsOpen (Facility) := rjoin(ID(facility), convert(ResultingFacilityClosure/id, Facility), ResultingFacilityClosure/Open);
+			
+			unit<uint32> OpenFacilities := select_with_org_rel(FacilityRemainsOpen > OpenEnum/V/Closed)
 			{
 				attribute<BaseProjection> geometry := org_rel->Geometry;
 			}

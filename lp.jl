@@ -1,59 +1,13 @@
-using Arrow, JuMP, HiGHS
+include("settings.jl")
 
-countries         = ["Albania", "Austria", "Belgium", "Bulgaria", "Switzerland", "Denmark", "Spain", "Estonia", "Greece", "Cyprus", "Czechia", "Germany", "France", "Finland", "Croatia", "Hungary", "Ireland", "Iceland", "Italy", "Liechtenstein", "Lithuania", "Luxembourg", "Latvia", "Malta", "Netherlands", "Norway", "Romania", "Poland", "Portugal", "Sweden", "Slovenia", "Slovakia"]
-travel            = "quadratic"  # "linear" or "quadratic"
 grid              = false
 apply_thresholds  = [true]       # add false to also run without max-travel filter
 nearests          = [true, false]      # true: assign each client to nearest open school; false: re-solve LP for assignments
 
-function c(t)
-    travel == "quadratic" ? 0.05 * t^2 + 0.5 * t : t
-end
-
-function load_country(country)
-    od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_od.arrow")
-    loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_i.arrow")
-    fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_j.arrow")
-
-    clients_col    = Int.(od[:client_rel])
-    facilities_col = Int.(od[:facility_rel])
-    t_ij_col       = od[:t_ij] ./ 60
-    population     = loc[:pop]
-    facilities     = Int.(fac[:id])
-
-    N = length(clients_col)
-    M = length(facilities)
-
-    wpop = [population[clients_col[k]+1] for k in 1:N]
-
-    locations = Dict{Int, Vector{Int}}()
-    for k in 1:N
-        i = clients_col[k]
-        haskey(locations, i) ? push!(locations[i], k) : (locations[i] = [k])
-    end
-
-    facility_rows = Dict{Int, Vector{Int}}()
-    for k in 1:N
-        j = facilities_col[k]
-        if !haskey(facility_rows, j)
-            facility_rows[j] = Int[]
-        end
-        push!(facility_rows[j], k)
-    end
-    for j in facilities
-        if !haskey(facility_rows, j)
-            facility_rows[j] = Int[]
-        end
-    end
-
-    return (; N, M, facilities, wpop, t_ij_col, facilities_col, locations, facility_rows)
-end
-
 function run_scenario(data, min_students, w, apply_threshold, nearest)
     (; N, facilities, wpop, t_ij_col, facilities_col, locations, facility_rows) = data
 
-    facility_cost = 99699
-    λ = w * facility_cost
+    λ = w * FACILITY_COST
 
     model = Model(HiGHS.Optimizer)
     set_optimizer_attribute(model, "presolve", "on")
@@ -161,11 +115,11 @@ function run_scenario(data, min_students, w, apply_threshold, nearest)
 
     travel_lp      = sum(c(t_ij_col[k]) * wpop[k] for (i, k) in assigned_k)
     penalty_lp     = isinf(min_students) ?
-                         length(open_set) * facility_cost * w :
+                         length(open_set) * FACILITY_COST * w :
                          sum(max(0.0, min_students - fload[j]) * λ for j in open_set; init=0.0)
     raw_penalty_lp = isinf(min_students) ?
-                         length(open_set) * facility_cost :
-                         sum(max(0.0, min_students - fload[j]) * facility_cost for j in open_set; init=0.0)
+                         length(open_set) * FACILITY_COST :
+                         sum(max(0.0, min_students - fload[j]) * FACILITY_COST for j in open_set; init=0.0)
 
     n_open_full  = isinf(min_students) ? length(open_set) : sum(1 for j in open_set if fload[j] >= min_students; init=0)
     n_open_small = isinf(min_students) ? 0                : sum(1 for j in open_set if fload[j] < min_students;  init=0)
@@ -180,24 +134,11 @@ if grid
     min_students_values = [50.0, 100.0, 200.0]
     ws = [0.0001, 0.01, 1.0]
 
-    for country in countries
+    for country in COUNTRIES
         max_facility_load = 0.0
 
-        local data
-        try
-            data = load_country(country)
-        catch e
-            if e isa SystemError
-                println("\n$country — skipped (input file missing: $(e.prefix))")
-                continue
-            else
-                rethrow()
-            end
-        end
-        if data.N == 0
-            println("\n$country — skipped (no OD rows / no clients in input data)")
-            continue
-        end
+        local data = try_load_country(country)
+        data === nothing && continue
 
         for apply_threshold in apply_thresholds
             threshold_label = apply_threshold ? "max_travel=60 min" : "no max_travel"
@@ -247,22 +188,9 @@ else
     min_students = 50.0
     w            = 0.01
 
-    for country in countries
-        local data
-        try
-            data = load_country(country)
-        catch e
-            if e isa SystemError
-                println("\n$country — skipped (input file missing: $(e.prefix))")
-                continue
-            else
-                rethrow()
-            end
-        end
-        if data.N == 0
-            println("\n$country — skipped (no OD rows / no clients in input data)")
-            continue
-        end
+    for country in COUNTRIES
+        local data = try_load_country(country)
+        data === nothing && continue
 
         for apply_threshold in apply_thresholds
             for nearest in nearests
@@ -292,12 +220,12 @@ else
                     end
                 end
 
-                Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_lp_$(assignment_label).arrow", (
+                Arrow.write(output_path(country, "lp", assignment_label, "assignment"), (
                     id = data.facilities, open = open_vec
                 ))
 
                 sorted_ids = sort(collect(keys(assigned_k)))
-                Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_i_travel_$(assignment_label).arrow", (
+                Arrow.write(output_path(country, "lp", assignment_label, "traveltime"), (
                     id   = sorted_ids,
                     t_ij = [data.t_ij_col[assigned_k[i]] for i in sorted_ids]
                 ))

@@ -1,58 +1,9 @@
-using Arrow, JuMP, HiGHS
+include("settings.jl")
 
-countries          = ["Albania", "Austria", "Belgium", "Bulgaria", "Switzerland", "Denmark", "Spain", "Estonia", "Greece", "Cyprus", "Czechia", "Germany", "France", "Finland", "Croatia", "Hungary", "Ireland", "Iceland", "Italy", "Liechtenstein", "Lithuania", "Luxembourg", "Latvia", "Malta", "Netherlands", "Norway", "Romania", "Poland", "Portugal", "Sweden", "Slovenia", "Slovakia"]
-travel             = "quadratic"   # "linear", "quadratic", or "piecewise"
 grid               = false
 policy             = true          # true: vary min_students [25..200]; false: Inf (no minimum)
-use_power_laws = [false] # false: fixed cost + deficit penalty; true: power-law facility cost
-nearests       = [true, false] # true: keep nearest-open assignments from drop heuristic; false: re-solve LP for optimal assignments
-
-function c(t)
-    if travel == "quadratic"
-        return 0.05 * t^2 + 0.5 * t
-    elseif travel == "piecewise"
-        if t <= 15
-            return 1.0 * t
-        elseif t <= 30
-            return 2.0 * t 
-        else
-            return 4.0 * t
-        end
-    elseif travel == "linear"
-        return t
-    end
-end
-
-function load_country(country)
-    od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_od.arrow")
-    loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_i.arrow")
-    fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_j.arrow")
-
-    clients_col    = Int.(od[:client_rel])
-    facilities_col = Int.(od[:facility_rel])
-    t_ij_col       = od[:t_ij] ./ 60
-    population     = loc[:pop]
-    facilities     = Int.(fac[:id])
-
-    N = length(clients_col)
-    M = length(facilities)
-
-    locations = Dict{Int, Vector{Int}}()
-    for k in 1:N
-        i = clients_col[k]
-        haskey(locations, i) ? push!(locations[i], k) : (locations[i] = [k])
-    end
-
-    client_pop = Dict(i => population[i+1] for i in keys(locations))
-
-    nearest_facility = Dict{Int, Int}()
-    for (i, rows) in locations
-        best_k = rows[argmin(c(t_ij_col[k]) for k in rows)]
-        nearest_facility[i] = facilities_col[best_k]
-    end
-
-    return (; N, M, facilities, clients_col, facilities_col, t_ij_col, locations, client_pop, nearest_facility)
-end
+use_power_laws     = [false]       # false: fixed cost + deficit penalty; true: power-law facility cost
+nearests           = [true, false] # true: keep nearest-open assignments from drop heuristic; false: re-solve LP for optimal assignments
 
 # if use_power_law: total cost = 51712 * load^0.465 (derived from cost-per-pupil = 51712 * load^-0.535)
 # else if min_students is Inf: fixed cost w * c0 per open facility
@@ -321,7 +272,6 @@ end
 
 function run_scenario(data, min_students, w, use_power_law, nearest)
     (; facilities, facilities_col, t_ij_col, locations, client_pop, nearest_facility) = data
-    facility_cost = 99699
 
     expected_load = Dict(j => 0.0 for j in facilities)
     for (i, j) in nearest_facility
@@ -356,20 +306,20 @@ function run_scenario(data, min_students, w, use_power_law, nearest)
         end
     end
 
-    open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty = drop_heuristic(initial_open, min_students, w, facility_cost, data, use_power_law)
+    open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty = drop_heuristic(initial_open, min_students, w, FACILITY_COST, data, use_power_law)
 
     if !nearest
-        assigned, fload, cur_cost, cur_time = lp_assignment(open_set, min_students, w, facility_cost, data)
+        assigned, fload, cur_cost, cur_time = lp_assignment(open_set, min_students, w, FACILITY_COST, data)
     end
 
     n_open_full  = isinf(min_students) ? sum(1 for j in open_set if fload[j] >= 50; init=0) : sum(1 for j in open_set if fload[j] >= min_students; init=0)
     n_open_small = isinf(min_students) ? sum(1 for j in open_set if fload[j] < 50;  init=0) : sum(1 for j in open_set if fload[j] < min_students;  init=0)
 
     travel_cost = isempty(assigned) ? 0.0 : sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
-    penalty     = isempty(open_set) ? 0.0 : sum(facility_penalty(fload[j], min_students, w, facility_cost, use_power_law) for j in open_set)
+    penalty     = isempty(open_set) ? 0.0 : sum(facility_penalty(fload[j], min_students, w, FACILITY_COST, use_power_law) for j in open_set)
     raw_penalty = isempty(open_set) ? 0.0 : (use_power_law ?
         sum(fload[j] > 0 ? 51712 * fload[j]^0.465 : 0.0 for j in open_set) :
-        sum(isinf(min_students) ? facility_cost : facility_cost * max(0.0, min_students - fload[j]) for j in open_set))
+        sum(isinf(min_students) ? FACILITY_COST : FACILITY_COST * max(0.0, min_students - fload[j]) for j in open_set))
 
     total_client_pop = sum(client_pop[i] for i in keys(cur_time))
     mean_travel_min  = sum(cur_time[i] * client_pop[i] for i in keys(cur_time)) / total_client_pop
@@ -382,22 +332,9 @@ function grid_search()
     # ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1]
     ws = [0.0001, 0.01, 1]
 
-    for country in countries
-        local data
-        try
-            data = load_country(country)
-        catch e
-            if e isa SystemError
-                println("\n$country — skipped (input file missing: $(e.prefix))")
-                continue
-            else
-                rethrow()
-            end
-        end
-        if data.N == 0
-            println("\n$country — skipped (no OD rows / no clients in input data)")
-            continue
-        end
+    for country in COUNTRIES
+        local data = try_load_country(country)
+        data === nothing && continue
         (; client_pop) = data
 
         for use_power_law in use_power_laws
@@ -455,8 +392,8 @@ function grid_search()
 end
 
 
-function single_run(country, min_students, w, use_power_law, nearest=true)
-    data = load_country(country)
+function single_run(country, min_students, w, use_power_law, nearest=true; data=nothing)
+    data = data === nothing ? load_country(country) : data
     (; M, facilities, client_pop, locations) = data
 
     open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty, raw_penalty, n_open_full, n_open_small, mean_travel_min = run_scenario(data, min_students, w, use_power_law, nearest)
@@ -492,13 +429,13 @@ function single_run(country, min_students, w, use_power_law, nearest=true)
     end
 
     assignment_label = nearest ? "nearest" : "central"
-    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_j_greedy_$(assignment_label).arrow", (
+    Arrow.write(output_path(country, "greedy", assignment_label, "assignment"), (
         id   = facilities,
         open = open_vec
     ))
 
     sorted_ids = sort(collect(keys(cur_time)))
-    Arrow.write("C:\\LocalData\\networkmodel_eu\\$(country)_i_travel_$(assignment_label).arrow", (
+    Arrow.write(output_path(country, "greedy", assignment_label, "traveltime"), (
         id   = sorted_ids,
         t_ij = [cur_time[i] for i in sorted_ids]
     ))
@@ -511,23 +448,9 @@ else
     min_students = 50.0
     w            = 0.01
 
-    for country in countries
-        local data
-        try
-            data = load_country(country)
-        catch e
-            if e isa SystemError
-                println("\n$country — skipped (input file missing: $(e.prefix))")
-                continue
-            else
-                rethrow()
-            end
-        end
-        if data.N == 0
-            println("\n$country — skipped (no OD rows / no clients in input data)")
-            continue
-        end
-        (; M, facilities, client_pop, locations) = data
+    for country in COUNTRIES
+        local data = try_load_country(country)
+        data === nothing && continue
 
         for use_power_law in use_power_laws
             for nearest in nearests
@@ -535,7 +458,7 @@ else
                     continue
                 end
 
-                @time single_run(country, min_students, w, use_power_law, nearest)
+                @time single_run(country, min_students, w, use_power_law, nearest; data=data)
             end
         end
     end
