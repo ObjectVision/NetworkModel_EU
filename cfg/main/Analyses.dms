@@ -2,6 +2,27 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 {  
 	unit<uint32> Client       := ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/'+ModelParameters/Client+' > 0)';
 
+	container Pharmacies
+	{
+		unit<uint32> locations := SourceData/Locations/Pharmacies;
+		
+	}
+	container AllocateClientsToExistingPharmacies:= 
+		Allocate_T(
+			  Client
+			, SourceData/Locations/Pharmacies/within_StudyArea/uq_cells
+			, NetworkSetup/ExistingPharmacy_Analysis/NetwerkSpec
+			, NetworkSetup/ExistingPharmacy_Analysis/ProjName
+		);
+		
+	container AllocateClientsToNewPharmacies:= 
+		Allocate_T(
+			  Client
+			, SourceData/Locations/NewPharmacyLocations/within_StudyArea
+			, NetworkSetup/NewPharmacy_Analysis/NetwerkSpec
+			, NetworkSetup/NewPharmacy_Analysis/ProjName
+		);
+		
 	container AllocateKidsToExistingSchools := 
 		Allocate_T(
 			  Client

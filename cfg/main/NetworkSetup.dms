@@ -1,25 +1,39 @@
 container NetworkSetup : using = "units;Geography;SourceData;Classifications"
 {
-	container StudentAccess_Analysis := =
-		'Call_CreateNetwork_T('
-			 'Analyses/StudentAccessibility/Org'   //Org
-			',Analyses/StudentAccessibility/Dest'  //Dest
-			',''StudentAccessibility'''
-		')';
+	container StudentAccess_Analysis :=
+		Call_CreateNetwork_T(
+			 Analyses/StudentAccessibility/Org   //Org
+			,Analyses/StudentAccessibility/Dest  //Dest
+			,'StudentAccessibility'
+		);
 		
-	container ExistingSchool_Analysis := =
-		'Call_CreateNetwork_T('
-			 'Analyses/AllocateKidsToExistingSchools/Org'   //Org
-			',Analyses/AllocateKidsToExistingSchools/Dest'  //Dest
-			',''ExistingSchools'''
-		')';
+	container ExistingSchool_Analysis :=
+		Call_CreateNetwork_T(
+			 Analyses/AllocateKidsToExistingSchools/Org   //Org
+			,Analyses/AllocateKidsToExistingSchools/Dest  //Dest
+			,'ExistingSchools'
+		);
 		
-	container NewSchool_Analysis := =
-		'Call_CreateNetwork_T('
-			 'Analyses/AllocateKidsToNewSchools/Org'   //Org
-			',Analyses/AllocateKidsToNewSchools/Dest'  //Dest
-			',''NewSchools'''
-		')';
+	container NewSchool_Analysis :=
+		Call_CreateNetwork_T(
+			 Analyses/AllocateKidsToNewSchools/Org   //Org
+			,Analyses/AllocateKidsToNewSchools/Dest  //Dest
+			,'NewSchools'
+		);
+
+	container ExistingPharmacy_Analysis :=
+		Call_CreateNetwork_T(
+			Analyses/AllocateClientsToExistingPharmacies/Org   //Org
+			,Analyses/AllocateClientsToExistingPharmacies/Dest  //Dest
+			,'ExistingPharmacies'
+		);
+		
+	container NewPharmacy_Analysis :=
+		Call_CreateNetwork_T(
+			Analyses/AllocateClientsToNewPharmacies/Org   //Org
+			,Analyses/AllocateClientsToNewPharmacies/Dest  //Dest
+			,'NewPharmacies'
+		);
 
 	Template Call_CreateNetwork_T
 	{
