@@ -9,7 +9,10 @@ const COUNTRIES = ["Albania", "Austria", "Belgium", "Bulgaria", "Switzerland", "
 
 const FACILITY_COST = 99699
 
-travel = "quadratic"  # "linear", "quadratic", or "piecewise"
+travel = "quadratic"  # "linear", "quadratic", "piecewise", or "logistic"
+
+logistic_midpoint = 30.0  # minutes
+logistic_scale    = 15.0  # minutes
 
 function c(t)
     if travel == "quadratic"
@@ -24,6 +27,8 @@ function c(t)
         end
     elseif travel == "linear"
         return t
+    elseif travel == "logistic"
+        return 1.0 / (1.0 + exp(-(t - logistic_midpoint) / logistic_scale))
     end
 end
 
