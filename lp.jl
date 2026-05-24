@@ -1,137 +1,13 @@
-include("settings.jl")
+include("lp_run.jl")
 
 grid              = false
 apply_thresholds  = [true, false]       # add false to also run without max-travel filter
 nearests          = [false]      # true: assign each client to nearest open school; false: re-solve LP for assignments
 
-function run_scenario(data, min_students, w, apply_threshold, nearest)
-    (; N, facilities, wpop, t_ij_col, facilities_col, locations, facility_rows) = data
-
-    λ = w * FACILITY_MIN_COSTS
-
-    model = Model(HiGHS.Optimizer)
-    set_optimizer_attribute(model, "presolve", "on")
-    set_optimizer_attribute(model, "output_flag", false)
-
-    @variable(model, 0 <= y[1:N] <= 1)
-    @variable(model, 0 <= x[j in facilities] <= 1)
-
-    if !isinf(min_students)
-        @variable(model, deficit[j in facilities] >= 0)
-        @expression(model, load[j in facilities],
-            sum(y[k] * wpop[k] for k in facility_rows[j])
-        )
-        @objective(model, Min,
-            sum(y[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N) +
-            sum(deficit[j] * λ for j in facilities)
-        )
-        for j in facilities
-            @constraint(model, deficit[j] >= min_students * x[j] - load[j])
-        end
-    else
-        @objective(model, Min,
-            sum(y[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N) +
-            sum(x[j] * λ for j in facilities)
-        )
-    end
-
-    for (_, rows) in locations
-        @constraint(model, sum(y[k] for k in rows) == 1)
-    end
-    for k in 1:N
-        @constraint(model, y[k] <= x[facilities_col[k]])
-    end
-
-    optimize!(model)
-
-    x_relaxed      = value.(x)
-    tol            = 1e-6
-    fixed_open_set = Set([j for j in facilities if x_relaxed[j] >= 1 - tol])
-    fractional     = [j for j in facilities if tol < x_relaxed[j] < 1 - tol]
-    open_set       = union(fixed_open_set, Set(fractional))
-
-    # fix x based on first LP
-    for j in facilities
-        fix(x[j], j in open_set ? 1.0 : 0.0; force=true)
-    end
-
-    # assign clients to facilities
-    assigned_k = Dict{Int, Int}()
-    if nearest
-        # nearest-open lookup: no second LP
-        for (i, rows) in locations
-            open_rows = [k for k in rows if facilities_col[k] in open_set]
-            if apply_threshold
-                within_60 = [k for k in open_rows if t_ij_col[k] <= 60.0]
-                candidates = isempty(within_60) ? open_rows : within_60
-            else
-                candidates = open_rows
-            end
-            if !isempty(candidates)
-                assigned_k[i] = candidates[argmin(c(t_ij_col[k]) for k in candidates)]
-            end
-        end
-    else
-        # apply 60-min cap and re-solve LP for assignments
-        if apply_threshold
-            for (_, rows) in locations
-                open_rows_within_60 = [k for k in rows if facilities_col[k] in open_set && t_ij_col[k] <= 60.0]
-                if !isempty(open_rows_within_60)
-                    for k in rows
-                        if t_ij_col[k] > 60.0
-                            fix(y[k], 0.0; force=true)
-                        end
-                    end
-                end
-            end
-        end
-
-        optimize!(model)
-
-        for (i, rows) in locations
-            best_k, best_val = rows[1], value(y[rows[1]])
-            for k in rows[2:end]
-                v = value(y[k])
-                if v > best_val
-                    best_val = v; best_k = k
-                end
-            end
-            assigned_k[i] = best_k
-        end
-    end
-
-    fload = Dict(j => 0.0 for j in facilities)
-    for (_, k) in assigned_k
-        fload[facilities_col[k]] += wpop[k]
-    end
-
-    total_client_pop = sum(wpop[rows[1]] for (i, rows) in locations)
-    mean_travel_min  = sum(t_ij_col[k] * wpop[k] for (i, k) in assigned_k) / total_client_pop
-
-    b1 = sum(wpop[k] for (i, k) in assigned_k if t_ij_col[k] < 15;        init=0.0)
-    b2 = sum(wpop[k] for (i, k) in assigned_k if 15 <= t_ij_col[k] < 30;  init=0.0)
-    b3 = sum(wpop[k] for (i, k) in assigned_k if 30 <= t_ij_col[k] < 60;  init=0.0)
-    b4 = sum(wpop[k] for (i, k) in assigned_k if t_ij_col[k] >= 60;       init=0.0)
-
-    travel_lp      = sum(c(t_ij_col[k]) * wpop[k] for (i, k) in assigned_k)
-    penalty_lp     = isinf(min_students) ?
-                         length(open_set) * FACILITY_MIN_COSTS * w :
-                         sum(max(0.0, min_students - fload[j]) * λ for j in open_set; init=0.0)
-    raw_penalty_lp = isinf(min_students) ?
-                         length(open_set) * FACILITY_MIN_COSTS :
-                         sum(max(0.0, min_students - fload[j]) * FACILITY_MIN_COSTS for j in open_set; init=0.0)
-
-    n_open_full  = isinf(min_students) ? length(open_set) : sum(1 for j in open_set if fload[j] >= min_students; init=0)
-    n_open_small = isinf(min_students) ? 0                : sum(1 for j in open_set if fload[j] < min_students;  init=0)
-
-    return open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4
-end
-
-
 if grid
-    # min_students_values = [25.0, 50.0, 100.0, 150.0, 200.0]
+    # min_clients_values = [25.0, 50.0, 100.0, 150.0, 200.0]
     # ws = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0]
-    min_students_values = [50.0, 100.0, 200.0]
+    min_clients_values = [50.0, 100.0, 200.0]
     ws = [0.0001, 0.01, 1.0]
 
     for country in COUNTRIES
@@ -146,7 +22,7 @@ if grid
             for nearest in nearests
                 assignment_label = nearest ? "nearest" : "central"
                 println("\n$country — grid search (travel_func=$(travel_func), $(threshold_label), assignment=$(assignment_label))")
-                println(rpad("min_students", 14),
+                println(rpad("min_clients", 14),
                         rpad("policy_weight", 14),
                         rpad("open", 8),
                         rpad(">=min", 8),
@@ -159,13 +35,13 @@ if grid
                         rpad("30<t<=60", 10),
                         "t>60")
 
-                for min_students in min_students_values
+                for min_clients in min_clients_values
                     for w in ws
-                        local open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, min_students, w, apply_threshold, nearest)
+                        local open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, min_clients, w, apply_threshold, nearest)
                         if !isempty(open_set)
                             max_facility_load = max(max_facility_load, maximum(fload[j] for j in open_set))
                         end
-                        ms_label = isinf(min_students) ? "Inf" : string(round(Int, min_students))
+                        ms_label = isinf(min_clients) ? "Inf" : string(round(Int, min_clients))
                         println(rpad(ms_label, 14),
                                 rpad(w, 14),
                                 rpad(n_open_full + n_open_small, 8),
@@ -185,8 +61,8 @@ if grid
         println("\n$country — max facility load across all configurations: ", round(Int, max_facility_load))
     end
 else
-    min_students = 50.0
-    w            = 0.01
+    min_clients = 50.0
+    w           = 0.01
 
     for country in COUNTRIES
         local data = try_load_country(country)
@@ -197,12 +73,12 @@ else
                 threshold_label  = apply_threshold ? "max_travel=60 min" : "no max_travel"
                 assignment_label = nearest ? "nearest" : "central"
 
-                open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, min_students, w, apply_threshold, nearest)
+                open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, min_clients, w, apply_threshold, nearest)
                 n_open = n_open_full + n_open_small
 
-                println("\n$country — results (travel_func=$(travel_func), min_students=$(round(Int, min_students)), w=$(w), $(threshold_label), assignment=$(assignment_label)):")
-                println("open (>= min_students): $n_open_full")
-                println("open (< min_students): $n_open_small")
+                println("\n$country — results (travel_func=$(travel_func), min_clients=$(round(Int, min_clients)), w=$(w), $(threshold_label), assignment=$(assignment_label)):")
+                println("open (>= min_clients): $n_open_full")
+                println("open (< min_clients): $n_open_small")
                 println("closed: $(data.M - n_open)")
                 println("total: $(data.M)")
                 println("travel (LP): ", round(travel_lp, digits=0))
@@ -216,7 +92,7 @@ else
                 open_vec = zeros(Int, data.M)
                 for (idx, j) in enumerate(data.facilities)
                     if j in open_set
-                        open_vec[idx] = isinf(min_students) || fload[j] >= min_students ? 1 : 2
+                        open_vec[idx] = isinf(min_clients) || fload[j] >= min_clients ? 1 : 2
                     end
                 end
 

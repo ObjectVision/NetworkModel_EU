@@ -99,16 +99,16 @@ function load_potential_facilities(country)
               client_pop, potential_time)
 end
 
-function facility_penalty(load, min_students, w, c0, use_power_law)
+function facility_penalty(load, min_clients, w, c0, use_power_law)
     if use_power_law
         load <= 0 ? 0.0 : w * 51712 * load^0.465
     else
-        isinf(min_students) ? w * c0 : w * c0 * max(0.0, min_students - load)
+        isinf(min_clients) ? w * c0 : w * c0 * max(0.0, min_clients - load)
     end
 end
 
 function merge_heuristic(open_set, initial_assigned, initial_cur_cost, initial_cur_time,
-                         existing_time, min_students, w, facility_cost, opening_cost, pot_data, use_power_law)
+                         existing_time, min_clients, w, facility_cost, opening_cost, pot_data, use_power_law)
     (; potential_facs, locations, clients_col, facilities_col, t_ij_col,
        client_pop, potential_time) = pot_data
 
@@ -131,7 +131,7 @@ function merge_heuristic(open_set, initial_assigned, initial_cur_cost, initial_c
         push!(facility_clients[j], i)
     end
 
-    facility_cost_cache = Dict(j => facility_penalty(fload[j], min_students, w, facility_cost, use_power_law)
+    facility_cost_cache = Dict(j => facility_penalty(fload[j], min_clients, w, facility_cost, use_power_law)
                                for j in open_set)
 
     # Precompute for each potential facility: which clients can reach it
@@ -189,7 +189,7 @@ function merge_heuristic(open_set, initial_assigned, initial_cur_cost, initial_c
                     end
                 end
 
-                saving = current_total - new_travel - facility_penalty(combined_load, min_students, w, facility_cost, use_power_law) - opening_cost
+                saving = current_total - new_travel - facility_penalty(combined_load, min_clients, w, facility_cost, use_power_law) - opening_cost
                 if saving > best_saving
                     best_saving = saving
                     best_move   = (j_a, j_b, p, assignments, saving)
@@ -281,7 +281,7 @@ function merge_heuristic(open_set, initial_assigned, initial_cur_cost, initial_c
             facility_clients[j_a] = Int[]
             facility_clients[j_b] = Int[]
 
-            facility_cost_cache[p] = facility_penalty(fload[p], min_students, w, facility_cost, use_power_law)
+            facility_cost_cache[p] = facility_penalty(fload[p], min_clients, w, facility_cost, use_power_law)
 
             n_merges += 1
             !grid && print("\r    [merge] merges so far: $n_merges  ($(length(open_set)) open, $(length(savings)) potentials with savings)")
@@ -310,12 +310,12 @@ function merge_heuristic(open_set, initial_assigned, initial_cur_cost, initial_c
     !grid && println("    [merge] done — $n_merges merges applied, $(length(open_set)) remaining open")
 
     travel_cost = sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
-    penalty     = sum(facility_penalty(fload[j], min_students, w, facility_cost, use_power_law) for j in open_set)
+    penalty     = sum(facility_penalty(fload[j], min_clients, w, facility_cost, use_power_law) for j in open_set)
 
     return open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty, n_merges
 end
 
-function run_scenario(country, pot_data, min_students, w, use_power_law)
+function run_scenario(country, pot_data, min_clients, w, use_power_law)
     (; potential_facs, locations, client_pop) = pot_data
     facility_cost = 99699
     opening_cost  = 5000
@@ -341,16 +341,16 @@ function run_scenario(country, pot_data, min_students, w, use_power_law)
         !grid && println("    [merge] starting with $(length(initial_open)) existing facilities...")
         open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty, n_merges =
             merge_heuristic(initial_open, initial_assigned, initial_cur_cost, initial_cur_time,
-                            existing_time, min_students, w, facility_cost, opening_cost, pot_data, use_power_law)
+                            existing_time, min_clients, w, facility_cost, opening_cost, pot_data, use_power_law)
     end
 
-    thr          = isinf(min_students) ? 50 : min_students
+    thr          = isinf(min_clients) ? 50 : min_clients
     n_open_full  = sum(1 for j in open_set if fload[j] >= thr; init=0)
     n_open_small = sum(1 for j in open_set if fload[j] <  thr; init=0)
 
     raw_penalty = isempty(open_set) ? 0.0 : (use_power_law ?
         sum(fload[j] > 0 ? 51712 * fload[j]^0.465 : 0.0 for j in open_set) :
-        sum(isinf(min_students) ? facility_cost : facility_cost * max(0.0, min_students - fload[j]) for j in open_set))
+        sum(isinf(min_clients) ? facility_cost : facility_cost * max(0.0, min_clients - fload[j]) for j in open_set))
 
     total_client_pop = sum(client_pop[i] for i in keys(cur_time))
     mean_travel_min  = sum(cur_time[i] * client_pop[i] for i in keys(cur_time)) / total_client_pop
@@ -368,14 +368,14 @@ function grid_search()
 
         for use_power_law in use_power_laws
             cost_label          = use_power_law ? "power-law" : "fixed"
-            min_students_values = use_power_law ? [Inf] : (policy ? [25.0, 50.0, 100.0] : [Inf])
+            min_clients_values = use_power_law ? [Inf] : (policy ? [25.0, 50.0, 100.0] : [Inf])
 
             println("\n$country — grid search (travel=$(travel), facility=$(cost_label))")
-            println(rpad("min_students", 14),
+            println(rpad("min_clients", 14),
                     rpad("policy_weight", 14),
                     rpad("open", 8),
-                    rpad(">=min_students", 16),
-                    rpad("<min_students", 16),
+                    rpad(">=min_clients", 16),
+                    rpad("<min_clients", 16),
                     rpad("merges", 10),
                     rpad("travel_cost", 14),
                     rpad("facility_cost", 16),
@@ -385,21 +385,21 @@ function grid_search()
                     rpad("30<t<=60", 10),
                     "t>60")
 
-            iter_min_students = baseline ? [first(min_students_values)] : min_students_values
+            iter_min_clients = baseline ? [first(min_clients_values)] : min_clients_values
             iter_ws           = baseline ? [first(ws)]                  : ws
 
-            for min_students in iter_min_students
+            for min_clients in iter_min_clients
                 for w in iter_ws
                     local open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty,
                           raw_penalty, n_open_full, n_open_small, mean_travel_min, n_merges =
-                        run_scenario(country, pot_data, min_students, w, use_power_law)
+                        run_scenario(country, pot_data, min_clients, w, use_power_law)
 
                     b1 = sum(client_pop[i] for (i, t) in cur_time if t < 15;       init=0.0)
                     b2 = sum(client_pop[i] for (i, t) in cur_time if 15 <= t < 30; init=0.0)
                     b3 = sum(client_pop[i] for (i, t) in cur_time if 30 <= t < 60; init=0.0)
                     b4 = sum(client_pop[i] for (i, t) in cur_time if t >= 60;      init=0.0)
 
-                    ms_label = isinf(min_students) ? "None" : string(round(Int, min_students))
+                    ms_label = isinf(min_clients) ? "None" : string(round(Int, min_clients))
                     w_label  = baseline ? "—" : string(w)
 
                     println(rpad(ms_label, 14),
@@ -421,13 +421,13 @@ function grid_search()
     end
 end
 
-function single_run(country, min_students, w, use_power_law)
+function single_run(country, min_clients, w, use_power_law)
     pot_data = load_potential_facilities(country)
     (; potential_facs, client_pop, locations) = pot_data
 
     open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty, raw_penalty,
     n_open_full, n_open_small, mean_travel_min, n_merges =
-        run_scenario(country, pot_data, min_students, w, use_power_law)
+        run_scenario(country, pot_data, min_clients, w, use_power_law)
 
     b1 = sum(client_pop[i] for (i, t) in cur_time if t < 15;       init=0.0)
     b2 = sum(client_pop[i] for (i, t) in cur_time if 15 <= t < 30; init=0.0)
@@ -435,12 +435,12 @@ function single_run(country, min_students, w, use_power_law)
     b4 = sum(client_pop[i] for (i, t) in cur_time if t >= 60;      init=0.0)
 
     n_open     = n_open_full + n_open_small
-    ms_label   = isinf(min_students) ? "None" : string(round(Int, min_students))
+    ms_label   = isinf(min_clients) ? "None" : string(round(Int, min_clients))
     cost_label = use_power_law ? "power-law" : "fixed"
-    println("\nresults ($country, travel=$(travel), facility=$(cost_label), min_students=$(ms_label), w=$(w)):")
+    println("\nresults ($country, travel=$(travel), facility=$(cost_label), min_clients=$(ms_label), w=$(w)):")
     println("open: $n_open")
-    println("open (>= min_students): $n_open_full")
-    println("open (< min_students): $n_open_small")
+    println("open (>= min_clients): $n_open_full")
+    println("open (< min_clients): $n_open_small")
     println("merges: $n_merges")
     println("total potential: $(length(potential_facs))")
     println("travel: ", round(travel_cost, digits=0))
@@ -452,7 +452,7 @@ function single_run(country, min_students, w, use_power_law)
     println("30 <= t < 60 min: ", round(Int, b3))
     println("t >= 60 min: ", round(Int, b4))
 
-    thr = isinf(min_students) ? 50 : min_students
+    thr = isinf(min_clients) ? 50 : min_clients
     pot_open_ids  = Int[]
     pot_open_flag = Int[]
     for j in potential_facs
