@@ -16,7 +16,7 @@ function facility_penalty(load, min_students, w, c0, use_power_law)
     end
 end
 
-function drop_heuristic(open_set, min_students, w, facility_cost, data, use_power_law)
+function drop_heuristic(open_set, min_students, w, c0, data, use_power_law)
     (; facilities, facilities_col, t_ij_col, locations, client_pop) = data
     open_set = copy(open_set)
 
@@ -52,7 +52,7 @@ function drop_heuristic(open_set, min_students, w, facility_cost, data, use_powe
         push!(facility_clients[j], i)
     end
 
-    facility_cost_cache = Dict(j => facility_penalty(fload[j], min_students, w, facility_cost, use_power_law) for j in keys(fload))
+    c0_cache = Dict(j => facility_penalty(fload[j], min_students, w, c0, use_power_law) for j in keys(fload))
 
     second_best = Dict{Int, Tuple{Int, Float64, Float64}}()
     for (i, rows) in locations
@@ -91,7 +91,7 @@ function drop_heuristic(open_set, min_students, w, facility_cost, data, use_powe
         best_j      = nothing
 
         for j in open_set
-            penalty_saving = facility_cost_cache[j]
+            penalty_saving = c0_cache[j]
 
             travel_increase = 0.0
             feasible = true
@@ -112,8 +112,8 @@ function drop_heuristic(open_set, min_students, w, facility_cost, data, use_powe
 
             other_facility_change = 0.0
             for (r, added) in other_facility_loads
-                old_r = facility_cost_cache[r]
-                new_r = facility_penalty(fload[r] + added, min_students, w, facility_cost, use_power_law)
+                old_r = c0_cache[r]
+                new_r = facility_penalty(fload[r] + added, min_students, w, c0, use_power_law)
                 other_facility_change += new_r - old_r
             end
 
@@ -150,7 +150,7 @@ function drop_heuristic(open_set, min_students, w, facility_cost, data, use_powe
             end
 
             for f in loads_changed
-                facility_cost_cache[f] = facility_penalty(fload[f], min_students, w, facility_cost, use_power_law)
+                c0_cache[f] = facility_penalty(fload[f], min_students, w, c0, use_power_law)
             end
 
             facility_clients[best_j] = Int[]
@@ -191,13 +191,13 @@ function drop_heuristic(open_set, min_students, w, facility_cost, data, use_powe
     end
 
     travel_cost = sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
-    penalty     = sum(facility_penalty(fload[j], min_students, w, facility_cost, use_power_law) for j in open_set)
+    penalty     = sum(facility_penalty(fload[j], min_students, w, c0, use_power_law) for j in open_set)
 
     return open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty
 end
 
 
-function lp_assignment(open_set, min_students, w, facility_cost, data)
+function lp_assignment(open_set, min_students, w, c0, data)
     (; N, facilities, clients_col, facilities_col, t_ij_col, locations, client_pop) = data
 
     facility_rows = Dict(j => Int[] for j in open_set)
@@ -227,7 +227,7 @@ function lp_assignment(open_set, min_students, w, facility_cost, data)
         )
         @objective(model, Min,
             sum(y[k] * c(t_ij_col[k]) * client_pop[clients_col[k]] for k in 1:N) +
-            sum(deficit[j] * w * facility_cost for j in open_set)
+            sum(deficit[j] * w * c0 for j in open_set)
         )
         for j in open_set
             @constraint(model, deficit[j] >= min_students - load[j])
@@ -306,20 +306,20 @@ function run_scenario(data, min_students, w, use_power_law, nearest)
         end
     end
 
-    open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty = drop_heuristic(initial_open, min_students, w, FACILITY_COST, data, use_power_law)
+    open_set, assigned, fload, cur_cost, cur_time, travel_cost, penalty = drop_heuristic(initial_open, min_students, w, FACILITY_MIN_COSTS, data, use_power_law)
 
     if !nearest
-        assigned, fload, cur_cost, cur_time = lp_assignment(open_set, min_students, w, FACILITY_COST, data)
+        assigned, fload, cur_cost, cur_time = lp_assignment(open_set, min_students, w, FACILITY_MIN_COSTS, data)
     end
 
     n_open_full  = isinf(min_students) ? sum(1 for j in open_set if fload[j] >= 50; init=0) : sum(1 for j in open_set if fload[j] >= min_students; init=0)
     n_open_small = isinf(min_students) ? sum(1 for j in open_set if fload[j] < 50;  init=0) : sum(1 for j in open_set if fload[j] < min_students;  init=0)
 
     travel_cost = isempty(assigned) ? 0.0 : sum(cur_cost[i] * client_pop[i] for i in keys(assigned))
-    penalty     = isempty(open_set) ? 0.0 : sum(facility_penalty(fload[j], min_students, w, FACILITY_COST, use_power_law) for j in open_set)
+    penalty     = isempty(open_set) ? 0.0 : sum(facility_penalty(fload[j], min_students, w, FACILITY_MIN_COSTS, use_power_law) for j in open_set)
     raw_penalty = isempty(open_set) ? 0.0 : (use_power_law ?
         sum(fload[j] > 0 ? 51712 * fload[j]^0.465 : 0.0 for j in open_set) :
-        sum(isinf(min_students) ? FACILITY_COST : FACILITY_COST * max(0.0, min_students - fload[j]) for j in open_set))
+        sum(isinf(min_students) ? FACILITY_MIN_COSTS : FACILITY_MIN_COSTS * max(0.0, min_students - fload[j]) for j in open_set))
 
     total_client_pop = sum(client_pop[i] for i in keys(cur_time))
     mean_travel_min  = sum(cur_time[i] * client_pop[i] for i in keys(cur_time)) / total_client_pop
@@ -347,7 +347,7 @@ function grid_search()
                 end
 
                 assignment_label = nearest ? "nearest" : "central"
-                println("\n$country — grid search (travel=$(travel), facility=$(cost_label), assignment=$(assignment_label))")
+                println("\n$country — grid search (travel_func=$(travel_func), facility=$(cost_label), assignment=$(assignment_label))")
                 println(rpad("min_students", 14),
                         rpad("policy_weight", 14),
                         rpad("open", 8),
@@ -406,7 +406,7 @@ function single_run(country, min_students, w, use_power_law, nearest=true; data=
     n_open     = n_open_full + n_open_small
     ms_label   = isinf(min_students) ? "None" : string(round(Int, min_students))
     cost_label = use_power_law ? "power-law" : "fixed"
-    println("\nresults ($country, travel=$(travel), facility=$(cost_label), min_students=$(ms_label), w=$(w)):")
+    println("\nresults ($country, travel_func=$(travel_func), facility=$(cost_label), min_students=$(ms_label), w=$(w)):")
     println("open: $n_open")
     println("open (>= min_students): $n_open_full")
     println("open (< min_students): $n_open_small")

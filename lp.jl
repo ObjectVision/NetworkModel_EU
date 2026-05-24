@@ -7,7 +7,7 @@ nearests          = [false]      # true: assign each client to nearest open scho
 function run_scenario(data, min_students, w, apply_threshold, nearest)
     (; N, facilities, wpop, t_ij_col, facilities_col, locations, facility_rows) = data
 
-    λ = w * FACILITY_COST
+    λ = w * FACILITY_MIN_COSTS
 
     model = Model(HiGHS.Optimizer)
     set_optimizer_attribute(model, "presolve", "on")
@@ -115,11 +115,11 @@ function run_scenario(data, min_students, w, apply_threshold, nearest)
 
     travel_lp      = sum(c(t_ij_col[k]) * wpop[k] for (i, k) in assigned_k)
     penalty_lp     = isinf(min_students) ?
-                         length(open_set) * FACILITY_COST * w :
+                         length(open_set) * FACILITY_MIN_COSTS * w :
                          sum(max(0.0, min_students - fload[j]) * λ for j in open_set; init=0.0)
     raw_penalty_lp = isinf(min_students) ?
-                         length(open_set) * FACILITY_COST :
-                         sum(max(0.0, min_students - fload[j]) * FACILITY_COST for j in open_set; init=0.0)
+                         length(open_set) * FACILITY_MIN_COSTS :
+                         sum(max(0.0, min_students - fload[j]) * FACILITY_MIN_COSTS for j in open_set; init=0.0)
 
     n_open_full  = isinf(min_students) ? length(open_set) : sum(1 for j in open_set if fload[j] >= min_students; init=0)
     n_open_small = isinf(min_students) ? 0                : sum(1 for j in open_set if fload[j] < min_students;  init=0)
@@ -145,7 +145,7 @@ if grid
 
             for nearest in nearests
                 assignment_label = nearest ? "nearest" : "central"
-                println("\n$country — grid search (travel=$(travel), $(threshold_label), assignment=$(assignment_label))")
+                println("\n$country — grid search (travel_func=$(travel_func), $(threshold_label), assignment=$(assignment_label))")
                 println(rpad("min_students", 14),
                         rpad("policy_weight", 14),
                         rpad("open", 8),
@@ -200,7 +200,7 @@ else
                 open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, min_students, w, apply_threshold, nearest)
                 n_open = n_open_full + n_open_small
 
-                println("\n$country — results (travel=$(travel), min_students=$(round(Int, min_students)), w=$(w), $(threshold_label), assignment=$(assignment_label)):")
+                println("\n$country — results (travel_func=$(travel_func), min_students=$(round(Int, min_students)), w=$(w), $(threshold_label), assignment=$(assignment_label)):")
                 println("open (>= min_students): $n_open_full")
                 println("open (< min_students): $n_open_small")
                 println("closed: $(data.M - n_open)")
