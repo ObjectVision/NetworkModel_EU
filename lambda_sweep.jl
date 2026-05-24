@@ -2,8 +2,12 @@ include("lp_run.jl")
 
 pln(args...) = (println(args...); flush(stdout))
 
-const NL = "Netherlands"
-const TARGET_N = 1992
+# Country-specific raw pharmacy counts (multi-pharmacy-per-cell pre-collapse).
+# Only NL is known so far; others use cell count (baseline.n_used) as the comparison.
+const RAW_PHARMACY_COUNTS = Dict("Netherlands" => 1992)
+
+const EXISTING_PATH = joinpath(LOCAL_DATA_PROJ_DIR, "ExistingPharmacies")
+const NEW_PATH      = joinpath(LOCAL_DATA_PROJ_DIR, "NewPharmacies")
 
 function load_from(dir, country)
     od  = Arrow.Table(joinpath(dir, "$(country)_od.arrow"))
@@ -59,50 +63,9 @@ function baseline_metrics(data)
         push!(used, data.facilities_col[best_k])
     end
     total_pop = sum(data.wpop[rows[1]] for (_, rows) in data.locations)
-    return (cost_c=total_c, time_total=total_t, mean_t=total_t/total_pop, n_used=length(used))
+    return (cost_c=total_c, time_total=total_t, mean_t=total_t/total_pop,
+            n_used=length(used), total_pop=total_pop)
 end
-
-const EXISTING_PATH = joinpath(LOCAL_DATA_PROJ_DIR, "ExistingPharmacies")
-const NEW_PATH      = joinpath(LOCAL_DATA_PROJ_DIR, "NewPharmacies")
-
-pln("Loading ExistingPharmacies/$NL ...")
-existing = load_from(EXISTING_PATH, NL)
-pln("  N=$(existing.N) OD rows, M=$(existing.M) facilities")
-
-pln("Loading NewPharmacies/$NL ...")
-new_data = load_from(NEW_PATH, NL)
-pln("  N=$(new_data.N) OD rows, M=$(new_data.M) candidate facilities")
-
-base = baseline_metrics(existing)
-pln()
-pln("Baseline (ExistingPharmacies, each client → nearest pharmacy):")
-pln("  facilities used:             $(base.n_used) (of $(existing.M))")
-pln("  total cost(c):               $(round(base.cost_c, digits=0))")
-pln("  total travel time (pop*min): $(round(base.time_total, digits=0))")
-pln("  mean travel time (min):      $(round(base.mean_t, digits=4))")
-
-# LP wrapper: returns (n_open, cost_c, mean_t, n_frac)
-function run_lp(w)
-    out = run_scenario(new_data, Inf, w, false, true)
-    open_set, _, _, n_open_full, n_open_small, mean_t, travel_c, _, _, _, _, _, _, n_frac = out
-    return (n_open=n_open_full + n_open_small, cost_c=travel_c, mean_t=mean_t, n_frac=n_frac)
-end
-
-pln()
-pln("λ sweep on NewPharmacies (min_clients=Inf, nearest assignment):")
-pln(rpad("w", 12), rpad("λ", 14), rpad("n_open", 10), rpad("cost(c)", 18), rpad("mean_t", 10), rpad("frac_x", 10), "n - $TARGET_N")
-
-ws_initial = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0]
-results = []
-for w in ws_initial
-    r = run_lp(w)
-    push!(results, (w=w, λ=w*FACILITY_MIN_COSTS, n_open=r.n_open, cost_c=r.cost_c, mean_t=r.mean_t, n_frac=r.n_frac))
-    pln(rpad(w, 12), rpad(w*FACILITY_MIN_COSTS, 14), rpad(r.n_open, 10),
-            rpad(round(r.cost_c, digits=0), 18), rpad(round(r.mean_t, digits=4), 10),
-            rpad(r.n_frac, 10), r.n_open - TARGET_N)
-end
-
-sort!(results, by=x->x.w)
 
 function find_bracket(results, target, getter, descending)
     for i in 1:length(results)-1
@@ -115,54 +78,147 @@ function find_bracket(results, target, getter, descending)
     return nothing
 end
 
-function bisect(w_lo, w_hi, target, get_metric, descending; tol_rel=0.005, max_iter=14)
-    for iter in 1:max_iter
-        w_mid = sqrt(w_lo * w_hi)
-        r = run_lp(w_mid)
-        m = get_metric(r)
-        pln("  iter $iter: w=$(round(w_mid, sigdigits=5)), n_open=$(r.n_open), cost(c)=$(round(r.cost_c, digits=0)), mean_t=$(round(r.mean_t, digits=4)), frac_x=$(r.n_frac)")
-        if abs(m - target) / max(abs(target), 1) <= tol_rel
-            return (w=w_mid, λ=w_mid*FACILITY_MIN_COSTS, r...)
-        end
-        if (descending && m > target) || (!descending && m < target)
-            w_lo = w_mid
-        else
-            w_hi = w_mid
-        end
+function print_sweep_header(target_raw)
+    pln(rpad("w", 12), rpad("λ (€)", 14), rpad("n_open", 10),
+        rpad("travel_c", 16), rpad("fac_€", 14),
+        rpad("mean_t", 10), rpad("frac_x", 10),
+        rpad("sum_x", 12), rpad("n-cells", 10),
+        target_raw === nothing ? "" : "n-raw")
+end
+
+function print_sweep_row(r, target_cells, target_raw)
+    fac_eur = r.sum_x * FACILITY_MIN_COSTS
+    n_raw_delta = target_raw === nothing ? "" : string(r.n_open - target_raw)
+    pln(rpad(r.w, 12), rpad(r.λ, 14), rpad(r.n_open, 10),
+        rpad(round(r.cost_c, digits=0), 16), rpad(round(fac_eur, digits=0), 14),
+        rpad(round(r.mean_t, digits=4), 10), rpad(r.n_frac, 10),
+        rpad(round(r.sum_x, digits=2), 12), rpad(r.n_open - target_cells, 10),
+        n_raw_delta)
+end
+
+function analyze_country(country)
+    pln()
+    pln("=" ^ 90)
+    pln("Country: $country")
+    pln("=" ^ 90)
+
+    pln("Loading ExistingPharmacies/$country ...")
+    existing = load_from(EXISTING_PATH, country)
+    pln("  N=$(existing.N) OD rows, M=$(existing.M) facilities")
+
+    pln("Loading NewPharmacies/$country ...")
+    new_data = load_from(NEW_PATH, country)
+    pln("  N=$(new_data.N) OD rows, M=$(new_data.M) candidate facilities")
+
+    base = baseline_metrics(existing)
+    target_cells = base.n_used
+    target_raw   = get(RAW_PHARMACY_COUNTS, country, nothing)
+
+    pln()
+    pln("Baseline (ExistingPharmacies, each client → nearest pharmacy):")
+    pln("  facilities used (cells):     $(target_cells) (of $(existing.M))")
+    target_raw === nothing || pln("  raw pharmacy count:          $target_raw (external reference)")
+    pln("  total travel cost(c):        $(round(base.cost_c, digits=0))")
+    pln("  facility cost @ €$(FACILITY_MIN_COSTS) ea: $(round(target_cells * FACILITY_MIN_COSTS, digits=0))")
+    pln("  total travel time (pop·min): $(round(base.time_total, digits=0))")
+    pln("  mean travel time (min):      $(round(base.mean_t, digits=4))")
+    pln("  total client population:     $(round(Int, base.total_pop))")
+
+    function run_lp(w)
+        out = run_scenario(new_data, Inf, w, false, true)
+        _, _, _, n_open_full, n_open_small, mean_t, travel_c, _, _, _, _, _, _, n_frac, sum_x = out
+        return (w=w, λ=w*FACILITY_MIN_COSTS, n_open=n_open_full+n_open_small,
+                cost_c=travel_c, mean_t=mean_t, n_frac=n_frac, sum_x=sum_x)
     end
-    r = run_lp(sqrt(w_lo * w_hi))
-    return (w=sqrt(w_lo * w_hi), λ=sqrt(w_lo * w_hi)*FACILITY_MIN_COSTS, r...)
+
+    pln()
+    pln("Coarse λ sweep (min_clients=Inf, nearest assignment):")
+    pln("  w units: person-cost(t)/€ — literal min/€ only for travel_func=LINEAR")
+    pln("  travel_c = LP travel cost (person-c(t)); fac_€ = sum(x)·FACILITY_MIN_COSTS (no λ scaling)")
+    print_sweep_header(target_raw)
+
+    ws_coarse = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0]
+    results = []
+    for w in ws_coarse
+        r = run_lp(w)
+        push!(results, r)
+        print_sweep_row(r, target_cells, target_raw)
+    end
+    sort!(results, by=x->x.w)
+
+    # Determine combined bracket covering S1 (n_open = target_cells) and S2 (cost = baseline cost)
+    bracket_S1 = find_bracket(results, target_cells, r -> r.n_open, true)
+    bracket_S2 = find_bracket(results, base.cost_c,  r -> r.cost_c, false)
+
+    if bracket_S1 === nothing && bracket_S2 === nothing
+        pln("\nNeither S1 (n=$target_cells) nor S2 (cost=$(round(base.cost_c,digits=0))) found in coarse sweep range.")
+        pln("Likely cause: LP relaxation is non-monotonic / degenerates at higher w.")
+        pln("Skipping fine sweep for $country.")
+        return
+    end
+
+    # Combined w range: from lowest lo to highest hi across both brackets
+    candidate_los = filter(!isnothing, [bracket_S1 === nothing ? nothing : bracket_S1[1],
+                                         bracket_S2 === nothing ? nothing : bracket_S2[1]])
+    candidate_his = filter(!isnothing, [bracket_S1 === nothing ? nothing : bracket_S1[2],
+                                         bracket_S2 === nothing ? nothing : bracket_S2[2]])
+    w_lo = minimum(candidate_los)
+    w_hi = maximum(candidate_his)
+
+    pln()
+    pln("Fine λ sweep (10 points) over w in [$w_lo, $w_hi]")
+    pln("  bracket S1 (n_open=$target_cells): $(bracket_S1)")
+    pln("  bracket S2 (cost=$(round(base.cost_c, digits=0))): $(bracket_S2)")
+    print_sweep_header(target_raw)
+
+    log_lo = log(w_lo); log_hi = log(w_hi)
+    ws_fine = [exp(log_lo + (log_hi - log_lo) * (i-1)/9) for i in 1:10]
+    for w in ws_fine
+        r = run_lp(w)
+        push!(results, r)
+        print_sweep_row(r, target_cells, target_raw)
+    end
+    sort!(results, by=x->x.w)
+
+    # Pick closest data points to S1 and S2 from combined results
+    function closest(results, target, key)
+        results[argmin(abs(getfield(r, key) - target) for r in results)]
+    end
+
+    pln()
+    pln("=" ^ 90)
+    pln("$country — scenario summary")
+    pln("=" ^ 90)
+
+    s1 = closest(results, target_cells, :n_open)
+    pln("\nS1 — closest to n_open = $target_cells (baseline cells):")
+    pln("  w = $(round(s1.w, sigdigits=5))   λ = $(round(s1.λ, digits=2)) €")
+    pln("  n_open       : $(s1.n_open)         sum_x: $(round(s1.sum_x, digits=2))  frac_x: $(s1.n_frac)")
+    pln("  travel cost  : $(round(s1.cost_c, digits=0))     (baseline $(round(base.cost_c, digits=0)))")
+    pln("  travel change: $(round((s1.cost_c - base.cost_c)/base.cost_c * 100, digits=2))%")
+    pln("  facility €   : $(round(s1.sum_x * FACILITY_MIN_COSTS, digits=0))     (baseline $(round(target_cells * FACILITY_MIN_COSTS, digits=0)))")
+    pln("  mean t (min) : $(round(s1.mean_t, digits=4))    (baseline $(round(base.mean_t, digits=4)))")
+
+    s2 = closest(results, base.cost_c, :cost_c)
+    pln("\nS2 — closest to travel cost = $(round(base.cost_c, digits=0)) (baseline):")
+    pln("  w = $(round(s2.w, sigdigits=5))   λ = $(round(s2.λ, digits=2)) €")
+    pln("  n_open       : $(s2.n_open)         sum_x: $(round(s2.sum_x, digits=2))  frac_x: $(s2.n_frac)")
+    pln("  travel cost  : $(round(s2.cost_c, digits=0))     (baseline $(round(base.cost_c, digits=0)))")
+    pln("  travel change: $(round((s2.cost_c - base.cost_c)/base.cost_c * 100, digits=2))%")
+    pln("  facility €   : $(round(s2.sum_x * FACILITY_MIN_COSTS, digits=0))     (baseline $(round(target_cells * FACILITY_MIN_COSTS, digits=0)))")
+    pln("  fewer than cells: $(target_cells - s2.n_open)  ($(round((target_cells - s2.n_open)/target_cells * 100, digits=2))%)")
+    if target_raw !== nothing
+        pln("  fewer than raw  : $(target_raw - s2.n_open)  ($(round((target_raw - s2.n_open)/target_raw * 100, digits=2))%)")
+    end
+    pln("  mean t (min) : $(round(s2.mean_t, digits=4))    (baseline $(round(base.mean_t, digits=4)))")
 end
 
-# Target A: n_open == TARGET_N (n_open is decreasing in w)
-bracket_n = find_bracket(results, TARGET_N, r -> r.n_open, true)
-if bracket_n === nothing
-    pln("\nWarning: TARGET_N=$TARGET_N not in initial sweep range; widen and re-run.")
-else
-    pln("\nTarget A — bisecting w in $bracket_n for n_open = $TARGET_N:")
-    res_a = bisect(bracket_n[1], bracket_n[2], TARGET_N, r -> r.n_open, true; tol_rel=0.01)
-    pln()
-    pln("=== A: NewPharmacies LP with n_open = $TARGET_N ===")
-    pln("  w = $(res_a.w)   λ = $(round(res_a.λ, digits=2))")
-    pln("  n_open       : $(res_a.n_open)         (target $TARGET_N)")
-    pln("  cost(c)      : $(round(res_a.cost_c, digits=0))     (baseline $(round(base.cost_c, digits=0)))")
-    pln("  cost reduction: $(round((base.cost_c - res_a.cost_c)/base.cost_c * 100, digits=2))%")
-    pln("  mean t (min) : $(round(res_a.mean_t, digits=4))    (baseline $(round(base.mean_t, digits=4)))")
-    pln("  fractional x[j]: $(res_a.n_frac)")
-end
-
-# Target B: cost_c == base.cost_c (cost_c is increasing in w)
-bracket_cost = find_bracket(results, base.cost_c, r -> r.cost_c, false)
-if bracket_cost === nothing
-    pln("\nWarning: baseline cost not in initial sweep range; widen and re-run.")
-else
-    pln("\nTarget B — bisecting w in $bracket_cost for cost(c) = $(round(base.cost_c, digits=0)):")
-    res_b = bisect(bracket_cost[1], bracket_cost[2], base.cost_c, r -> r.cost_c, false)
-    pln()
-    pln("=== B: NewPharmacies LP with cost(c) = baseline ===")
-    pln("  w = $(res_b.w)   λ = $(round(res_b.λ, digits=2))")
-    pln("  cost(c)      : $(round(res_b.cost_c, digits=0))     (baseline $(round(base.cost_c, digits=0)))")
-    pln("  n_open       : $(res_b.n_open)         (vs $TARGET_N — that's $(TARGET_N - res_b.n_open) fewer, $(round((TARGET_N - res_b.n_open)/TARGET_N * 100, digits=2))%)")
-    pln("  mean t (min) : $(round(res_b.mean_t, digits=4))    (baseline $(round(base.mean_t, digits=4)))")
-    pln("  fractional x[j]: $(res_b.n_frac)")
+for country in COUNTRIES
+    try
+        analyze_country(country)
+    catch e
+        pln("\n$country — failed: $e")
+        showerror(stdout, e, catch_backtrace())
+        flush(stdout)
+    end
 end

@@ -47,6 +47,7 @@ function run_scenario(data, min_clients, w, apply_threshold, nearest)
     fixed_open_set = Set([j for j in facilities if x_relaxed[j] >= 1 - tol])
     fractional     = [j for j in facilities if tol < x_relaxed[j] < 1 - tol]
     n_fractional_x = length(fractional)
+    sum_x          = sum(x_relaxed[j] for j in facilities)
     open_set       = union(fixed_open_set, Set(fractional))
 
     # fix x based on first LP
@@ -123,5 +124,5 @@ function run_scenario(data, min_clients, w, apply_threshold, nearest)
     n_open_full  = isinf(min_clients) ? length(open_set) : sum(1 for j in open_set if fload[j] >= min_clients; init=0)
     n_open_small = isinf(min_clients) ? 0                : sum(1 for j in open_set if fload[j] < min_clients;  init=0)
 
-    return open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4, n_fractional_x
+    return open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4, n_fractional_x, sum_x
 end
