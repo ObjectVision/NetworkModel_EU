@@ -33,11 +33,12 @@ if grid
                         rpad("t<=15", 10),
                         rpad("15<t<=30", 10),
                         rpad("30<t<=60", 10),
-                        "t>60")
+                        rpad("t>60", 10),
+                        "frac_x")
 
                 for min_clients in min_clients_values
                     for w in ws
-                        local open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, min_clients, w, apply_threshold, nearest)
+                        local open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4, n_fractional_x = run_scenario(data, min_clients, w, apply_threshold, nearest)
                         if !isempty(open_set)
                             max_facility_load = max(max_facility_load, maximum(fload[j] for j in open_set))
                         end
@@ -53,7 +54,8 @@ if grid
                                 rpad(round(Int, b1), 10),
                                 rpad(round(Int, b2), 10),
                                 rpad(round(Int, b3), 10),
-                                round(Int, b4))
+                                rpad(round(Int, b4), 10),
+                                n_fractional_x)
                     end
                 end
             end
@@ -73,7 +75,7 @@ else
                 threshold_label  = apply_threshold ? "max_travel=60 min" : "no max_travel"
                 assignment_label = nearest ? "nearest" : "central"
 
-                open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4 = run_scenario(data, min_clients, w, apply_threshold, nearest)
+                open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4, n_fractional_x = run_scenario(data, min_clients, w, apply_threshold, nearest)
                 n_open = n_open_full + n_open_small
 
                 println("\n$country — results (travel_func=$(travel_func), min_clients=$(round(Int, min_clients)), w=$(w), $(threshold_label), assignment=$(assignment_label)):")
@@ -88,6 +90,7 @@ else
                 println("15 <= t < 30 min: ", round(Int, b2))
                 println("30 <= t < 60 min: ", round(Int, b3))
                 println("t >= 60 min: ", round(Int, b4))
+                println("fractional x[j]: ", n_fractional_x)
 
                 open_vec = zeros(Int, data.M)
                 for (idx, j) in enumerate(data.facilities)
