@@ -21,9 +21,11 @@ if Threads.nthreads() < MAX_PARALLEL
 end
 
 # Run a list of jobs in parallel, capping concurrency at max_concurrent.
-# Returns results in the same order as `inputs`. `on_complete` is called as each job finishes.
+# Failed tasks are logged and dropped from the returned vector — they NEVER
+# leave the result vector in an #undef state (that would hang sort!/find_bracket).
 function parallel_map(f, inputs, max_concurrent, on_complete=identity)
-    results = Vector{Any}(undef, length(inputs))
+    n = length(inputs)
+    results = Vector{Any}(nothing, n)
     sem = Channel{Nothing}(max_concurrent)
     for _ in 1:max_concurrent
         put!(sem, nothing)
@@ -32,15 +34,20 @@ function parallel_map(f, inputs, max_concurrent, on_complete=identity)
         Threads.@spawn begin
             take!(sem)
             try
-                r = f(x)
-                results[i] = r
-                on_complete(r)
+                try
+                    r = f(x)
+                    results[i] = r
+                    on_complete(r)
+                catch e
+                    results[i] = nothing
+                    pln("  [parallel_map] task #$i (input=$x) FAILED: $(sprint(showerror, e))")
+                end
             finally
                 put!(sem, nothing)
             end
         end
     end
-    return results
+    return [r for r in results if r !== nothing]
 end
 
 # Country-specific raw pharmacy counts (multi-pharmacy-per-cell pre-collapse).

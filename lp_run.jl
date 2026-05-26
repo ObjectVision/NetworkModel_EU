@@ -42,6 +42,12 @@ function run_scenario(data, min_clients, w, apply_threshold, nearest)
 
     optimize!(model)
 
+    ts = termination_status(model)
+    if ts ∉ (OPTIMAL, LOCALLY_SOLVED, ALMOST_OPTIMAL)
+        error("LP at w=$w did not solve (termination_status=$ts). " *
+              "Likely IPM numerical issue at extreme λ. Skipping this point.")
+    end
+
     # Capture LP-relaxed solution BEFORE fixing x and re-solving (if nearest=false).
     x_relaxed      = value.(x)
     y_relaxed      = value.(y)
