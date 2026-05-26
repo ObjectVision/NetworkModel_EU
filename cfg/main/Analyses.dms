@@ -186,10 +186,11 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			,	StorageType = "gdalwrite.vect"
 			,	StorageReadOnly = "False"
 			{
-				attribute<client>  id  (client) := id(client);
-				attribute<float32> pop (client) := Pop_i;
-				attribute<float64> x   (client) := client/x;
-				attribute<float64> y   (client) := client/y;
+				attribute<client>  id        (client) := id(client);
+				attribute<float32> pop       (client) := Pop_i;
+				attribute<float32> total_pop (client) := float32(client/population);
+				attribute<float64> x         (client) := client/x;
+				attribute<float64> y         (client) := client/y;
 			}
 			
 			container FacilityExport

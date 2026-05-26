@@ -9,6 +9,11 @@ const ANALYSIS_DIR         = joinpath(LOCAL_DATA_PROJ_DIR, ANALYSIS)
 # full set: Albania Austria Belgium Bulgaria Switzerland Denmark Spain Estonia Greece Cyprus Czechia Germany France Finland Croatia Hungary Ireland Iceland Italy Liechtenstein Lithuania Luxembourg Latvia Malta Netherlands Norway Romania Poland Portugal Sweden Slovenia Slovakia
 const COUNTRIES = split(get(ENV, "COUNTRIES", "France Italy Netherlands Sweden"))
 
+# Which Arrow column to use as per-client weight in the LP objective.
+# Available columns in `<country>_i.arrow`: pop (= configured ModelParameters.Client, e.g. 6..12 y/o),
+# total_pop (= total grid-cell population). Falls back to `pop` if the configured column is missing.
+const CLIENT_WEIGHT = get(ENV, "CLIENT_WEIGHT", "total_pop")
+
 const FACILITY_MIN_COSTS    = parse(Int, get(ENV, "FACILITY_MIN_COSTS",    "100000"))
 const FACILITY_CLIENT_COSTS = parse(Int, get(ENV, "FACILITY_CLIENT_COSTS", "3333"))
 
@@ -67,6 +72,16 @@ end
 input_path(country, suffix) =
     joinpath(ANALYSIS_DIR, "$(country)_$(suffix).arrow")
 
+function client_weight_col(loc)
+    sym = Symbol(CLIENT_WEIGHT)
+    if sym in propertynames(loc)
+        return loc[sym]
+    else
+        @warn "Arrow file lacks column '$CLIENT_WEIGHT'; falling back to 'pop'. Regenerate with the updated GeoDMS pipeline to get the new column."
+        return loc[:pop]
+    end
+end
+
 # script: "lp" or "greedy"; assignment: "nearest" or "central"; kind: "assignment" or "traveltime"
 function output_path(country, script, assignment, kind)
     dir = joinpath(ANALYSIS_DIR, country, script, assignment)
@@ -82,7 +97,7 @@ function load_country(country)
     clients_col    = Int.(od[:client_rel])
     facilities_col = Int.(od[:facility_rel])
     t_ij_col       = od[:t_ij] ./ 60
-    population     = loc[:pop]
+    population     = client_weight_col(loc)
     facilities     = Int.(fac[:id])
 
     N = length(clients_col)

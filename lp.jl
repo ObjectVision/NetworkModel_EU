@@ -39,7 +39,7 @@ if grid
 
                 for min_clients in min_clients_values
                     for w in ws
-                        local open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4, n_fractional_x, sum_x = run_scenario(data, min_clients, w, apply_threshold, nearest)
+                        local open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4, n_fractional_x, sum_x, travel_relax = run_scenario(data, min_clients, w, apply_threshold, nearest)
                         if !isempty(open_set)
                             max_facility_load = max(max_facility_load, maximum(fload[j] for j in open_set))
                         end
@@ -77,7 +77,7 @@ else
                 threshold_label  = apply_threshold ? "max_travel=60 min" : "no max_travel"
                 assignment_label = nearest ? "nearest" : "central"
 
-                open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4, n_fractional_x, sum_x = run_scenario(data, min_clients, w, apply_threshold, nearest)
+                open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4, n_fractional_x, sum_x, travel_relax = run_scenario(data, min_clients, w, apply_threshold, nearest)
                 n_open = n_open_full + n_open_small
 
                 println("\n$country — results (travel_func=$(travel_func), min_clients=$(round(Int, min_clients)), w=$(w), $(threshold_label), assignment=$(assignment_label)):")
