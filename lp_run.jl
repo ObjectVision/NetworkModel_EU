@@ -141,3 +141,85 @@ function run_scenario(data, min_clients, w, apply_threshold, nearest)
 
     return open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4, n_fractional_x, sum_x, travel_relax
 end
+
+
+# --- Sequential warm-start variant (dual simplex) -----------------------------
+# Build the LP once, then call solve_at_w! repeatedly with different w. HiGHS
+# reuses the previous optimal basis as warm start, so subsequent solves are
+# typically much cheaper than building a fresh model each time. Only valid for
+# the min_clients=Inf, nearest=true case (no second LP, no deficit penalty).
+
+function build_lp_warmstart(data)
+    (; N, facilities, wpop, t_ij_col, facilities_col, locations) = data
+
+    model = Model(HiGHS.Optimizer)
+    set_optimizer_attribute(model, "presolve", "on")
+    set_optimizer_attribute(model, "output_flag", true)  # show simplex progress live
+    set_optimizer_attribute(model, "solver", "simplex")
+
+    @variable(model, 0 <= y[1:N] <= 1)
+    @variable(model, 0 <= x[j in facilities] <= 1)
+
+    # Travel-cost objective term (constant across w); x-term coefficients are
+    # set per call to solve_at_w!. We initialise them to 0 here.
+    @objective(model, Min, sum(y[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N))
+
+    for (_, rows) in locations
+        @constraint(model, sum(y[k] for k in rows) == 1)
+    end
+    for k in 1:N
+        @constraint(model, y[k] <= x[facilities_col[k]])
+    end
+
+    return (; model, x, y, data)
+end
+
+function solve_at_w!(state, w)
+    (; model, x, y, data) = state
+    (; N, facilities, wpop, t_ij_col, facilities_col, locations) = data
+
+    λ = w * FACILITY_MIN_COSTS
+
+    # Update only the x[j] objective coefficients; simplex warm-starts from
+    # the previous basis since constraints and y-coefficients are unchanged.
+    for j in facilities
+        set_objective_coefficient(model, x[j], λ)
+    end
+
+    optimize!(model)
+
+    ts = termination_status(model)
+    if ts ∉ (OPTIMAL, LOCALLY_SOLVED, ALMOST_OPTIMAL)
+        error("LP at w=$w did not solve (termination_status=$ts).")
+    end
+
+    x_relaxed      = value.(x)
+    y_relaxed      = value.(y)
+    tol            = 1e-6
+    fractional     = [j for j in facilities if tol < x_relaxed[j] < 1 - tol]
+    n_fractional_x = length(fractional)
+    sum_x          = sum(x_relaxed[j] for j in facilities)
+    travel_relax   = sum(y_relaxed[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N)
+
+    # Phase 2: top-p facility set by x_relaxed, then nearest-open assignment
+    p_open      = clamp(round(Int, sum_x), 1, length(facilities))
+    sorted_by_x = sort(collect(facilities), by=j -> x_relaxed[j], rev=true)
+    open_set    = Set(sorted_by_x[1:p_open])
+
+    assigned_k = Dict{Int, Int}()
+    for (i, rows) in locations
+        candidates = [k for k in rows if facilities_col[k] in open_set]
+        if !isempty(candidates)
+            assigned_k[i] = candidates[argmin(c(t_ij_col[k]) for k in candidates)]
+        end
+    end
+
+    total_client_pop = sum(wpop[rows[1]] for (_, rows) in locations)
+    travel_c         = isempty(assigned_k) ? 0.0 : sum(c(t_ij_col[k]) * wpop[k] for (i, k) in assigned_k)
+    mean_t           = isempty(assigned_k) ? 0.0 : sum(t_ij_col[k] * wpop[k] for (i, k) in assigned_k) / total_client_pop
+
+    return (
+        w=w, λ=λ, n_open=length(open_set), cost_c=travel_c, mean_t=mean_t,
+        n_frac=n_fractional_x, sum_x=sum_x, travel_relax=travel_relax,
+    )
+end
