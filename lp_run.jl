@@ -1,6 +1,13 @@
 include("settings.jl")
 
-function run_scenario(data, min_clients, w, apply_threshold, nearest)
+struct WarmStartState{TX, TY}
+    model::Model
+    x::TX
+    y::TY
+    data::CountryData
+end
+
+function run_scenario(data::CountryData, min_clients, w, apply_threshold, nearest)
     (; N, facilities, wpop, t_ij_col, facilities_col, locations, facility_rows) = data
 
     λ = w * FACILITY_MIN_COSTS
@@ -149,7 +156,7 @@ end
 # typically much cheaper than building a fresh model each time. Only valid for
 # the min_clients=Inf, nearest=true case (no second LP, no deficit penalty).
 
-function build_lp_warmstart(data)
+function build_lp_warmstart(data::CountryData)
     (; N, facilities, wpop, t_ij_col, facilities_col, locations) = data
 
     model = Model(HiGHS.Optimizer)
@@ -171,10 +178,10 @@ function build_lp_warmstart(data)
         @constraint(model, y[k] <= x[facilities_col[k]])
     end
 
-    return (; model, x, y, data)
+    return WarmStartState(model, x, y, data)
 end
 
-function solve_at_w!(state, w)
+function solve_at_w!(state::WarmStartState, w::Real)
     (; model, x, y, data) = state
     (; N, facilities, wpop, t_ij_col, facilities_col, locations) = data
 

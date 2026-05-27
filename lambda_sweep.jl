@@ -57,7 +57,7 @@ const RAW_PHARMACY_COUNTS = Dict("Netherlands" => 1992)
 const EXISTING_PATH = joinpath(LOCAL_DATA_PROJ_DIR, "ExistingPharmacies")
 const NEW_PATH      = joinpath(LOCAL_DATA_PROJ_DIR, "NewPharmacies")
 
-function load_from(dir, country)
+function load_from(dir, country)::CountryData
     od  = Arrow.Table(joinpath(dir, "$(country)_od.arrow"))
     loc = Arrow.Table(joinpath(dir, "$(country)_i.arrow"))
     fac = Arrow.Table(joinpath(dir, "$(country)_j.arrow"))
@@ -96,8 +96,8 @@ function load_from(dir, country)
         nearest_facility[i] = facilities_col[best_k]
     end
 
-    return (; N, M, facilities, wpop, clients_col, t_ij_col, facilities_col,
-             locations, facility_rows, client_pop, nearest_facility)
+    return CountryData(N, M, facilities, wpop, clients_col, t_ij_col, facilities_col,
+                       locations, facility_rows, client_pop, nearest_facility)
 end
 
 function baseline_metrics(data)

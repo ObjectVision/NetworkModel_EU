@@ -89,7 +89,21 @@ function output_path(country, script, assignment, kind)
     joinpath(dir, "$(kind).arrow")
 end
 
-function load_country(country)
+struct CountryData
+    N::Int
+    M::Int
+    facilities::Vector{Int}
+    wpop::Vector{Float32}
+    clients_col::Vector{Int}
+    t_ij_col::Vector{Float32}
+    facilities_col::Vector{Int}
+    locations::Dict{Int, Vector{Int}}
+    facility_rows::Dict{Int, Vector{Int}}
+    client_pop::Dict{Int, Float32}
+    nearest_facility::Dict{Int, Int}
+end
+
+function load_country(country)::CountryData
     od  = Arrow.Table(input_path(country, "od"))
     loc = Arrow.Table(input_path(country, "i"))
     fac = Arrow.Table(input_path(country, "j"))
@@ -133,8 +147,8 @@ function load_country(country)
         nearest_facility[i] = facilities_col[best_k]
     end
 
-    return (; N, M, facilities, wpop, clients_col, t_ij_col, facilities_col,
-             locations, facility_rows, client_pop, nearest_facility)
+    return CountryData(N, M, facilities, wpop, clients_col, t_ij_col, facilities_col,
+                       locations, facility_rows, client_pop, nearest_facility)
 end
 
 # Returns the country's data NamedTuple, or `nothing` when the country has no
