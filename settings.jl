@@ -17,6 +17,12 @@ const CLIENT_WEIGHT = get(ENV, "CLIENT_WEIGHT", "total_pop")
 const FACILITY_MIN_COSTS    = parse(Int, get(ENV, "FACILITY_MIN_COSTS",    "100000"))
 const FACILITY_CLIENT_COSTS = parse(Int, get(ENV, "FACILITY_CLIENT_COSTS", "3333"))
 
+# Scale-up test knob: keep only every K-th facility row (and the OD rows
+# referencing those facilities). 1 = keep all (default), 10 = keep 10%.
+# Pass `apply_factor=false` to a loader when you want to bypass it (e.g. for
+# the baseline ExistingPharmacies dataset, which should stay full-size).
+const LOCATION_SELECTION_FACTOR = parse(Int, get(ENV, "LOCATION_SELECTION_FACTOR", "1"))
+
 const FUNC_LINEAR    = 1
 const FUNC_QUADRATIC = 2
 const FUNC_PIECEWISE = 3
@@ -103,16 +109,24 @@ struct CountryData
     nearest_facility::Dict{Int, Int}
 end
 
-function load_country(country)::CountryData
+function load_country(country; apply_factor::Bool=true)::CountryData
     od  = Arrow.Table(input_path(country, "od"))
     loc = Arrow.Table(input_path(country, "i"))
     fac = Arrow.Table(input_path(country, "j"))
 
-    clients_col    = Int.(od[:client_rel])
-    facilities_col = Int.(od[:facility_rel])
-    t_ij_col       = od[:t_ij] ./ 60
+    # Subsample facilities (every K-th row); filter OD to references that survive.
+    factor         = apply_factor ? LOCATION_SELECTION_FACTOR : 1
+    facilities_all = Int.(fac[:id])
+    facilities     = facilities_all[1:factor:length(facilities_all)]
+    fset           = Set(facilities)
+    od_facrel_all  = Int.(od[:facility_rel])
+    mask           = factor == 1 ? trues(length(od_facrel_all)) :
+                                   [f ∈ fset for f in od_facrel_all]
+
+    clients_col    = Int.(od[:client_rel])[mask]
+    facilities_col = od_facrel_all[mask]
+    t_ij_col       = (od[:t_ij] ./ 60)[mask]
     population     = client_weight_col(loc)
-    facilities     = Int.(fac[:id])
 
     N = length(clients_col)
     M = length(facilities)

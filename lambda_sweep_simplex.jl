@@ -10,16 +10,23 @@ const RAW_PHARMACY_COUNTS = Dict("Netherlands" => 1992)
 const EXISTING_PATH = joinpath(LOCAL_DATA_PROJ_DIR, "ExistingPharmacies")
 const NEW_PATH      = joinpath(LOCAL_DATA_PROJ_DIR, "NewPharmacies")
 
-function load_from(dir, country)::CountryData
+function load_from(dir, country; apply_factor::Bool=true)::CountryData
     od  = Arrow.Table(joinpath(dir, "$(country)_od.arrow"))
     loc = Arrow.Table(joinpath(dir, "$(country)_i.arrow"))
     fac = Arrow.Table(joinpath(dir, "$(country)_j.arrow"))
 
-    clients_col    = Int.(od[:client_rel])
-    facilities_col = Int.(od[:facility_rel])
-    t_ij_col       = od[:t_ij] ./ 60
+    factor         = apply_factor ? LOCATION_SELECTION_FACTOR : 1
+    facilities_all = Int.(fac[:id])
+    facilities     = facilities_all[1:factor:length(facilities_all)]
+    fset           = Set(facilities)
+    od_facrel_all  = Int.(od[:facility_rel])
+    mask           = factor == 1 ? trues(length(od_facrel_all)) :
+                                   [f ∈ fset for f in od_facrel_all]
+
+    clients_col    = Int.(od[:client_rel])[mask]
+    facilities_col = od_facrel_all[mask]
+    t_ij_col       = (od[:t_ij] ./ 60)[mask]
     population     = client_weight_col(loc)
-    facilities     = Int.(fac[:id])
 
     N = length(clients_col)
     M = length(facilities)
@@ -108,7 +115,7 @@ function analyze_country(country)
     pln("=" ^ 90)
 
     pln("Loading ExistingPharmacies/$country ...")
-    existing = load_from(EXISTING_PATH, country)
+    existing = load_from(EXISTING_PATH, country; apply_factor=false)
     pln("  N=$(existing.N) OD rows, M=$(existing.M) facilities")
 
     pln("Loading NewPharmacies/$country ...")
