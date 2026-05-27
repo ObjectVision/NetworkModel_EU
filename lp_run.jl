@@ -201,11 +201,32 @@ function solve_at_w!(state, w)
     sum_x          = sum(x_relaxed[j] for j in facilities)
     travel_relax   = sum(y_relaxed[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N)
 
-    # Phase 2: top-p facility set by x_relaxed, then nearest-open assignment
+    # Top-p facility set by x_relaxed
     p_open      = clamp(round(Int, sum_x), 1, length(facilities))
     sorted_by_x = sort(collect(facilities), by=j -> x_relaxed[j], rev=true)
     open_set    = Set(sorted_by_x[1:p_open])
 
+    # LP2: fix x to top-p (1) / non-top-p (0), re-solve for y. Gives the
+    # LP-optimal travel cost under the chosen integer open_set, with no
+    # phantom-fractional smearing. Should match the deterministic phase-2.
+    for j in facilities
+        fix(x[j], j in open_set ? 1.0 : 0.0; force=true)
+    end
+    optimize!(model)
+    ts2 = termination_status(model)
+    travel_relax_topp = if ts2 ∈ (OPTIMAL, LOCALLY_SOLVED, ALMOST_OPTIMAL)
+        sum(value(y[k]) * c(t_ij_col[k]) * wpop[k] for k in 1:N)
+    else
+        NaN
+    end
+    # Restore x to free [0,1] so next w's LP1 can warm-start
+    for j in facilities
+        unfix(x[j])
+        set_lower_bound(x[j], 0.0)
+        set_upper_bound(x[j], 1.0)
+    end
+
+    # Phase 2 deterministic nearest-open (kept as independent cross-check)
     assigned_k = Dict{Int, Int}()
     for (i, rows) in locations
         candidates = [k for k in rows if facilities_col[k] in open_set]
@@ -220,6 +241,7 @@ function solve_at_w!(state, w)
 
     return (
         w=w, λ=λ, n_open=length(open_set), cost_c=travel_c, mean_t=mean_t,
-        n_frac=n_fractional_x, sum_x=sum_x, travel_relax=travel_relax,
+        n_frac=n_fractional_x, sum_x=sum_x,
+        travel_relax=travel_relax, travel_relax_topp=travel_relax_topp,
     )
 end

@@ -81,7 +81,7 @@ end
 
 function print_sweep_header(target_raw)
     pln(rpad("w", 12), rpad("λ (€)", 14), rpad("sum_x", 12),
-        rpad("travel_relax", 16), rpad("travel_c_ph2", 16),
+        rpad("travel_relax", 16), rpad("travel_topp", 16), rpad("travel_c_ph2", 16),
         rpad("n_open", 10), rpad("fac_€", 14),
         rpad("mean_t", 10), rpad("frac_x", 10),
         rpad("n-cells", 10),
@@ -92,7 +92,9 @@ function print_sweep_row(r, target_cells, target_raw)
     fac_eur = r.sum_x * FACILITY_MIN_COSTS
     n_raw_delta = target_raw === nothing ? "" : string(r.n_open - target_raw)
     pln(rpad(r.w, 12), rpad(r.λ, 14), rpad(round(r.sum_x, digits=2), 12),
-        rpad(round(r.travel_relax, digits=0), 16), rpad(round(r.cost_c, digits=0), 16),
+        rpad(round(r.travel_relax, digits=0), 16),
+        rpad(round(r.travel_relax_topp, digits=0), 16),
+        rpad(round(r.cost_c, digits=0), 16),
         rpad(r.n_open, 10), rpad(round(fac_eur, digits=0), 14),
         rpad(round(r.mean_t, digits=4), 10), rpad(r.n_frac, 10),
         rpad(r.n_open - target_cells, 10),
@@ -231,7 +233,8 @@ function analyze_country(country)
     pln("  w = $(round(s1.w, sigdigits=5))   λ = $(round(s1.λ, digits=2)) €")
     pln("  sum_x         : $(round(s1.sum_x, digits=2))      (target $target_cells)")
     pln("  n_open        : $(s1.n_open)         frac_x: $(s1.n_frac)")
-    pln("  travel_relax  : $(round(s1.travel_relax, digits=0))     (LP-relaxed; baseline $(round(base.cost_c, digits=0)))")
+    pln("  travel_relax  : $(round(s1.travel_relax, digits=0))     (LP1 with all fractional x)")
+    pln("  travel_topp   : $(round(s1.travel_relax_topp, digits=0))     (LP2 with x fixed to top-p)")
     pln("  travel_c (ph2): $(round(s1.cost_c, digits=0))     (post-rounding; baseline $(round(base.cost_c, digits=0)))")
     pln("  travel change (ph2): $(round((s1.cost_c - base.cost_c)/base.cost_c * 100, digits=2))%")
     pln("  facility €    : $(round(s1.sum_x * FACILITY_MIN_COSTS, digits=0))     (baseline $(round(target_cells * FACILITY_MIN_COSTS, digits=0)))")
@@ -242,7 +245,8 @@ function analyze_country(country)
     pln("  w = $(round(s2.w, sigdigits=5))   λ = $(round(s2.λ, digits=2)) €")
     pln("  sum_x         : $(round(s2.sum_x, digits=2))      (baseline cells $target_cells)")
     pln("  n_open        : $(s2.n_open)         frac_x: $(s2.n_frac)")
-    pln("  travel_relax  : $(round(s2.travel_relax, digits=0))     (LP-relaxed; baseline $(round(base.cost_c, digits=0)))")
+    pln("  travel_relax  : $(round(s2.travel_relax, digits=0))     (LP1 with all fractional x)")
+    pln("  travel_topp   : $(round(s2.travel_relax_topp, digits=0))     (LP2 with x fixed to top-p)")
     pln("  travel_c (ph2): $(round(s2.cost_c, digits=0))     (post-rounding; baseline $(round(base.cost_c, digits=0)))")
     pln("  travel change (ph2): $(round((s2.cost_c - base.cost_c)/base.cost_c * 100, digits=2))%")
     pln("  facility €    : $(round(s2.sum_x * FACILITY_MIN_COSTS, digits=0))     (baseline $(round(target_cells * FACILITY_MIN_COSTS, digits=0)))")
