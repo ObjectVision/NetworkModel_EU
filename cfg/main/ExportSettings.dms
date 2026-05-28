@@ -58,6 +58,7 @@ container ExportSettings
 				parameter<string>   StreetTypeSubsetSelectie       := ModelParameters/StreetTypeSubsetSelectie;
 				parameter<string>   NumberOfItersForNetworkCleanUp := string(ModelParameters/NumberOfItersForNetworkCleanUp);
 				parameter<string>   Use_Country_selection          := string(ModelParameters/Use_Country_selection);
+				parameter<string>   Use_NUTS1_selection            := string(ModelParameters/Use_NUTS1_selection);
 				parameter<string>   Roads_path                     := ModelParameters/Roads_path;
 				parameter<string>   StudyArea                      := ModelParameters/StudyArea;
 				parameter<string>   MaxCarSpeed                    := string(ModelParameters/Advanced/MaxCarSpeed);

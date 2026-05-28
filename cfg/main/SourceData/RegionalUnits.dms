@@ -9,6 +9,30 @@ container RegionalUnits : using = "geography"
 		attribute<bool>      IsEU            := IsDefined(geometry);
 	}
 
+	unit<uint32> NUTS1 := unique(NUTS3/N1_code)
+	{
+		unit<uint32> Subset := select(NUTS3/IsInStudyArea)
+		{
+			attribute<LambertEA>    geometry    (poly) := collect_by_cond(Subset, NUTS3/IsInStudyArea, Nuts3/geometry); 
+			parameter<LambertEA>    geometry_BB (poly) := points2sequence(BoundingBox/point_set/point); //, BoundingBox/point_set/Sequence_rel, BoundingBox/point_set/ordinal);
+			
+			container BoundingBox
+			{
+				parameter<LambertEA> bottom_left  := min(lower_bound(geometry));
+				parameter<LambertEA> top_right    := max(upper_bound(geometry));
+				parameter<LambertEA> top_left     := point_xy(Get_X(bottom_left),Get_Y(top_right), LambertEA);
+				parameter<LambertEA> bottom_right := point_xy(Get_X(top_right),Get_Y(bottom_left), LambertEA);
+				
+				unit<UInt32> point_set    : NrOfRows = 5
+				{
+					attribute<LambertEA> point        := union_data(., top_left, top_right, bottom_right, bottom_left, top_left);
+					attribute<..>        Sequence_rel := const(0, .);
+					attribute<.>         ordinal      := id(.);
+				}
+			}
+		}
+	}
+	
 	unit<uint32> NUTS3 
 	: StorageName = "%NetworkModelDataDir%/Regions/Nuts3.shp"
 	, StorageType = "gdal.vect"
@@ -20,6 +44,9 @@ container RegionalUnits : using = "geography"
 		// attribute<bool>      IsWater         := TAA == 7i;
 		attribute<string>    label           := NUTS_CODE;
 
+		attribute<NUTS1> NUTS1_rel := rlookup(N1_code, NUTS1/values);
+		attribute<bool>  IsInStudyArea := NUTS1_rel == /ModelParameters/NUTS1_rel;
+		
 		unit<uint32> CalcCentroids := .
 		{
 			attribute<float64> W          := sum(Population/pop, Population/NUTS3_rel);

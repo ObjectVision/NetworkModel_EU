@@ -58,7 +58,7 @@ REM   below):
 REM     GEODMS_EXE   full path to GeoDmsRun.exe
 REM     CFG          path to the GeoDms config (defaults to cfg\main.dms)
 REM     LOG_DIR      directory for per-country log files (defaults to .\logs)
-REM     STEPS        space-separated subset of {network1 network2 alloc} to
+REM     STEPS        space-separated subset of {network0 network1 network2 alloc} to
 REM                  run only certain steps (default: all three)
 REM
 REM   Exit codes:
@@ -73,7 +73,7 @@ REM if "%GEODMS_EXE%"=="" set "GEODMS_EXE=C:\Program Files\ObjectVision\GeoDms20
 if "%GEODMS_EXE%"=="" set "GEODMS_EXE=C:\dev\GeoDMS_2026\bin\Release\x64\GeoDmsRun.exe"
 if "%CFG%"=="" set "CFG=%~dp0cfg\main.dms"
 if "%LOG_DIR%"=="" set "LOG_DIR=%~dp0logs"
-if "%STEPS%"=="" set "STEPS=network1 network2 alloc"
+if "%STEPS%"=="" set "STEPS=network0 network1 network2 alloc"
 
 REM Supported OESO/OECD countries. Must match the country sub-folders that
 REM actually exist under %NetworkModelDataDir%\Infrastructure\TomTom\ AND the
@@ -94,6 +94,7 @@ REM (semicolon-joining does NOT work -- GeoDmsRun would treat the whole
 REM thing as a single -- and therefore unresolvable -- item path).
 REM set ITEMS_NETWORK=ExistingSchool_Analysis
 set ITEM_NETWORK=ExistingPharmacy_Analysis
+set ITEMS_NETWORK0="/MakeUnlinkedData/Step_3_Streets_fss_selection"
 set ITEMS_NETWORK1="/NetworkSetup/%ITEM_NETWORK%/NetwerkSpec/CreateInitialWorkingNetwork/LinkSet_Write"
 set ITEMS_NETWORK2="/NetworkSetup/%ITEM_NETWORK%/NetwerkSpec/CreateMoreEfficientNetwork/Generate"
 
@@ -136,6 +137,7 @@ for %%C in (%COUNTRIES%) do (
     for %%S in (%STEPS%) do (
         set "STEP=%%S"
         set "ITEMS="
+        if /I "!STEP!"=="network0" set "ITEMS=%ITEMS_NETWORK0%"
         if /I "!STEP!"=="network1" set "ITEMS=%ITEMS_NETWORK1%"
         if /I "!STEP!"=="network2" set "ITEMS=%ITEMS_NETWORK2%"
         if /I "!STEP!"=="alloc"    set "ITEMS=%ITEMS_ALLOC%"
