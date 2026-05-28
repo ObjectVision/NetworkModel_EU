@@ -2,9 +2,9 @@ Container TomTom : Using = "Units;geography;classifications/tomtom"
 {
 	container Generates
 	{
-		parameter<string> Junctions_fss         := 'Ready', ExplicitSuppliers = "FSS/Make_Junctions";
-		parameter<string> Streets_fss           := 'Ready', ExplicitSuppliers = "FSS/Make_Streets";
-		parameter<string> Streets_fss_selection := 'Ready', ExplicitSuppliers = "Selection/Make_Streets_selection";
+		parameter<string> Junctions_mmd         := 'Ready', ExplicitSuppliers = "MMD/Make_Junctions";
+		parameter<string> Streets_mmd           := 'Ready', ExplicitSuppliers = "MMD/Make_Streets";
+		parameter<string> Streets_mmd_selection := 'Ready', ExplicitSuppliers = "Selection/Make_Streets_selection";
 	}
 	container GPKG
 	{
@@ -34,60 +34,40 @@ Container TomTom : Using = "Units;geography;classifications/tomtom"
 		}
 	}
 	
-	container FSS
+	container MMD
 	{
 		unit<uint32> Make_Junctions := GPKG/Junctions
-		, StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/EU/TomTom_Compiled_Themes_2021_Junctions.fss"
+		, StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/EU/TomTom_Compiled_Themes_2021_Junctions.mmd"
 		{
 			attribute<BaseProjection>     Geometry  := GPKG/Junctions/Geometry;
 			attribute<uint64>             JNCTID    := GPKG/Junctions/id[uint64];
 		}
 	
 		unit<uint32> Junctions
-		: StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/EU/TomTom_Compiled_Themes_2021_Junctions.fss"
+		: StorageName = "=PropValue(Make_Junctions, 'StorageName')"
 		, StorageReadOnly = "True"
 		{
-			attribute<BaseProjection>     Geometry;
-			attribute<uint64>             JNCTID;
-			
-			// attribute<bool>               IsWithinStudyArea := IsDefined(point_in_polygon(geometry, geography/selection_polygon/result/geometry));
 			attribute<bool>               IsWithinStudyArea := IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry_BB));
 		}
 	
-		container Make_Streets
-		: StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/EU/NW2021_SP_streets.fss"
+		unit<uint32> Make_Streets := GPKG/Streets
+		, StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/EU/NW2021_SP_streets.mmd"
 		{
-			parameter<uint32>             n                             := #GPKG/Streets;
-			attribute<BaseProjection>     Geometry  (GPKG/Streets, arc) := GPKG/Streets/Geometry;
-			attribute<FuncRoadClass>      FRC_rel   (GPKG/Streets)      := GPKG/Streets/FRC_rel;
-			attribute<uint64>             F_JNCTID  (GPKG/Streets)      := GPKG/Streets/F_JNCTID[uint64];
-			attribute<uint64>             T_JNCTID  (GPKG/Streets)      := GPKG/Streets/T_JNCTID[uint64];
-			attribute<m>                  METERS    (GPKG/Streets)      := GPKG/Streets/METERS[m];
-			attribute<min_f>              MINUTES   (GPKG/Streets)      := GPKG/Streets/MINUTES[min_f];
-			attribute<km_hr>              KPH       (GPKG/Streets)      := GPKG/Streets/KPH[km_hr];
-			attribute<Directions>         Direction (GPKG/Streets)      := MakeDefined(rlookup(GPKG/Streets/Oneway, Directions/code), 0[Directions]); // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer)
-			attribute<uint8>              Lanes     (GPKG/Streets)      := GPKG/Streets/Lanes[uint8];
+			attribute<BaseProjection>     Geometry  (arc) := GPKG/Streets/Geometry;
+			attribute<FuncRoadClass>      FRC_rel         := GPKG/Streets/FRC_rel;
+			attribute<uint64>             F_JNCTID        := GPKG/Streets/F_JNCTID[uint64];
+			attribute<uint64>             T_JNCTID        := GPKG/Streets/T_JNCTID[uint64];
+			attribute<m>                  METERS          := GPKG/Streets/METERS[m];
+			attribute<min_f>              MINUTES         := GPKG/Streets/MINUTES[min_f];
+			attribute<km_hr>              KPH             := GPKG/Streets/KPH[km_hr];
+			attribute<Directions>         Direction       := MakeDefined(rlookup(GPKG/Streets/Oneway, Directions/code), 0[Directions]); // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer)
+			attribute<uint8>              Lanes           := GPKG/Streets/Lanes[uint8];
 		}
 		
-		container Read_Streets_container
-		: StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/EU/NW2021_SP_streets.fss"
+		unit<uint32> Read_Streets
+		: StorageName = "=PropValue(Make_Streets, 'StorageName')"
 		, StorageReadOnly = "True"
 		{
-			parameter<uint32> n;
-			
-			unit<uint32> domain := range(uint32, 0 , n);
-			
-			attribute<BaseProjection>     Geometry    (domain, arc);
-			attribute<FuncRoadClass>      FRC_rel     (domain);
-			attribute<uint64>             F_JNCTID    (domain);
-			attribute<uint64>             T_JNCTID    (domain);
-			
-			attribute<km_hr>              KPH         (domain);
-			attribute<m>                  METERS      (domain);
-			attribute<min_f>              MINUTES     (domain);
-			attribute<Directions>         Direction   (domain);
-			attribute<uint8>              Lanes       (domain);
-			
 			attribute<Junctions>          F_JNCT_rel                         (domain) := rlookup(F_JNCTID, Junctions/JNCTID);
 			attribute<bool>               Streets_IsJunctionWithinStudyArea  (domain ):= FSS/Junctions/IsWithinStudyArea[F_JNCT_rel];
 			attribute<bool>               Streets_IsStreetTypeSubsetSelectie (domain) := ='FRC_rel <= '+ModelParameters/StreetTypeSubsetSelectie;
@@ -140,28 +120,26 @@ Container TomTom : Using = "Units;geography;classifications/tomtom"
 	
 	container Selection
 	{
-		unit<uint32> Make_Streets_selection := FSS/Streets_Selectie
+		unit<uint32> Make_Streets_selection := MMD/Streets_Selectie
 		, StorageName = "=ModelParameters/Roads_path"
 		{
-			attribute<BaseProjection>     geometry       (arc) := FSS/Streets_Selectie/geometry_clean;
-			attribute<FuncRoadClass>      FRC_rel              := FSS/Streets_Selectie/FRC_rel;
-			attribute<uint64>             F_JNCTID             := FSS/Streets_Selectie/F_JNCTID_directed[uint64];
-			attribute<uint64>             T_JNCTID             := FSS/Streets_Selectie/T_JNCTID_directed[uint64];
-			attribute<m>                  METERS               := FSS/Streets_Selectie/METERS[m];
-			attribute<min_f>              MINUTES              := FSS/Streets_Selectie/MINUTES[min_f];
-			attribute<km_hr>              KPH                  := FSS/Streets_Selectie/KPH[km_hr];
-			attribute<Directions>         Direction            := FSS/Streets_Selectie/Direction;
-			attribute<uint8>              Lanes                := FSS/Streets_Selectie/Lanes;
+			attribute<BaseProjection>     geometry       (arc) := MMD/Streets_Selectie/geometry_clean;
+			attribute<FuncRoadClass>      FRC_rel              := MMD/Streets_Selectie/FRC_rel;
+			attribute<uint64>             F_JNCTID             := MMD/Streets_Selectie/F_JNCTID_directed[uint64];
+			attribute<uint64>             T_JNCTID             := MMD/Streets_Selectie/T_JNCTID_directed[uint64];
+			attribute<m>                  METERS               := MMD/Streets_Selectie/METERS[m];
+			attribute<min_f>              MINUTES              := MMD/Streets_Selectie/MINUTES[min_f];
+			attribute<km_hr>              KPH                  := MMD/Streets_Selectie/KPH[km_hr];
+			attribute<Directions>         Direction            := MMD/Streets_Selectie/Direction;
+			attribute<uint8>              Lanes                := MMD/Streets_Selectie/Lanes;
 		}
 		
 		unit<uint32> Read_Streets_selection
-		: StorageName = "=ModelParameters/Roads_path"
-		, StorageReadOnly = "True"
-		{
-		}
+		: StorageName = "=PropValue(Make_Streets_selection, 'StorageName')"
+		, StorageReadOnly = "True";
 	}
 	
-	unit<uint32> Junctions := FSS/Junctions;
+	unit<uint32> Junctions := MMD/Junctions;
 	unit<uint32> Streets   := Selection/Read_Streets_selection
 	{
 		attribute<BaseProjection>     Geometry       (arc) := Selection/Read_Streets_selection/Geometry;
