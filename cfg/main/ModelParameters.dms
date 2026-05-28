@@ -19,7 +19,10 @@
 	parameter<string>   PopVersie                      := '2021_Ardeco'; //2021_v1_0 2018
 	parameter<string>   Roads_path                     := '%NetworkModelDataDir%/Infrastructure/TomTom/'+StudyArea+'/NW2021_SP_streets_subset.mmd';
 	
-	parameter<string>   StudyArea                      := 'Romania'; //in english language; Netherlands EU Romania Finland
+	parameter<string>   StudyArea_ext                  := Expand(., '%env:STUDY_AREA%');
+	parameter<string>   StudyArea_default              := 'Netherlands'; //in english language; Netherlands EU Romania Finland
+	parameter<string>   StudyArea                      := replace(StudyArea_ext, 'env:STUDY_AREA', StudyArea_default);
+	
 	parameter<bool>     Use_Country_selection          := StudyArea != 'EU'; 
 	parameter<string>   Client                         := 'pop_primaryschool'; // 'population' 'pop_primaryschool'
 	parameter<string>   OSM_file_date                  := '20211004';

@@ -327,7 +327,53 @@ container Locations : using = "geography;units"
 			}
 		}
 	}
-	
+	container Pharmacies
+	{
+		unit<uint8> Country := range(0b, 4b)
+		{
+			attribute<string> Name : ['France', 'Italy', 'Netherlands', 'Sweden'];
+			attribute<string> Label := Name;
+			attribute<string> Code : ['fra', 'ita', 'nld', 'swe'];
+			
+			attribute<string> FileName := '%NetworkModelDataDir%/Locations/pharmacies/'+Code+'_pharmacies.parquet';
+			container V := for_each_nedv(Name, string(ID(.))+'[..]', void, .);
+		}
+		template CountryDataT
+		{
+			parameter<string> fileName;
+			unit<uint32> Table
+			: StorageName = "=FileName"
+			, StorageType = "gdal.vect"
+			, StorageReadOnly = "True"
+			{
+				attribute<geography/wgs84_base> geometry_wgs:= point_yx(lat, lon, geography/wgs84_base);
+				attribute<geography/BaseProjection> geometry := geometry_wgs[geography/BaseProjection];
+			}
+		}
+		container Countries := for_each_ne(Country/Name, 'CountryDataT("'+Country/FileName+'")');
+		unit<uint32> EU := ='union_unit('+AsItemList('Countries/'+Country/Name+'/Table')+')'
+		{
+			attribute<Country>                  Country_rel := ='union_data(., '+AsItemList('const(Country/V/'+Country/Name+', Countries/'+Country/Name+'/Table)')+')';
+			attribute<geography/BaseProjection> geometry    := ='union_data(., '+AsItemList('Countries/'+Country/Name+'/Table/geometry')+')';
+			attribute<bool>           IsStudyArea  := IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry));
+		}
+		unit<uint32> within_StudyArea := select_with_org_rel(EU/IsStudyArea)
+		{
+			attribute<BaseProjection> geometry      := org_rel -> geometry;
+			attribute<Base_grid>      Base_grid_rel := geometry[Base_grid];
+			attribute<uq_cells>       uq_cells_rel  := rlookup(Base_grid_rel, uq_cells/values);
+			
+			unit<uint32> uq_cells := unique(./Base_grid_rel)
+			{
+				attribute<Base_grid>      Base_grid_rel := values;
+				attribute<BaseProjection> geometry               := values[BaseProjection] + Base_grid/center_delta;
+				attribute<float32>        Count_Objects_Per_Cell := float32(pcount(uq_cells_rel));
+				attribute<float32>        CountCurrentObjects    := float32(pcount(uq_cells_rel));
+				
+				attribute<uint32>         Count_grid (Base_grid) := MakeDefined(sum(CountCurrentObjects, Base_grid_rel)[uint32], 0);
+			}
+		}
+	}
 	unit<ipoint> Base_grid := ='/Geography/Base_grid_'+ModelParameters/OrgGridsize;
 	
 	unit<uint32> NewSchoolLocations := select_with_org_rel(/Geography/Base_grid_1km/points/population >= ModelParameters/MinPopSizeVoorPotentialSchoolLocation)
@@ -343,4 +389,5 @@ container Locations : using = "geography;units"
 			attribute<float32>              CountCurrentObjects          := rjoin(Base_grid_rel, Schools/within_StudyArea/uq_school_cells/Base_grid_rel, Schools/within_StudyArea/uq_school_cells/CountCurrentObjects);
 		}
 	}
+	unit<uint32> NewPharmacyLocations := NewSchoolLocations;
 }

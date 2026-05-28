@@ -2,6 +2,27 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 {  
 	unit<uint32> Client       := ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/'+ModelParameters/Client+' > 0)';
 
+	container Pharmacies
+	{
+		unit<uint32> locations := SourceData/Locations/Pharmacies;
+		
+	}
+	container AllocateClientsToExistingPharmacies:= 
+		Allocate_T(
+			  Client
+			, SourceData/Locations/Pharmacies/within_StudyArea/uq_cells
+			, NetworkSetup/ExistingPharmacy_Analysis/NetwerkSpec
+			, NetworkSetup/ExistingPharmacy_Analysis/ProjName
+		);
+		
+	container AllocateClientsToNewPharmacies:= 
+		Allocate_T(
+			  Client
+			, SourceData/Locations/NewPharmacyLocations/within_StudyArea
+			, NetworkSetup/NewPharmacy_Analysis/NetwerkSpec
+			, NetworkSetup/NewPharmacy_Analysis/ProjName
+		);
+		
 	container AllocateKidsToExistingSchools := 
 		Allocate_T(
 			  Client
@@ -17,6 +38,51 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			, NetworkSetup/NewSchool_Analysis/NetwerkSpec
 			, NetworkSetup/NewSchool_Analysis/ProjName
 		);
+
+	parameter<string> GDAL_DRIVER := 'Arrow';
+	Template ReadResults_T
+	{
+		parameter<string> type;       // 'lp' or 'greedy'
+		parameter<string> assignment; // 'central' or 'nearest'
+		///
+
+		parameter<string> GDAL_DRIVER := 'Arrow';
+		unit<uint32> ResultingClientAssignment
+		:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'/'+type+'/'+assignment+'/traveltime.arrow'"
+		,	StorageType = "gdal.vect"
+		,	StorageReadOnly = "True"
+		{
+			attribute<min_f> t_ij;
+		}
+
+		attribute<min_f>             ClientTravelTime            (Client) := rjoin(ID(Client), convert(ResultingClientAssignment/id, Client), ResultingClientAssignment/t_ij);
+		attribute<ClientTravelTimeK> ClientTravelTime_Classified (Client) := classify(ClientTravelTime, ClientTravelTimeK/ClassBreaks);
+
+		unit<uint8> OpenEnum := range(0b, 3b)
+		{
+			attribute<string> label : [ 'Closed', 'Open', 'Underfilled'];
+			container V := for_each_nedv(label, string(ID(.))+'[..]', void, .);
+		}
+
+		unit<uint32> ResultingFacilityClosure
+		:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'/'+type+'/'+assignment+'/assignment.arrow'"
+		,	StorageType = "gdal.vect"
+		,	StorageReadOnly = "True"
+		{
+			attribute<Facility> id;
+			attribute<OpenEnum> open;
+		}
+		attribute<OpenEnum> FacilityRemainsOpen (Facility) := rjoin(ID(Facility), convert(ResultingFacilityClosure/id, Facility), ResultingFacilityClosure/Open);
+
+		unit<uint32> OpenFacilities := select_with_org_rel(FacilityRemainsOpen > OpenEnum/V/Closed)
+		{
+			attribute<BaseProjection> geometry := org_rel->Geometry;
+		}
+
+		attribute<Float64> FacilityProximity     (Base_grid_1km) := potential(Float64(IsDefined(invert(      Facility/geometry[Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
+		attribute<Float64> OpenFacilityProximity (Base_grid_1km) := potential(Float64(IsDefined(invert(OpenFacilities/geometry[Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
+		attribute<Float64> Openness              (Base_grid_1km) := OpenFacilityProximity / FacilityProximity;
+	}
 
 	Template Allocate_T
 	{
@@ -89,41 +155,42 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 				attribute<float32>   Deterrence_ij(OD) := ../Deterrence_ij;
 			}
 
-			unit<uint32> ResultingClientAssignment
-			:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'_i_travel.arrow'"
-			,	StorageType = "gdal.vect"
-			,	StorageReadOnly = "True"
+			container SolverResults
 			{
-				attribute<min_f> t_ij;
+				parameter<string> GDAL_DRIVER := 'Arrow';
+
+				container lp_central     := ReadResults_T('lp'    , 'central');
+				container lp_nearest     := ReadResults_T('lp'    , 'nearest');
+				container greedy_central := ReadResults_T('greedy', 'central');
+				container greedy_nearest := ReadResults_T('greedy', 'nearest');
 			}
-				
-			attribute<min_f>             ClientTravelTime            (Client) := rjoin(ID(client), convert(ResultingClientAssignment/id, Client), ResultingClientAssignment/t_ij);
-			attribute<ClientTravelTimeK> ClientTravelTime_Classified (Client) := classify(ClientTravelTime, ClientTravelTimeK/ClassBreaks);
 
-
-			unit<uint32> ResultingFacilityClosure
-			:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'_j_greedy.arrow'"
-			,	StorageType = "gdal.vect"
-			,	StorageReadOnly = "True";
-				
-			attribute<int64> FacilityRemainsOpen (Facility) := rjoin(ID(facility), convert(ResultingFacilityClosure/id, Facility), ResultingFacilityClosure/Open);
-			
-			unit<uint32> OpenFacilities := select_with_org_rel(FacilityRemainsOpen)
+			container Summary
 			{
-				attribute<BaseProjection> geometry := org_rel->Geometry;
+				attribute<min_f>             ClientTravelTime_lp_central                (Client)        := SolverResults/lp_central/ClientTravelTime;
+				attribute<ClientTravelTimeK> ClientTravelTime_Classified_lp_central     (Client)        := SolverResults/lp_central/ClientTravelTime_Classified;
+				attribute<Float64>           Openness_lp_central                        (Base_grid_1km) := SolverResults/lp_central/Openness;
+				attribute<min_f>             ClientTravelTime_lp_nearest                (Client)        := SolverResults/lp_nearest/ClientTravelTime;
+				attribute<ClientTravelTimeK> ClientTravelTime_Classified_lp_nearest     (Client)        := SolverResults/lp_nearest/ClientTravelTime_Classified;
+				attribute<Float64>           Openness_lp_nearest                        (Base_grid_1km) := SolverResults/lp_nearest/Openness;
+				attribute<min_f>             ClientTravelTime_greedy_central            (Client)        := SolverResults/greedy_central/ClientTravelTime;
+				attribute<ClientTravelTimeK> ClientTravelTime_Classified_greedy_central (Client)        := SolverResults/greedy_central/ClientTravelTime_Classified;
+				attribute<Float64>           Openness_greedy_central                    (Base_grid_1km) := SolverResults/greedy_central/Openness;
+				attribute<min_f>             ClientTravelTime_greedy_nearest            (Client)        := SolverResults/greedy_nearest/ClientTravelTime;
+				attribute<ClientTravelTimeK> ClientTravelTime_Classified_greedy_nearest (Client)        := SolverResults/greedy_nearest/ClientTravelTime_Classified;
+				attribute<Float64>           Openness_greedy_nearest                    (Base_grid_1km) := SolverResults/greedy_nearest/Openness;
 			}
-			
-			attribute<Float64> FacilityProximity     (Base_grid_1km) := potential(Float64(IsDefined(invert(      Facility/geometry[Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
-			attribute<Float64> OpenFacilityProximity (Base_grid_1km) := potential(Float64(IsDefined(invert(OpenFacilities/geometry[Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
-			attribute<Float64> Openness              (Base_grid_1km) := OpenFacilityProximity / FacilityProximity;
 			
 			container ClientExport
 			:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'_i.arrow'"
 			,	StorageType = "gdalwrite.vect"
 			,	StorageReadOnly = "False"
 			{
-				attribute<client>  id  (client) := id(client);
-				attribute<float32> pop (client) := Pop_i;
+				attribute<client>  id        (client) := id(client);
+				attribute<float32> pop       (client) := Pop_i;
+				attribute<float32> total_pop (client) := float32(client/population);
+				attribute<float64> x         (client) := client/x;
+				attribute<float64> y         (client) := client/y;
 			}
 			
 			container FacilityExport
@@ -132,6 +199,8 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			,	StorageReadOnly = "False"
 			{
 				attribute<Facility> id(Facility) := id(Facility);
+				attribute<float64> x   (Facility) := Get_X( Facility/geometry );
+				attribute<float64> y   (Facility) := Get_Y( Facility/geometry );
 			}
 			
 			//Inital round 
@@ -234,6 +303,15 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		
 		attribute<float32> StudentAccessibility_grid (SourceData/Locations/Base_grid) := sum(StudentAccessibility, Dest/geometry[SourceData/Locations/Base_grid]);
 		attribute<uint32>  NumberOfSchools_grid      (SourceData/Locations/Base_grid) := /SourceData/Locations/Schools/within_StudyArea/uq_school_cells/CountSchools_grid;
-
+		attribute<bool>    access_criterion_sel		 (SourceData/Locations/Base_grid) := StudentAccessibility_grid > exp(2f) && StudentAccessibility_grid < exp(10f) && SourceData/Locations/Population_2011_Ardeco/ReadData[uint32] > 0;
+		attribute<bool>	   schools_present_sel		 (SourceData/Locations/Base_grid) := isdefined(Geography/Base_grid_1km/Country_rel) && NumberOfSchools_grid > 0;
+		attribute<bool>    search_space				 (SourceData/Locations/Base_grid) := schools_present_sel || access_criterion_sel;
+		
+		unit<uint64> study_area_grid:= select_with_org_rel(isdefined(Geography/Base_grid_1km/Country_rel)) {
+			attribute<float32> sel_StudentAccessibility_grid := StudentAccessibility_grid[org_rel];
+			attribute<uint32>  sel_NumberOfSchools_grid      := NumberOfSchools_grid[org_rel];
+		}
+		
+		
 	}
 }

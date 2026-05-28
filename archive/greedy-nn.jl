@@ -1,13 +1,13 @@
 using Arrow
 
-country = "Netherlands"
+country = "Romania"
 travel  = "quadratic"   # "linear", "quadratic", or "piecewise"
 grid    = true
-policy  = false       # true: vary min_students [25..200]; false: Inf (no minimum)
+policy  = true       # true: vary min_students [25..200]; false: Inf (no minimum)
 
-od = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_od.arrow")
-loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_i.arrow")
-fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\$(country)_j.arrow")
+od  = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_od.arrow")
+loc = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_i.arrow")
+fac = Arrow.Table("C:\\LocalData\\networkmodel_eu\\ExistingSchools\\$(country)_j.arrow")
 
 clients_col    = Int.(od[:client_rel])
 facilities_col = Int.(od[:facility_rel])
@@ -90,6 +90,8 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
         push!(facility_clients[j], i)
     end
 
+    facility_cost_cache = Dict(j => facility_penalty(fload[j], min_students, w, facility_cost) for j in keys(fload))
+
     second_best = Dict{Int, Tuple{Int, Float64, Float64}}()
     for (i, rows) in locations
         if !haskey(assigned, i)
@@ -126,31 +128,69 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
         best_saving = 0.0
         best_j      = nothing
 
+        # for j in open_set
+        #     # saving from closing j: penalty we avoid by closing it
+        #     penalty_saving = facility_penalty(fload[j], min_students, w, facility_cost)
+        #     if penalty_saving == 0.0
+        #         continue
+        #     end
+
+        #     travel_increase = 0.0
+        #     feasible = true
+        #     for i in facility_clients[j]
+        #         if !haskey(second_best, i)
+        #             feasible = false
+        #             break
+        #         end
+        #         travel_increase += (second_best[i][2] - cur_cost[i]) * client_pop[i]
+        #     end
+
+        #     if !feasible
+        #         continue
+        #     end
+
+        #     saving = penalty_saving - travel_increase
+        #     if saving > best_saving
+        #         best_saving = saving
+        #         best_j      = j
+        #     end
+        # end
+
         for j in open_set
-            # saving from closing j: penalty we avoid by closing it
-            penalty_saving = facility_penalty(fload[j], min_students, w, facility_cost)
-            if penalty_saving == 0.0
-                continue
-            end
+            # saving from closing j: its facility cost goes away
+            # penalty_saving = facility_penalty(fload[j], min_students, w, facility_cost)
+            penalty_saving = facility_cost_cache[j]
 
             travel_increase = 0.0
             feasible = true
+            other_facility_loads = Dict{Int, Float64}()
             for i in facility_clients[j]
                 if !haskey(second_best, i)
                     feasible = false
                     break
                 end
                 travel_increase += (second_best[i][2] - cur_cost[i]) * client_pop[i]
+                new_j = second_best[i][1]
+                other_facility_loads[new_j] = get(other_facility_loads, new_j, 0.0) + client_pop[i]
             end
 
             if !feasible
                 continue
             end
 
-            saving = penalty_saving - travel_increase
+            # facility cost change at other facilities absorbing j's pupils
+            other_facility_change = 0.0
+            for (r, added) in other_facility_loads
+                # old_r = facility_penalty(fload[r], min_students, w, facility_cost)
+                old_r = facility_cost_cache[r]
+                new_r = facility_penalty(fload[r] + added, min_students, w, facility_cost)
+                other_facility_change += new_r - old_r
+            end
+
+            saving = penalty_saving - travel_increase - other_facility_change
             if saving > best_saving
                 best_saving = saving
-                best_j      = j
+                best_j = j
             end
         end
 
@@ -158,6 +198,7 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
             open_set = setdiff(open_set, [best_j])
             affected = union(Set(facility_clients[best_j]), get(second_best_clients, best_j, Set{Int}()))
 
+            loads_changed = Set{Int}([best_j])
             for i in facility_clients[best_j]
                 old_second = second_best[i][1]
                 new_j      = second_best[i][1]
@@ -166,6 +207,8 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
 
                 fload[best_j] -= client_pop[i]
                 fload[new_j]  += client_pop[i]
+                push!(loads_changed, new_j)
+
                 assigned[i]    = new_j
                 cur_cost[i]    = new_cost
                 cur_time[i]    = new_time
@@ -175,6 +218,11 @@ function drop_heuristic(open_set, min_students, w, facility_cost)
                     delete!(second_best_clients[old_second], i)
                 end
             end
+
+            for f in loads_changed
+                facility_cost_cache[f] = facility_penalty(fload[f], min_students, w, facility_cost)
+            end
+
             facility_clients[best_j] = Int[]
             delete!(second_best_clients, best_j)
 
@@ -361,7 +409,7 @@ end
 
 
 if grid
-    grid_search()
+    @time grid_search()
 else
-    single_run(50.0, 0.0001)
+    @time single_run(50.0, 0.0001)
 end
