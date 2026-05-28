@@ -2,10 +2,14 @@ container NetworkModel_EU
 { 
 	container MakeUnlinkedData
 	{
-		parameter<string> Step_1_Junctions                 := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Junctions_mmd ";
-		parameter<string> Step_2_Streets                   := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Streets_mmd";
-		parameter<string> Step_3_Streets_selection         := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Streets_mmd_selection";
+		// step 1 and 2 are probably already in your SD
+		parameter<string> Step_1_Junctions                 := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Junctions_mmd", Descr = "Create src Junctions from a slow gpkg into faster format";
+		parameter<string> Step_2_Streets                   := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Streets_mmd", Descr = "Create src Streets from a slow gpkg into faster format";
 		
+		// if you change the study area, you might need to run this step.
+		parameter<string> Step_3_Streets_selection         := 'Ready', ExplicitSuppliers = "SourceData/Infrastructure/TomTom/Generates/Streets_mmd_selection", Descr = "Create a subset of streets for study area";;
+		
+		// step 4 and 5 are project/analysis-specific
 		parameter<string> Step_4_Create_InitialLinkSet         := 'Ready', ExplicitSuppliers = "/NetworkSetup/ExistingSchool_Analysis/Generator_Network1;/NetworkSetup/NewSchool_Analysis/Generator_Network1";
 		parameter<string> Step_5_Create_FinalNode_and_LinkSet  := 'Ready', ExplicitSuppliers = "/NetworkSetup/ExistingSchool_Analysis/Generator_Network2;/NetworkSetup/NewSchool_Analysis/Generator_Network2";
 	}
