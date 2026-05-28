@@ -68,14 +68,14 @@ Container TomTom : Using = "Units;geography;classifications/tomtom"
 		: StorageName = "=PropValue(Make_Streets, 'StorageName')"
 		, StorageReadOnly = "True"
 		{
-			attribute<Junctions>          F_JNCT_rel                         (domain) := rlookup(F_JNCTID, Junctions/JNCTID);
-			attribute<bool>               Streets_IsJunctionWithinStudyArea  (domain ):= FSS/Junctions/IsWithinStudyArea[F_JNCT_rel];
-			attribute<bool>               Streets_IsStreetTypeSubsetSelectie (domain) := ='FRC_rel <= '+ModelParameters/StreetTypeSubsetSelectie;
+			attribute<Junctions>          F_JNCT_rel                          := rlookup(F_JNCTID, Junctions/JNCTID);
+			attribute<bool>               Streets_IsJunctionWithinStudyArea   := Junctions/IsWithinStudyArea[F_JNCT_rel];
+			attribute<bool>               Streets_IsStreetTypeSubsetSelectie  := ='FRC_rel <= '+ModelParameters/StreetTypeSubsetSelectie;
 			
-			attribute<bool>               Streets_Selection_Condition        (domain) := =ModelParameters/UseStreetTypeSubset ? 'Streets_IsStreetTypeSubsetSelectie && Streets_IsJunctionWithinStudyArea' : 'Streets_IsJunctionWithinStudyArea';
+			attribute<bool>               Streets_Selection_Condition         := =ModelParameters/UseStreetTypeSubset ? 'Streets_IsStreetTypeSubsetSelectie && Streets_IsJunctionWithinStudyArea' : 'Streets_IsJunctionWithinStudyArea';
 		}
 		
-		unit<uint32> Streets_Selectie   := select_with_attr_by_cond(Read_Streets_container, Read_Streets_container/Streets_Selection_Condition)
+		unit<uint32> Streets_Selectie   := select_with_attr_by_cond(Read_Streets, Read_Streets/Streets_Selection_Condition)
 		{
 			attribute<BaseProjection>     geometry_clean    (arc) := Impl/geometry_clean;
 			attribute<uint64>             F_JNCTID_directed       := Direction == Directions/v/backwards ? T_JNCTID : F_JNCTID; // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer) --> Comment van Chris
