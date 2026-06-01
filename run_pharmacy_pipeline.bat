@@ -94,7 +94,7 @@ REM (semicolon-joining does NOT work -- GeoDmsRun would treat the whole
 REM thing as a single -- and therefore unresolvable -- item path).
 REM set ITEMS_NETWORK=ExistingSchool_Analysis
 set ITEM_NETWORK=ExistingPharmacy_Analysis
-set ITEMS_NETWORK0="/MakeUnlinkedData/Step_3_Streets_fss_selection"
+set ITEMS_NETWORK0="/MakeUnlinkedData/Step_3_Streets_selection"
 set ITEMS_NETWORK1="/NetworkSetup/%ITEM_NETWORK%/NetwerkSpec/CreateInitialWorkingNetwork/LinkSet_Write"
 set ITEMS_NETWORK2="/NetworkSetup/%ITEM_NETWORK%/NetwerkSpec/CreateMoreEfficientNetwork/Generate"
 

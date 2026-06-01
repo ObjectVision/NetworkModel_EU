@@ -31,6 +31,8 @@ container RegionalUnits : using = "geography"
 				}
 			}
 		}
+		attribute<LambertEA> WRITE_geometry(poly) := geos_union_polygon(NUTS3/geometry, NUTS3/NUTS1_rel), StorageName = "%NetworkModelDataDir%/Regions/Nuts1_derived.shp", StorageType = "shp";
+		attribute<LambertEA> geometry(poly): StorageName = "%NetworkModelDataDir%/Regions/Nuts1_derived.shp", StorageType = "shp";
 	}
 	
 	unit<uint32> NUTS3 
@@ -97,8 +99,8 @@ container RegionalUnits : using = "geography"
 			
 			unit<UInt32> BoundingBox : NrOfRows = 1
 			{
-				parameter<LambertEA> bottom_left  := first(lower_bound(geometry));
-				parameter<LambertEA> top_right    := first(upper_bound(geometry));
+				parameter<LambertEA> bottom_left  := min(lower_bound(geometry));
+				parameter<LambertEA> top_right    := max(upper_bound(geometry));
 				parameter<LambertEA> top_left     := point_xy(Get_X(bottom_left),Get_Y(top_right), LambertEA);
 				parameter<LambertEA> bottom_right := point_xy(Get_X(top_right),Get_Y(bottom_left), LambertEA);
 				

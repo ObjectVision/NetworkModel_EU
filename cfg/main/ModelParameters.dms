@@ -22,13 +22,13 @@
 	parameter<string>   StudyArea_ext                  := Expand(., '%env:STUDY_AREA%');
 //	parameter<string>   StudyArea_default              := 'Netherlands'; //in english language; Netherlands EU Romania Finland
 //	parameter<string>   StudyArea_default              := 'France'; //in english language; Netherlands EU Romania Finland
-	parameter<string>   StudyArea_default              := 'FRB'; //in english language; Netherlands EU Romania Finland
+	parameter<string>   StudyArea_default              := 'FRL'; //in english language; Netherlands EU Romania Finland
 	parameter<string>   StudyArea                      := replace(StudyArea_ext, 'env:STUDY_AREA', StudyArea_default);
 	
 	parameter</SourceData/RegionalUnits/NUTS1> NUTS1_rel := rlookup(StudyArea, /SourceData/RegionalUnits/NUTS1/values);
 	
-	parameter<bool>     Use_Country_selection          := StudyArea != 'EU'; 
 	parameter<bool>     Use_NUTS1_selection            := IsDefined(NUTS1_rel);
+	parameter<bool>     Use_Country_selection          := StudyArea != 'EU' && !Use_NUTS1_selection;
 	parameter<string>   Client                         := 'pop_primaryschool'; // 'population' 'pop_primaryschool'
 	parameter<string>   OSM_file_date                  := '20211004';
 	parameter<uint32>   MinPopSizeVoorPotentialSchoolLocation := 1;

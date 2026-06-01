@@ -4,8 +4,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 
 	container Pharmacies
 	{
-		unit<uint32> locations := SourceData/Locations/Pharmacies;
-		
+		unit<uint32> locations := SourceData/Locations/Pharmacies/within_StudyArea;
 	}
 	container AllocateClientsToExistingPharmacies:= 
 		Allocate_T(

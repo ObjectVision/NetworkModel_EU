@@ -43,10 +43,10 @@ container ExportSettings
 				parameter<String> Computername := expand(., '%env:COMPUTERNAME%');
 			}
 			
-			container Git
-			{
-				parameter<String> RevisionInfo  :=  = (GitImpl/WriterCode==0) ? 'GitImpl/RevisionInfo_temp' : 'GitImpl/ErrorMsg';
-			}
+//			container Git
+//			{
+//				parameter<String> RevisionInfo  :=  = (GitImpl/WriterCode==0) ? 'GitImpl/RevisionInfo_temp' : 'GitImpl/ErrorMsg';
+//			}
 
 			container Parameters
 			{

@@ -36,36 +36,40 @@ Container TomTom : Using = "Units;geography;classifications/tomtom"
 	
 	container MMD
 	{
-		unit<uint32> Make_Junctions := GPKG/Junctions
-		, StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/EU/TomTom_Compiled_Themes_2021_Junctions.mmd"
-		{
-			attribute<BaseProjection>     Geometry  := GPKG/Junctions/Geometry;
-			attribute<uint64>             JNCTID    := GPKG/Junctions/id[uint64];
-		}
+		parameter<string> JunctionFileName := '%NetworkModelDataDir%/Infrastructure/TomTom/EU/TomTom_Compiled_Themes_2021_Junctions.mmd';
+		// unit<uint32> Make_Junctions := GPKG/Junctions
+		// , StorageName = "=JunctionFileName"
+		// {
+			// attribute<BaseProjection>     Geometry  := GPKG/Junctions/Geometry;
+			// attribute<uint64>             JNCTID    := GPKG/Junctions/id[uint64];
+		// }
 	
 		unit<uint32> Junctions
-		: StorageName = "=PropValue(Make_Junctions, 'StorageName')"
+		: StorageName = "=JunctionFileName"
 		, StorageReadOnly = "True"
 		{
-			attribute<bool>               IsWithinStudyArea := IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry_BB));
+			attribute<bool>               IsWithinStudyArea := =/ModelParameters/Use_NUTS1_selection
+				? 'IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/NUTS1/Subset/geometry))'
+				: 'IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry_BB))';
 		}
 	
-		unit<uint32> Make_Streets := GPKG/Streets
-		, StorageName = "%NetworkModelDataDir%/Infrastructure/TomTom/EU/NW2021_SP_streets.mmd"
-		{
-			attribute<BaseProjection>     Geometry  (arc) := GPKG/Streets/Geometry;
-			attribute<FuncRoadClass>      FRC_rel         := GPKG/Streets/FRC_rel;
-			attribute<uint64>             F_JNCTID        := GPKG/Streets/F_JNCTID[uint64];
-			attribute<uint64>             T_JNCTID        := GPKG/Streets/T_JNCTID[uint64];
-			attribute<m>                  METERS          := GPKG/Streets/METERS[m];
-			attribute<min_f>              MINUTES         := GPKG/Streets/MINUTES[min_f];
-			attribute<km_hr>              KPH             := GPKG/Streets/KPH[km_hr];
-			attribute<Directions>         Direction       := MakeDefined(rlookup(GPKG/Streets/Oneway, Directions/code), 0[Directions]); // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer)
-			attribute<uint8>              Lanes           := GPKG/Streets/Lanes[uint8];
-		}
+		parameter<string> StreetFileName := '%NetworkModelDataDir%/Infrastructure/TomTom/EU/NW2021_SP_streets.mmd';
+		// unit<uint32> Make_Streets := GPKG/Streets
+		// , StorageName = "=StreetFileName"
+		// {
+			// attribute<BaseProjection>     Geometry  (arc) := GPKG/Streets/Geometry;
+			// attribute<FuncRoadClass>      FRC_rel         := GPKG/Streets/FRC_rel;
+			// attribute<uint64>             F_JNCTID        := GPKG/Streets/F_JNCTID[uint64];
+			// attribute<uint64>             T_JNCTID        := GPKG/Streets/T_JNCTID[uint64];
+			// attribute<m>                  METERS          := GPKG/Streets/METERS[m];
+			// attribute<min_f>              MINUTES         := GPKG/Streets/MINUTES[min_f];
+			// attribute<km_hr>              KPH             := GPKG/Streets/KPH[km_hr];
+			// attribute<Directions>         Direction       := MakeDefined(rlookup(GPKG/Streets/Oneway, Directions/code), 0[Directions]); // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer)
+			// attribute<uint8>              Lanes           := GPKG/Streets/Lanes[uint8];
+		// }
 		
 		unit<uint32> Read_Streets
-		: StorageName = "=PropValue(Make_Streets, 'StorageName')"
+		: StorageName = "=StreetFileName"
 		, StorageReadOnly = "True"
 		{
 			attribute<Junctions>          F_JNCT_rel                          := rlookup(F_JNCTID, Junctions/JNCTID);

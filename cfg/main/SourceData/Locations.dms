@@ -355,7 +355,9 @@ container Locations : using = "geography;units"
 		{
 			attribute<Country>                  Country_rel := ='union_data(., '+AsItemList('const(Country/V/'+Country/Name+', Countries/'+Country/Name+'/Table)')+')';
 			attribute<geography/BaseProjection> geometry    := ='union_data(., '+AsItemList('Countries/'+Country/Name+'/Table/geometry')+')';
-			attribute<bool>           IsStudyArea  := IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry));
+			attribute<bool>           IsStudyArea  := = /ModelParameters/Use_NUTS1_selection 
+			? 'IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/NUTS1/Subset/geometry))'
+			: 'IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry))';
 		}
 		unit<uint32> within_StudyArea := select_with_org_rel(EU/IsStudyArea)
 		{

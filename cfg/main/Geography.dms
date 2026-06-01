@@ -116,7 +116,7 @@ container Geography : using = "units"
 		//attribute<bool>				  IsEFTA		 := 
 		attribute<SourceData/RegionalUnits/Country/subset> Country_rel:= point_in_polygon(point, SourceData/RegionalUnits/Country/subset/geometry);
 		attribute<bool>               IsCountry         := IsDefined(Country_rel);
-		attribute<bool>               IsNuts1           := IsDefined(point_in_polygon(point, SourceData/RegionalUnits/NUTS1/geometry));
+		attribute<bool>               IsNuts1           := IsDefined(point_in_polygon(point, SourceData/RegionalUnits/NUTS1/subset/geometry));
 		attribute<uint32>             Population        := SourceData/Locations/Population/ReadData[uint32];
 		attribute<uint32>             Pop_PrimarySchool := SourceData/Locations/Pop_PrimarySchool[uint32];
 		
