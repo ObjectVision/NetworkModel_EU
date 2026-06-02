@@ -10,6 +10,61 @@ const RAW_PHARMACY_COUNTS = Dict("Netherlands" => 1992)
 const EXISTING_PATH = joinpath(LOCAL_DATA_PROJ_DIR, "ExistingPharmacies")
 const NEW_PATH      = joinpath(LOCAL_DATA_PROJ_DIR, "NewPharmacies")
 
+# --- Spatially-explicit output for MapView -----------------------------------
+# Each sweep point persists two Arrow files under a folder tagged with the
+# travel-cost function and λ, so scenarios never overwrite each other and the
+# LINEAR/QUADRATIC/LOGISTIC variants stay separable. The full path carries
+# FacilityType (the ExistingPharmacies/NewPharmacies leaf of base_dir),
+# StudyArea (country), travel-cost function and lambda (the w-tagged folder):
+#   <base_dir>\<country>\lambda_sweep\<travel_func>\<w_label>\assignment.arrow  (id, open)
+#   <base_dir>\<country>\lambda_sweep\<travel_func>\<w_label>\traveltime.arrow  (id, t_ij)
+# w_label is "w=<w>" for sweep points and "baseline" for the existing situation.
+# λ = w * FACILITY_MIN_COSTS (linear); folders are keyed by w as the primary knob.
+function sweep_dir(base_dir, country, w_label)
+    dir = joinpath(base_dir, country, "lambda_sweep", travel_func_name, w_label)
+    mkpath(dir)
+    return dir
+end
+
+# Facility openness (id, open): open=1 for facilities in open_set, else 0.
+# (Inf-min_clients / nearest case here, so no <min_clients tier as in lp.jl.)
+function write_assignment_arrow(dir, facilities, open_set)
+    open_vec = [j in open_set ? 1 : 0 for j in facilities]
+    Arrow.write(joinpath(dir, "assignment.arrow"), (id = facilities, open = open_vec))
+end
+
+# Per-client travel time (id = location/client_rel id, t_ij = minutes to its
+# assigned open facility). Sorted by id to match lp.jl's convention.
+function write_traveltime_arrow(dir, t_ij_col, assigned_k)
+    sorted_ids = sort(collect(keys(assigned_k)))
+    Arrow.write(joinpath(dir, "traveltime.arrow"), (
+        id   = sorted_ids,
+        t_ij = [t_ij_col[assigned_k[i]] for i in sorted_ids],
+    ))
+end
+
+# New-pharmacy sweep point: openness over candidate facilities + per-client time.
+function write_sweep_arrows(country, new_data, r)
+    dir = sweep_dir(NEW_PATH, country, "w=$(r.w)")
+    write_assignment_arrow(dir, new_data.facilities, r.open_set)
+    write_traveltime_arrow(dir, new_data.t_ij_col, r.assigned_k)
+end
+
+# Baseline (existing pharmacies, each client → nearest existing pharmacy by time).
+# Mirrors baseline_metrics: nearest by raw travel time, not c(t).
+function write_baseline_arrows(country, existing)
+    dir = sweep_dir(EXISTING_PATH, country, "baseline")
+    used       = Set{Int}()
+    assigned_k = Dict{Int, Int}()
+    for (i, rows) in existing.locations
+        best_k = rows[argmin(existing.t_ij_col[k] for k in rows)]
+        push!(used, existing.facilities_col[best_k])
+        assigned_k[i] = best_k
+    end
+    write_assignment_arrow(dir, existing.facilities, used)
+    write_traveltime_arrow(dir, existing.t_ij_col, assigned_k)
+end
+
 function load_from(dir, country; apply_factor::Bool=true)::CountryData
     od  = Arrow.Table(joinpath(dir, "$(country)_od.arrow"))
     loc = Arrow.Table(joinpath(dir, "$(country)_i.arrow"))
@@ -135,6 +190,9 @@ function analyze_country(country)
     pln("  mean travel time (min):      $(round(base.mean_t, digits=4))")
     pln("  total client population:     $(round(Int, base.total_pop))")
 
+    write_baseline_arrows(country, existing)
+    pln("  baseline arrows → $(sweep_dir(EXISTING_PATH, country, "baseline"))")
+
     pln()
     pln("Building LP (once) ...")
     t_build = @elapsed state = build_lp_warmstart(new_data)
@@ -148,6 +206,7 @@ function analyze_country(country)
             return nothing
         end
         pln("  solved w=$w in $(round(t, digits=1)) s")
+        write_sweep_arrows(country, new_data, r)
         return r
     end
 

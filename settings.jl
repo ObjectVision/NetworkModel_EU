@@ -44,6 +44,10 @@ parse_func(envname, default) = FUNC_NAMES[get(ENV, envname, default)]
 travel_func   = parse_func("TRAVEL_FUNC",   "QUADRATIC")
 facility_func = parse_func("FACILITY_FUNC", "LINEAR")
 
+# Canonical name of the active travel-cost function (for output paths / labels).
+const FUNC_INT_TO_NAME = Dict(v => k for (k, v) in FUNC_NAMES)
+travel_func_name = FUNC_INT_TO_NAME[travel_func]
+
 logistic_midpoint = 30.0  # minutes
 logistic_scale    = 15.0  # minutes
 

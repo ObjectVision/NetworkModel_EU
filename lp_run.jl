@@ -250,5 +250,6 @@ function solve_at_w!(state::WarmStartState, w::Real)
         w=w, λ=λ, n_open=length(open_set), cost_c=travel_c, mean_t=mean_t,
         n_frac=n_fractional_x, sum_x=sum_x,
         travel_relax=travel_relax, travel_relax_topp=travel_relax_topp,
+        open_set=open_set, assigned_k=assigned_k,
     )
 end

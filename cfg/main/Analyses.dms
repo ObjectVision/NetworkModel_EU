@@ -83,6 +83,55 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		attribute<Float64> Openness              (Base_grid_1km) := OpenFacilityProximity / FacilityProximity;
 	}
 
+	// Reads the per-(cost-function, λ) Arrow files written by lambda_sweep_simplex.jl:
+	//   %localDataProjDir%/<proj>/<StudyArea>/lambda_sweep/<func>/<w_label>/{traveltime,assignment}.arrow
+	// Same outputs as ReadResults_T but on the λ-sweep path (function + w in the path),
+	// so LINEAR/QUADRATIC/LOGISTIC scenarios at specific λ stay separable.
+	Template ReadSweepResults_T
+	{
+		parameter<string> proj;     // 'NewPharmacies' (S1/S2 scenarios) or 'ExistingPharmacies' (baseline)
+		parameter<string> func;     // 'LINEAR' | 'QUADRATIC' | 'LOGISTIC' | 'PIECEWISE'
+		parameter<string> w_label;  // 'w=0.01' for a sweep point, 'baseline' for the existing situation
+		///
+
+		parameter<string> GDAL_DRIVER := 'Arrow';
+		unit<uint32> ResultingClientAssignment
+		:	StorageName = "='%localDataProjDir%/'+proj+'/'+ModelParameters/StudyArea+'/lambda_sweep/'+func+'/'+w_label+'/traveltime.arrow'"
+		,	StorageType = "gdal.vect"
+		,	StorageReadOnly = "True"
+		{
+			attribute<min_f> t_ij;
+		}
+
+		attribute<min_f>             ClientTravelTime            (Client) := rjoin(ID(Client), convert(ResultingClientAssignment/id, Client), ResultingClientAssignment/t_ij);
+		attribute<ClientTravelTimeK> ClientTravelTime_Classified (Client) := classify(ClientTravelTime, ClientTravelTimeK/ClassBreaks);
+
+		unit<uint8> OpenEnum := range(0b, 3b)
+		{
+			attribute<string> label : [ 'Closed', 'Open', 'Underfilled'];
+			container V := for_each_nedv(label, string(ID(.))+'[..]', void, .);
+		}
+
+		unit<uint32> ResultingFacilityClosure
+		:	StorageName = "='%localDataProjDir%/'+proj+'/'+ModelParameters/StudyArea+'/lambda_sweep/'+func+'/'+w_label+'/assignment.arrow'"
+		,	StorageType = "gdal.vect"
+		,	StorageReadOnly = "True"
+		{
+			attribute<Facility> id;
+			attribute<OpenEnum> open;
+		}
+		attribute<OpenEnum> FacilityRemainsOpen (Facility) := rjoin(ID(Facility), convert(ResultingFacilityClosure/id, Facility), ResultingFacilityClosure/Open);
+
+		unit<uint32> OpenFacilities := select_with_org_rel(FacilityRemainsOpen > OpenEnum/V/Closed)
+		{
+			attribute<BaseProjection> geometry := org_rel->Geometry;
+		}
+
+		attribute<Float64> FacilityProximity     (Base_grid_1km) := potential(Float64(IsDefined(invert(      Facility/geometry[Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
+		attribute<Float64> OpenFacilityProximity (Base_grid_1km) := potential(Float64(IsDefined(invert(OpenFacilities/geometry[Base_grid_1km]))), /Geography/Distmatrices/Impl/pot10000m/PotRange/AbsWeight);
+		attribute<Float64> Openness              (Base_grid_1km) := OpenFacilityProximity / FacilityProximity;
+	}
+
 	Template Allocate_T
 	{
 		unit<uint32>      Org;
@@ -162,6 +211,38 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 				container lp_nearest     := ReadResults_T('lp'    , 'nearest');
 				container greedy_central := ReadResults_T('greedy', 'central');
 				container greedy_nearest := ReadResults_T('greedy', 'nearest');
+			}
+
+			// --- λ-sweep scenarios for travel-time impact maps ----------------
+			// S1 = closest to baseline #pharmacies; S2 = closest to baseline travel cost
+			// (per each function's "scenario summary" in logs/lambda_sweep_*_mapview*.log).
+			// baseline reads the Existing-counterpart project (nearest existing pharmacy);
+			// only baseline/ClientTravelTime is valid here — its facility-openness items
+			// join existing-pharmacy ids onto this allocation's New Facility set, so use
+			// the Existing allocation's SweepResults/baseline for an open-pharmacy map.
+			//
+			// !!! w_label values below are PROVISIONAL placeholders. Replace each with the
+			//     'w = …' reported as S1/S2 once the corresponding sweep finishes. !!!
+			container SweepResults
+			{
+				parameter<string> BaselineProj := replace(ProjName, 'New', 'Existing');
+
+				container baseline  := ReadSweepResults_T(BaselineProj, 'QUADRATIC', 'baseline');
+
+				container lin_S1    := ReadSweepResults_T(ProjName, 'LINEAR',    'w=0.2');    // S1: sum_x 1956, mean_t 2.27 (baseline 3.44)
+				container lin_S2    := ReadSweepResults_T(ProjName, 'LINEAR',    'w=0.5');    // S2: sum_x 1035, mean_t 3.53 (baseline 3.44)
+				container quad_S1   := ReadSweepResults_T(ProjName, 'QUADRATIC', 'w=0.01');   // TODO: QUADRATIC S1 w
+				container quad_S2   := ReadSweepResults_T(ProjName, 'QUADRATIC', 'w=0.05');   // TODO: QUADRATIC S2 w
+				container log_S1    := ReadSweepResults_T(ProjName, 'LOGISTIC',  'w=0.001');  // TODO: LOGISTIC  S1 w
+				container log_S2    := ReadSweepResults_T(ProjName, 'LOGISTIC',  'w=0.005');  // TODO: LOGISTIC  S2 w
+
+				// Travel-time impact vs baseline (negative = faster than existing situation).
+				attribute<min_f> dT_lin_S1  (Client) := lin_S1/ClientTravelTime  - baseline/ClientTravelTime;
+				attribute<min_f> dT_lin_S2  (Client) := lin_S2/ClientTravelTime  - baseline/ClientTravelTime;
+				attribute<min_f> dT_quad_S1 (Client) := quad_S1/ClientTravelTime - baseline/ClientTravelTime;
+				attribute<min_f> dT_quad_S2 (Client) := quad_S2/ClientTravelTime - baseline/ClientTravelTime;
+				attribute<min_f> dT_log_S1  (Client) := log_S1/ClientTravelTime  - baseline/ClientTravelTime;
+				attribute<min_f> dT_log_S2  (Client) := log_S2/ClientTravelTime  - baseline/ClientTravelTime;
 			}
 
 			container Summary
