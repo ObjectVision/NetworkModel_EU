@@ -231,8 +231,8 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 
 				container lin_S1    := ReadSweepResults_T(ProjName, 'LINEAR',    'w=0.2');    // S1: sum_x 1956, mean_t 2.27 (baseline 3.44)
 				container lin_S2    := ReadSweepResults_T(ProjName, 'LINEAR',    'w=0.5');    // S2: sum_x 1035, mean_t 3.53 (baseline 3.44)
-				container quad_S1   := ReadSweepResults_T(ProjName, 'QUADRATIC', 'w=0.01');   // TODO: QUADRATIC S1 w
-				container quad_S2   := ReadSweepResults_T(ProjName, 'QUADRATIC', 'w=0.05');   // TODO: QUADRATIC S2 w
+				container quad_S1   := ReadSweepResults_T(ProjName, 'QUADRATIC', 'w=0.2');    // S1: sum_x 1667, mean_t 2.63 (baseline 3.44)
+				container quad_S2   := ReadSweepResults_T(ProjName, 'QUADRATIC', 'w=1.0');    // S2: sum_x 817, mean_t ~baseline cost (+3.9%)
 				container log_S1    := ReadSweepResults_T(ProjName, 'LOGISTIC',  'w=0.001');  // TODO: LOGISTIC  S1 w
 				container log_S2    := ReadSweepResults_T(ProjName, 'LOGISTIC',  'w=0.005');  // TODO: LOGISTIC  S2 w
 
