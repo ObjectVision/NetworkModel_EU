@@ -43,12 +43,15 @@ function write_traveltime_arrow(dir, t_ij_col, assigned_k)
     ))
 end
 
-# New-pharmacy sweep point: openness over candidate facilities + per-client time.
-function write_sweep_arrows(country, new_data, r)
-    dir = sweep_dir(NEW_PATH, country, "w=$(r.w)")
+# Write a scenario result (r carries open_set + assigned_k) under a label folder.
+function write_scenario_arrows(country, new_data, r, label)
+    dir = sweep_dir(NEW_PATH, country, label)
     write_assignment_arrow(dir, new_data.facilities, r.open_set)
     write_traveltime_arrow(dir, new_data.t_ij_col, r.assigned_k)
 end
+
+# New-pharmacy sweep point: openness over candidate facilities + per-client time.
+write_sweep_arrows(country, new_data, r) = write_scenario_arrows(country, new_data, r, "w=$(r.w)")
 
 # Baseline (existing pharmacies, each client → nearest existing pharmacy by time).
 # Mirrors baseline_metrics: nearest by raw travel time, not c(t).
@@ -321,6 +324,12 @@ function analyze_country(country)
         pln("  fewer than raw   (by sum_x): $(round(target_raw - s2.sum_x, digits=2))  ($(round((target_raw - s2.sum_x)/target_raw * 100, digits=2))%)")
     end
     pln("  mean t (min)  : $(round(s2.mean_t, digits=4))    (baseline $(round(base.mean_t, digits=4)))")
+
+    # Stable S1/S2 folders so the .dms references labels, not region/func-specific w.
+    write_scenario_arrows(country, new_data, s1, "S1")
+    write_scenario_arrows(country, new_data, s2, "S2")
+    pln("\n  S1 arrows → $(sweep_dir(NEW_PATH, country, "S1"))  (w=$(s1.w))")
+    pln("  S2 arrows → $(sweep_dir(NEW_PATH, country, "S2"))  (w=$(s2.w))")
 end
 
 for country in COUNTRIES
