@@ -1,4 +1,4 @@
-using Arrow, JuMP, HiGHS
+using Arrow, JuMP, HiGHS, Random
 
 const LOCAL_DATA_DIR       = "C:\\LocalData"
 const PROJ_NAME            = "networkmodel_eu"
@@ -43,6 +43,21 @@ parse_func(envname, default) = FUNC_NAMES[get(ENV, envname, default)]
 
 travel_func   = parse_func("TRAVEL_FUNC",   "QUADRATIC")
 facility_func = parse_func("FACILITY_FUNC", "LINEAR")
+
+# LP-relaxation → integer open-set rounding rule used by the warm-start sweep.
+# All three keep the same count p=round(sum_x); only WHICH facilities differ.
+#   "topp"      — open the p facilities with the largest x_relaxed.
+#   "greedy"    — x≈1 seed, then greedily grab the fractional with the largest
+#                 marginal travel-cost reduction until p are open.
+#   "multistart"— x-weighted randomized seeds (plus top-p & greedy as seeds 1-2),
+#                 each polished by swap local search; keep the lowest-travel set.
+#                 Guaranteed ≤ min(topp, greedy) since both are seeds.
+const ROUNDING = get(ENV, "ROUNDING", "multistart")
+
+# Multi-start local-search knobs (only used when comparing/selecting multistart).
+const MS_RESTARTS = parse(Int, get(ENV, "MS_RESTARTS", "10"))  # incl. topp+greedy seeds
+const MS_ROUNDS   = parse(Int, get(ENV, "MS_ROUNDS",   "12"))  # max swaps per restart
+const MS_SEED     = parse(Int, get(ENV, "MS_SEED",     "20240601"))
 
 # Canonical name of the active travel-cost function (for output paths / labels).
 const FUNC_INT_TO_NAME = Dict(v => k for (k, v) in FUNC_NAMES)
