@@ -282,6 +282,33 @@ function analyze_country(country)
     end
     sort!(results, by=x->x.w)
 
+    # --- S2 bisection: resolve the baseline-travel crossing ------------------
+    # The 1-2-5 grid is too coarse near cost_c ≈ base.cost_c, so under
+    # multistart's lower travel S1 and S2 collapse onto the same sweep row.
+    # Bisect the S2 bracket geometrically (cost_c rises with w) to land a row
+    # with cost_c ≈ baseline, distinct from S1. Bisection (not a uniform dense
+    # grid) keeps the count of expensive high-w solves small with early exit.
+    bracket_S2_fine = find_bracket(results, base.cost_c, r -> r.cost_c, false)
+    if bracket_S2_fine !== nothing
+        lo, hi = bracket_S2_fine
+        seen_ws = Set(round.(getfield.(results, :w), sigdigits=8))
+        pln()
+        pln("S2 bisection over w in ($lo, $hi) to resolve cost_c ≈ baseline=$(round(base.cost_c, digits=0)):")
+        print_sweep_header(target_raw)
+        for _ in 1:6
+            wmid = sqrt(lo * hi)                       # geometric midpoint
+            round(wmid, sigdigits=8) in seen_ws && break
+            push!(seen_ws, round(wmid, sigdigits=8))
+            r = run_lp(wmid)
+            r === nothing && break
+            push!(results, r)
+            print_sweep_row(r, target_cells, target_raw)
+            r.cost_c < base.cost_c ? (lo = wmid) : (hi = wmid)
+            abs(r.cost_c - base.cost_c) / base.cost_c < 0.005 && break
+        end
+        sort!(results, by=x->x.w)
+    end
+
     pln()
     pln("Combined sweep, sorted by w:")
     print_sweep_header(target_raw)
