@@ -38,7 +38,7 @@ def parse(path):
 
 def pct(a, b): return 100*(a-b)/b if b else 0.0
 
-print(f"\n{'='*120}\nLINEAR — multistart vs top-p vs greedy vs LP-relaxed  (travel; stranded clients priced at c(t_max))\n{'='*120}")
+print(f"\n{'='*120}\n{FUNC} — multistart vs top-p vs greedy vs LP-relaxed  (travel; stranded clients priced at c(t_max))\n{'='*120}")
 hdr = f"{'region':>12} {'pt':>3} {'w':>5} {'n_open':>6} {'frac':>5} | {'relax':>10} {'topp':>10} {'greedy':>10} {'multi':>10} | {'m/topp':>7} {'m/grdy':>7} {'m/relax':>8} | {'strand t/g/m':>14}"
 print(hdr)
 for p in logs:
