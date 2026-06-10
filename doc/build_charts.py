@@ -133,6 +133,36 @@ def render(region, fn, fd):
     return p
 
 
+def render_logistic():
+    """Compare the current logistic travel cost (midpoint 30, scale 15) with a
+    Lewis-tuned alternative (midpoint 25, scale 10) over 0-60 min."""
+    import numpy as np
+    t = np.linspace(0, 60, 241)
+    L = lambda t, m, s: 1.0 / (1.0 + np.exp(-(t - m) / s))
+    fig, ax = plt.subplots(figsize=(7.5, 4.05), dpi=200)
+    ax.axhline(0.5, color="#B4B2A9", ls=":", lw=1, zorder=1)
+    for x in (5, 45):
+        ax.axvline(x, color="#C9A24B", ls=":", lw=1, zorder=1)
+    ax.text(5, 1.005, "~5", color="#9A7B1C", fontsize=7.5, ha="center")
+    ax.text(45, 1.005, "~45 (Lewis)", color="#9A7B1C", fontsize=7.5, ha="center")
+    ax.plot(t, L(t, 30, 15), color="#185FA5", lw=2.6, label="current  ·  midpoint 30, scale 15", zorder=4)
+    ax.plot(t, L(t, 25, 10), color="#1D9E75", lw=2.6, label="alternative  ·  midpoint 25, scale 10", zorder=5)
+    ax.scatter([30], [0.5], color="#185FA5", s=55, edgecolor="white", lw=1, zorder=6)
+    ax.scatter([25], [0.5], color="#1D9E75", s=55, edgecolor="white", lw=1, zorder=6)
+    ax.set_xlim(0, 60); ax.set_ylim(0, 1.02)
+    ax.set_xticks(range(0, 61, 10)); ax.set_yticks([0, .25, .5, .75, 1])
+    ax.set_xlabel("travel time  t  (minutes)", fontsize=9)
+    ax.set_ylabel("c(t)   cost weight", fontsize=9)
+    ax.tick_params(labelsize=8)
+    ax.legend(loc="lower right", fontsize=9, framealpha=0.9)
+    ax.set_title("Logistic travel cost   c(t) = 1 / (1 + e^[ −(t − m) / s ])",
+                 fontsize=11, color="#12233A", fontweight="bold", pad=8)
+    fig.tight_layout()
+    p = os.path.join(OUT, "logistic_compare.png")
+    fig.savefig(p, dpi=200); plt.close(fig)
+    return p
+
+
 def main():
     data = json.load(open(os.path.join(ROOT, "doc", "deck_data.json"), encoding="utf-8"))
     n = 0
@@ -140,7 +170,8 @@ def main():
         for fn, fd in e["func"].items():
             render(e["region"], fn, fd)
             n += 1
-    print(f"rendered {n} charts into {OUT}")
+    render_logistic()
+    print(f"rendered {n} region charts + logistic comparison into {OUT}")
 
 
 if __name__ == "__main__":

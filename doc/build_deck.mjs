@@ -165,14 +165,15 @@ function statusSlide() {
   ]);
   col(8.84, SLATE, "F2F5F8", "Remaining ○", [
     "Calibrate a real pharmacy a,b (schools: 99 699 + 3 277.5x); decide if fixed cost depends on <6-y care",
-    "Settlement candidate set: verify existing pharmacies ⊂ settlements, then restrict locations",
     "Communicate λ intuitively — e.g. express it in travel-time-equivalent units (person-min per facility)",
+    "Settlement candidate set: verify existing pharmacies ⊂ settlements, then restrict locations",
     "Catchment-realism check outside urban areas — any cell un-servable by one pharmacy?",
-    "Counterfactuals: −10% pop (easy) · replace a known X% (easy) · choose which X to close (hard)",
+    "non-linear facility cost (after linear) · other travel shapes if needed",
+    "Mixed-integer testing of S2 for a few small regions",
+    "Lewis' indicators as in his e-mail of 22 May",
     "Aggregate Pareto frontier per country (combine the regional sweeps)",
-    "Observed pharmacy descriptives / country (Lewis, 22 May): #pharmacies · residents/pharmacy · #cells with >1 pharmacy · avg & max pharmacies in those cells",
-    "Catchment-population distribution / country (min/max/p10·25·50·75·90/avg) — per pharmacy, and with same-cell pharmacies combined",
-    "Region stitching (overlapping borders) · non-linear facility cost (after linear) · other travel shapes if needed",
+    "Counterfactuals: −10% pop (easy) · replace a known X% (easy) · choose which X to close (hard)",
+    "Analyse locations & client counts for NL and ITF",
   ]);
 
   slide.addText([
@@ -181,10 +182,50 @@ function statusSlide() {
   ], { x: 0.45, y: 6.55, w: 12.5, h: 0.7, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
+function logisticSlide() {
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+  const CUR = "185FA5", ALT = "1D9E75";
+  slide.addText("TRAVEL-COST FUNCTION", { x: 0.45, y: 0.28, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText([
+    { text: "Logistic c(t)  ", options: { bold: true, color: INK } },
+    { text: "— current vs a Lewis-tuned alternative", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.54, w: 12.5, h: 0.5, fontSize: 22, fontFace: "Georgia" });
+
+  const p = join(__dir, "charts", "logistic_compare.png");
+  if (existsSync(p)) slide.addImage({ path: p, x: 0.35, y: 1.55, w: 7.8, h: 4.21 });
+
+  // right panel: parameters + value table + note
+  slide.addText([{ text: "current", options: { bold: true, color: CUR } }, { text: "   midpoint 30 · scale 15", options: { color: MUTED } }],
+    { x: 8.4, y: 1.6, w: 4.6, h: 0.28, fontSize: 12, fontFace: "Calibri" });
+  slide.addText([{ text: "alternative", options: { bold: true, color: ALT } }, { text: "   midpoint 25 · scale 10", options: { color: MUTED } }],
+    { x: 8.4, y: 1.92, w: 4.6, h: 0.28, fontSize: 12, fontFace: "Calibri" });
+
+  const tbl = [["t (min)", "current", "alternative"],
+    ["0", "0.12", "0.08"], ["5", "0.16", "0.12"], ["15", "0.27", "0.27"],
+    ["25", "0.42", "0.50"], ["30", "0.50", "0.62"], ["45", "0.73", "0.88"], ["60", "0.88", "0.97"]];
+  const rows = tbl.map((r, ri) => r.map((cval, ci) => ({
+    text: cval, options: {
+      fontSize: ri === 0 ? 10 : 11, bold: ri === 0, align: "center",
+      color: ri === 0 ? "FFFFFF" : (ci === 1 ? CUR : ci === 2 ? ALT : INK),
+      fill: ri === 0 ? NAVY : (ri % 2 ? PANEL : "FFFFFF"), fontFace: "Calibri", valign: "middle",
+    },
+  })));
+  slide.addTable(rows, { x: 8.4, y: 2.42, w: 4.55, colW: [1.45, 1.55, 1.55], rowH: 0.3, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
+
+  slide.addText([
+    { text: "Both cross at ≈15 min (0.27). ", options: { color: INK } },
+    { text: "The alternative is lower below ~10 min (ignores minor relocations) and saturates by ~45 min (caps remote weight) — closer to Lewis's 22-May ask. Not yet swept; see roadmap.", options: { color: MUTED } },
+  ], { x: 8.4, y: 4.7, w: 4.6, h: 1.05, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
+
+  slide.addText("c(t) is applied to travel time in minutes (raw OD seconds ÷ 60); LINEAR uses c(t)=t. settings.jl:82",
+    { x: 0.45, y: 7.05, w: 12.5, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
+}
+
 let regions = data;
 if (only) regions = data.filter((e) => e.region === only);
 regions.forEach(regionSlide);
-if (!only && !args.includes("--no-summary")) { summarySlide(); statusSlide(); }
+if (!only && !args.includes("--no-summary")) { summarySlide(); statusSlide(); logisticSlide(); }
 
 await pptx.writeFile({ fileName: join(__dir, outName) });
 console.log(`wrote ${join(__dir, outName)} : ${regions.length} region slide(s)${(!only && !args.includes("--no-summary")) ? " + summary" : ""}`);
