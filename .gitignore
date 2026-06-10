@@ -4,3 +4,7 @@
 /cfg/main/ModelParameters.dms.bak
 /logs_run.txt
 /.claude
+/doc/node_modules
+/doc/charts
+/doc/region_summary.pptx
+~$*
