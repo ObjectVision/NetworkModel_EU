@@ -161,6 +161,7 @@ function statusSlide() {
     "Status-quo → curve distance: coverage-honest (stranded priced at c(t_max)); a single 2-D distance metric still to formalize",
     "Logistic params: now midpoint 30 / scale 15 min — retune to Lewis's ~5 & ~45-min kinks, then sweep sensitivity",
     "Regional vs unconstrained-frontier gap — have per-region curves, not yet the \"how far from unconstrained\" comparison",
+    "Investigate FR1, ITG, SE2 vs the much-lower baseline — higher λ required? (baseline & sweep use different location sets)",
   ]);
   col(8.84, SLATE, "F2F5F8", "Remaining ○", [
     "Calibrate a real pharmacy a,b (schools: 99 699 + 3 277.5x); decide if fixed cost depends on <6-y care",
@@ -168,6 +169,7 @@ function statusSlide() {
     "Communicate λ intuitively — e.g. express it in travel-time-equivalent units (person-min per facility)",
     "Catchment-realism check outside urban areas — any cell un-servable by one pharmacy?",
     "Counterfactuals: −10% pop (easy) · replace a known X% (easy) · choose which X to close (hard)",
+    "Aggregate Pareto frontier per country (combine the regional sweeps)",
     "Region stitching (overlapping borders) · non-linear facility cost (after linear) · other travel shapes if needed",
   ]);
 
