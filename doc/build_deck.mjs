@@ -170,6 +170,8 @@ function statusSlide() {
     "Catchment-realism check outside urban areas — any cell un-servable by one pharmacy?",
     "Counterfactuals: −10% pop (easy) · replace a known X% (easy) · choose which X to close (hard)",
     "Aggregate Pareto frontier per country (combine the regional sweeps)",
+    "Observed pharmacy descriptives / country (Lewis, 22 May): #pharmacies · residents/pharmacy · #cells with >1 pharmacy · avg & max pharmacies in those cells",
+    "Catchment-population distribution / country (min/max/p10·25·50·75·90/avg) — per pharmacy, and with same-cell pharmacies combined",
     "Region stitching (overlapping borders) · non-linear facility cost (after linear) · other travel shapes if needed",
   ]);
 
