@@ -28,13 +28,15 @@ $n = $deck.Slides.InsertFromFile($Insert, $KeepFirst)
 Write-Host "inserted $n slides -> total $($deck.Slides.Count)"
 
 # carry over the manually-authored NL maps slide from the base deck, placing it
-# right after the first region (Netherlands = first generated slide). InsertFromFile
+# right after the Netherlands results slide. The first generated slide is the
+# descriptives table, then the NL results, so NL sits at KeepFirst+2. InsertFromFile
 # reads a fresh copy so a locked/open $Base is not a problem.
 if ($MapsSlide -gt 0) {
   $mapsCopy = Join-Path $env:TEMP ("maps_{0}.pptx" -f ([guid]::NewGuid().ToString("N").Substring(0,8)))
   Copy-Item $Base $mapsCopy -Force
-  $m = $deck.Slides.InsertFromFile($mapsCopy, ($KeepFirst + 1), $MapsSlide, $MapsSlide)
-  Write-Host "carried over $m maps slide(s) after slide $($KeepFirst + 1) -> total $($deck.Slides.Count)"
+  $nlPos = $KeepFirst + 2
+  $m = $deck.Slides.InsertFromFile($mapsCopy, $nlPos, $MapsSlide, $MapsSlide)
+  Write-Host "carried over $m maps slide(s) after slide $nlPos -> total $($deck.Slides.Count)"
   Remove-Item $mapsCopy -Force -ErrorAction SilentlyContinue
 }
 

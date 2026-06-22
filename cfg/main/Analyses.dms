@@ -5,6 +5,70 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 	container Pharmacies
 	{
 		unit<uint32> locations := SourceData/Locations/Pharmacies/within_StudyArea;
+
+		// --- Descriptive indicators of the OBSERVED pharmacy distribution -------
+		// (Lewis, 22 May). Per StudyArea; each user assigned to the nearest pharmacy
+		// cell (Euclidean), residents = total population. Exports one Arrow row per
+		// StudyArea; make_descriptive_table.bat loops the study areas and collects them.
+		container Descriptives: using = "geography;sourcedata"
+		{
+			unit<uint32> pharm := Locations/Pharmacies/within_StudyArea;          // raw pharmacy points
+			unit<uint32> cells := Locations/Pharmacies/within_StudyArea/uq_cells; // unique pharmacy cells
+			unit<uint32> grid  := Base_grid_1km/points;                           // study-area 1km cells
+
+			attribute<float32> cnt (cells) := Locations/Pharmacies/within_StudyArea/uq_cells/Count_Objects_Per_Cell;
+
+			// assign each 1km cell to its nearest pharmacy cell; sum residents into that cell
+			attribute<cells>   nearest_cell   (grid)  := connect(Locations/Pharmacies/within_StudyArea/uq_cells/geometry, Base_grid_1km/points/geometry);
+			attribute<float64> cell_catchment (cells) := sum(float64(Base_grid_1km/points/Population), nearest_cell), Descr = "Metric 6: residents whose nearest pharmacy cell is this one (pharmacies combined per cell).";
+
+			// per-pharmacy catchment: cell catchment shared equally among pharmacies in the cell
+			attribute<float64> pharm_catchment (pharm) := cell_catchment[Locations/Pharmacies/within_StudyArea/uq_cells_rel] / float64(cnt[Locations/Pharmacies/within_StudyArea/uq_cells_rel]), Descr = "Metric 5: catchment per individual pharmacy.";
+
+			parameter<uint32>  n_pharm := #pharm;
+			parameter<uint32>  n_cells := #cells;
+			parameter<float64> n_res   := sum(float64(Base_grid_1km/points/Population));
+
+			unit<uint32> row1 := range(uint32, 0, 1);                  // single output row (this StudyArea)
+			attribute<row1> c_rel (cells) := const(0, cells, row1);    // partition for cell percentiles
+			attribute<row1> p_rel (pharm) := const(0, pharm, row1);    // partition for pharmacy percentiles
+
+			parameter<string> GDAL_DRIVER := 'Arrow';
+			container Table
+			:	StorageName = "='%localDataProjDir%/Pharmacies_Descriptives/'+ModelParameters/StudyArea+'.arrow'"
+			,	StorageType = "gdalwrite.vect"
+			,	StorageReadOnly = "False"
+			{
+				attribute<string>  study_area             (row1) := const(ModelParameters/StudyArea, row1);
+				attribute<uint32>  n_pharmacies           (row1) := const(n_pharm, row1);
+				attribute<uint32>  n_pharmacy_cells       (row1) := const(n_cells, row1);
+				attribute<float64> n_residents            (row1) := const(n_res, row1);
+				attribute<float64> residents_per_pharmacy (row1) := const(n_res / float64(n_pharm), row1);
+				attribute<uint32>  n_cells_multi          (row1) := const(sum(uint32(cnt > 1f)), row1);
+				attribute<float64> avg_pharm_in_multi     (row1) := const(sum(float64(cnt) * float64(cnt > 1f)) / sum(float64(cnt > 1f)), row1);
+				attribute<uint32>  max_pharm_in_cell      (row1) := const(uint32(max(cnt)), row1);
+
+				// metric 6 — catchment population distribution, pharmacies combined per cell
+				attribute<float64> cell_min (row1) := const(min(cell_catchment), row1);
+				attribute<float64> cell_p10 (row1) := rth_element(cell_catchment, 0.10f, c_rel);
+				attribute<float64> cell_p25 (row1) := rth_element(cell_catchment, 0.25f, c_rel);
+				attribute<float64> cell_p50 (row1) := rth_element(cell_catchment, 0.50f, c_rel);
+				attribute<float64> cell_p75 (row1) := rth_element(cell_catchment, 0.75f, c_rel);
+				attribute<float64> cell_p90 (row1) := rth_element(cell_catchment, 0.90f, c_rel);
+				attribute<float64> cell_max (row1) := const(max(cell_catchment), row1);
+				attribute<float64> cell_avg (row1) := const(sum(cell_catchment) / float64(n_cells), row1);
+
+				// metric 5 — catchment population distribution, per individual pharmacy
+				attribute<float64> pharm_min (row1) := const(min(pharm_catchment), row1);
+				attribute<float64> pharm_p10 (row1) := rth_element(pharm_catchment, 0.10f, p_rel);
+				attribute<float64> pharm_p25 (row1) := rth_element(pharm_catchment, 0.25f, p_rel);
+				attribute<float64> pharm_p50 (row1) := rth_element(pharm_catchment, 0.50f, p_rel);
+				attribute<float64> pharm_p75 (row1) := rth_element(pharm_catchment, 0.75f, p_rel);
+				attribute<float64> pharm_p90 (row1) := rth_element(pharm_catchment, 0.90f, p_rel);
+				attribute<float64> pharm_max (row1) := const(max(pharm_catchment), row1);
+				attribute<float64> pharm_avg (row1) := const(sum(pharm_catchment) / float64(n_pharm), row1);
+			}
+		}
 	}
 	container AllocateClientsToExistingPharmacies:= 
 		Allocate_T(
