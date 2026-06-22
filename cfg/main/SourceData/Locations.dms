@@ -333,10 +333,18 @@ container Locations : using = "geography;units"
 		{
 			attribute<string> Name : ['Austria', 'Belgium', 'Czechia', 'Denmark', 'Estonia', 'France', 'Ireland', 'Iceland', 'Italy', 'Lithuania', 'Luxembourg', 'Latvia', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Slovenia', 'Sweden']; // 'Finland',
 			attribute<string> Label := Name;
-			attribute<string> Code : ['aut', 'bel', 'cze', 'dnk', 'est', 'fra', 'irl', 'isl', 'ita', 'ltu', 'lux', 'lva', 'nld', 'nor', 'pol', 'prt', 'svn', 'swe']; //'fin', 
-			
+			attribute<string> Code : ['aut', 'bel', 'cze', 'dnk', 'est', 'fra', 'irl', 'isl', 'ita', 'ltu', 'lux', 'lva', 'nld', 'nor', 'pol', 'prt', 'svn', 'swe']; //'fin',
+
 			attribute<string> FileName := '%NetworkModelDataDir%/Locations/pharmacies/'+Code+'_pharmacies.parquet';
 			container V := for_each_nedv(Name, string(ID(.))+'[..]', void, .);
+		}
+		// Countries whose pharmacy parquet is actually present. Chris's data arrives
+		// country-by-country, so EU is unioned over THESE only — a missing-country file
+		// then never breaks the whole pharmacy pipeline. Each Name must also appear in
+		// Country/Name above; ADD A NAME HERE (and bump nrofrows) as each parquet lands.
+		unit<uint32> AvailableCountry : nrofrows = 4
+		{
+			attribute<string> Name : ['France', 'Italy', 'Netherlands', 'Sweden'];
 		}
 		template CountryDataT
 		{
@@ -351,10 +359,10 @@ container Locations : using = "geography;units"
 			}
 		}
 		container Countries := for_each_ne(Country/Name, 'CountryDataT("'+Country/FileName+'")');
-		unit<uint32> EU := ='union_unit('+AsItemList('Countries/'+Country/Name+'/Table')+')'
+		unit<uint32> EU := ='union_unit('+AsItemList('Countries/'+AvailableCountry/Name+'/Table')+')'
 		{
-			attribute<Country>                  Country_rel := ='union_data(., '+AsItemList('const(Country/V/'+Country/Name+', Countries/'+Country/Name+'/Table)')+')';
-			attribute<geography/BaseProjection> geometry    := ='union_data(., '+AsItemList('Countries/'+Country/Name+'/Table/geometry')+')';
+			attribute<Country>                  Country_rel := ='union_data(., '+AsItemList('const(Country/V/'+AvailableCountry/Name+', Countries/'+AvailableCountry/Name+'/Table)')+')';
+			attribute<geography/BaseProjection> geometry    := ='union_data(., '+AsItemList('Countries/'+AvailableCountry/Name+'/Table/geometry')+')';
 			attribute<bool>           IsStudyArea  := = /ModelParameters/Use_NUTS1_selection 
 			? 'IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/NUTS1/Subset/geometry))'
 			: 'IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry))';

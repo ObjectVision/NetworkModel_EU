@@ -237,20 +237,25 @@ function descriptivesSlide() {
   ], { x: 0.45, y: 0.52, w: 12.5, h: 0.5, fontSize: 21, fontFace: "Georgia" });
 
   const COUNTRIES = new Set(["Netherlands", "France", "Italy", "Sweden"]);
+  const anyNuts = rows.some((r) => !COUNTRIES.has(r[ix.study_area]));  // are NUTS1 rows present?
   const nf = (v) => { const n = Number(v); return isFinite(n) ? Math.round(n).toLocaleString("en-US") : v; };
-  const head = ["region", "pharm", "cells", "resid/ph", "cells >1", "max/cell", "catch p10", "catch p50", "catch p90"];
-  const body = [head.map((h) => ({ text: h, options: { bold: true, color: "FFFFFF", fill: NAVY, fontSize: 8.5, align: h === "region" ? "left" : "center", fontFace: "Calibri", margin: [1, 2, 1, 3] } }))];
-  for (const r of rows) {
-    const reg = r[ix.study_area]; const isC = COUNTRIES.has(reg);
-    const c = [isC ? reg : "    " + reg, nf(r[ix.n_pharmacies]), nf(r[ix.n_pharmacy_cells]),
+  const fM = (v) => { const n = Number(v); return isFinite(n) ? (n / 1e6).toFixed(1) + "M" : v; };
+  const fs = rows.length <= 8 ? 12 : 8.5;
+  const rowH = Math.max(0.205, Math.min(0.45, 5.2 / (rows.length + 1)));
+  const head = ["region", "pharm", "cells", "residents", "resid/ph", "cells >1", "max/cell", "catch p10", "catch p50", "catch p90"];
+  const body = [head.map((h) => ({ text: h, options: { bold: true, color: "FFFFFF", fill: NAVY, fontSize: Math.min(fs, 10), align: h === "region" ? "left" : "center", fontFace: "Calibri", margin: [1, 2, 1, 3] } }))];
+  rows.forEach((r, i) => {
+    const reg = r[ix.study_area]; const isC = COUNTRIES.has(reg); const hi = isC && anyNuts;
+    const fill = hi ? "E6EDF4" : (i % 2 ? PANEL : "FFFFFF");
+    const c = [(anyNuts && !isC ? "    " : "") + reg, nf(r[ix.n_pharmacies]), nf(r[ix.n_pharmacy_cells]), fM(r[ix.n_residents]),
       nf(r[ix.residents_per_pharmacy]), nf(r[ix.n_cells_multi]), nf(r[ix.max_pharm_in_cell]),
       nf(r[ix.cell_p10]), nf(r[ix.cell_p50]), nf(r[ix.cell_p90])];
     body.push(c.map((v, ci) => ({ text: v, options: {
-      fontSize: 8.5, bold: isC, align: ci === 0 ? "left" : "center", color: INK,
-      fill: isC ? "E6EDF4" : "FFFFFF", fontFace: "Calibri", valign: "middle", margin: [1, 2, 1, 3] } })));
-  }
-  slide.addTable(body, { x: 0.5, y: 1.45, w: 12.33, colW: [1.95, 1.1, 1.05, 1.45, 1.15, 1.15, 1.15, 1.15, 1.18], rowH: 0.205, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
-  slide.addText("Catchment = residents whose nearest pharmacy cell is this one (pharmacies combined per cell); catch p10/50/90 = percentiles of that catchment population. Country rows bold, NUTS1 below. Per-pharmacy distribution & full percentiles in pharmacy_descriptives.csv.",
+      fontSize: fs, bold: hi, align: ci === 0 ? "left" : "center", color: INK,
+      fill, fontFace: "Calibri", valign: "middle", margin: [1, 2, 1, 3] } })));
+  });
+  slide.addTable(body, { x: 0.5, y: 1.7, w: 12.33, colW: [2.0, 1.12, 1.05, 1.2, 1.35, 1.12, 1.12, 1.12, 1.12, 1.13], rowH, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
+  slide.addText("Catchment = residents whose nearest pharmacy cell is this one (pharmacies combined per cell); catch p10/50/90 = percentiles of that catchment population. " + (anyNuts ? "Country rows bold, NUTS1 below. " : "") + "Per-pharmacy distribution & full percentiles in pharmacy_descriptives.csv.",
     { x: 0.5, y: 7.12, w: 12.33, h: 0.3, fontSize: 8, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 

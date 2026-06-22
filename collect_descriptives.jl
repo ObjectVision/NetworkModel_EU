@@ -6,11 +6,9 @@ using Arrow
 dir     = length(ARGS) >= 1 ? ARGS[1] : "C:/LocalData/networkmodel_eu/Pharmacies_Descriptives"
 out_csv = length(ARGS) >= 2 ? ARGS[2] : joinpath(dir, "descriptive_table.csv")
 
-# display order: each country total followed by its NUTS1 regions (NL is one area)
-order = ["Netherlands",
-         "France","FR1","FRB","FRC","FRD","FRE","FRF","FRG","FRH","FRI","FRJ","FRK","FRL","FRM",
-         "Italy","ITC","ITF","ITG","ITH","ITI",
-         "Sweden","SE1","SE2","SE3"]
+# display order: country level only (NUTS1 dropped for now). Add countries here as
+# their pharmacy data arrives.
+order = ["Netherlands", "France", "Italy", "Sweden"]
 
 files = [(a, joinpath(dir, a * ".arrow")) for a in order]
 files = [(a, f) for (a, f) in files if isfile(f)]
