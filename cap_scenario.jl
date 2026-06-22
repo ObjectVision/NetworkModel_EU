@@ -180,7 +180,14 @@ function solve_relax(data, own_pop, min_cap, max_cap, target_count, travel_bound
     client_ids = collect(keys(locations))
     urban      = URBAN_POP > 0 ? Set(j for j in facilities if get(own_pop, j, 0.0) >= URBAN_POP) :
                                  Set{Int}()
-    ubound(j)  = j in urban ? 1 : (PER_CELL == :multi ? MULTI_MAX : 1)
+    # Per-cell pharmacy ceiling. Rung A (multi) lets a cell hold as many pharmacies
+    # as its OWN population needs under the cap — ceil(pop/cap) — so a cell only
+    # ever gets a 2nd pharmacy when one genuinely can't cover it. This avoids the
+    # LP degenerately doubling cells the cap doesn't bind (which made A strand more
+    # and look worse than B). One-per-cell rungs and the Inf cap stay at 1.
+    ubound(j)  = j in urban ? 1 :
+                 (PER_CELL == :multi && isfinite(max_cap) ?
+                     clamp(ceil(Int, get(own_pop, j, 0.0) / max_cap), 1, MULTI_MAX) : 1)
 
     model = Model(HiGHS.Optimizer)
     set_optimizer_attribute(model, "presolve", "on")
@@ -234,30 +241,44 @@ end
 
 # Round x to integer pharmacy counts per cell. urban cells stay >= 1. For S1 the
 # total is forced to exactly target_count; for S2 it is round(sum_x).
-function round_open(x_relaxed, data, urban, target_count)
+function round_open(x_relaxed, data, urban, own_pop, max_cap, target_count)
     facs = data.facilities
-    ub(j) = j in urban ? 1 : (PER_CELL == :multi ? MULTI_MAX : 1)
-    m = Dict(j => clamp(j in urban ? max(round(Int, x_relaxed[j]), 1) : round(Int, x_relaxed[j]),
-                        0, ub(j)) for j in facs)
+    ub(j) = j in urban ? 1 :
+            (PER_CELL == :multi && isfinite(max_cap) ?
+                clamp(ceil(Int, get(own_pop, j, 0.0) / max_cap), 1, MULTI_MAX) : 1)
 
-    target = target_count === nothing ? round(Int, sum(values(m))) : target_count
-    desc = sort(facs, by=j -> x_relaxed[j], rev=true)
-    cur  = sum(values(m))
-    gi = 0
-    while cur < target && gi < 50 * length(facs)        # add to highest-x cells with headroom
-        for j in desc
-            cur >= target && break
-            if m[j] < ub(j); m[j] += 1; cur += 1; end
-        end
-        gi += length(facs)
+    # Largest-remainder rounding: floor(x) gives the integer part, then the
+    # +1s go to the cells with the largest fractional remainder — preserving the
+    # LP's spatial distribution. (The earlier "round then add to highest-x cells"
+    # doubled up the densest cells, which for fixed-count multi-per-cell made A
+    # WORSE than one-per-cell: a 2nd pharmacy in an already-served cell cuts no
+    # travel, while opening a fresh cell does.)
+    m = Dict{Int,Int}()
+    for j in facs
+        b = clamp(floor(Int, x_relaxed[j] + 1e-9), 0, ub(j))
+        j in urban && (b = max(b, 1))
+        m[j] = b
     end
-    gi = 0
-    while cur > target && gi < 50 * length(facs)        # remove from lowest-x non-urban open cells
-        for j in Iterators.reverse(desc)
-            cur <= target && break
-            if m[j] > 0 && !(j in urban); m[j] -= 1; cur -= 1; end
+    cur    = sum(values(m))
+    target = target_count === nothing ? max(cur, round(Int, sum(x_relaxed[j] for j in facs))) : target_count
+
+    if cur < target
+        rema = sort([j for j in facs if m[j] < ub(j)], by = j -> x_relaxed[j] - floor(x_relaxed[j]), rev = true)
+        for j in rema
+            cur >= target && break
+            m[j] += 1; cur += 1
         end
-        gi += length(facs)
+        if cur < target   # residuals exhausted (multi headroom) — top up by x desc
+            for j in sort(facs, by = jj -> x_relaxed[jj], rev = true)
+                cur >= target && break
+                if m[j] < ub(j); m[j] += 1; cur += 1; end
+            end
+        end
+    elseif cur > target   # over (can happen via urban pinning) — drop lowest-x non-urban
+        for j in sort([jj for jj in facs if m[jj] > 0 && !(jj in urban)], by = jj -> x_relaxed[jj])
+            cur <= target && break
+            m[j] -= 1; cur -= 1
+        end
     end
     return Dict(j => v for (j, v) in m if v > 0)
 end
@@ -343,7 +364,7 @@ function run_combo(country, data, own_pop, base, min_cap, max_cap, target_count)
     travel_bound = (SCENARIO == "S2" && TRAVEL_SLACK !== nothing) ?
                        base.cost_c * (1 + TRAVEL_SLACK) : nothing
     rel = solve_relax(data, own_pop, min_cap, max_cap, target_count, travel_bound)
-    open_mult = round_open(rel.x_relaxed, data, rel.urban,
+    open_mult = round_open(rel.x_relaxed, data, rel.urban, own_pop, max_cap,
                            SCENARIO == "S1" ? target_count : nothing)
     asg = assign(open_mult, data, max_cap, BIG)
 
