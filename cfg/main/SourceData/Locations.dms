@@ -329,11 +329,11 @@ container Locations : using = "geography;units"
 	}
 	container Pharmacies
 	{
-		unit<uint8> Country := range(0b, 4b)
+		unit<uint8> Country := range(0b, 18b) //should be 19b, Finland taken out because of spatial_reference problem (see issue #44)
 		{
-			attribute<string> Name : ['France', 'Italy', 'Netherlands', 'Sweden'];
+			attribute<string> Name : ['Austria', 'Belgium', 'Czechia', 'Denmark', 'Estonia', 'France', 'Ireland', 'Iceland', 'Italy', 'Lithuania', 'Luxembourg', 'Latvia', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Slovenia', 'Sweden']; // 'Finland',
 			attribute<string> Label := Name;
-			attribute<string> Code : ['fra', 'ita', 'nld', 'swe'];
+			attribute<string> Code : ['aut', 'bel', 'cze', 'dnk', 'est', 'fra', 'irl', 'isl', 'ita', 'ltu', 'lux', 'lva', 'nld', 'nor', 'pol', 'prt', 'svn', 'swe']; //'fin', 
 			
 			attribute<string> FileName := '%NetworkModelDataDir%/Locations/pharmacies/'+Code+'_pharmacies.parquet';
 			container V := for_each_nedv(Name, string(ID(.))+'[..]', void, .);
