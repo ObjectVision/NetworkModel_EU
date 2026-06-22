@@ -28,15 +28,22 @@ $n = $deck.Slides.InsertFromFile($Insert, $KeepFirst)
 Write-Host "inserted $n slides -> total $($deck.Slides.Count)"
 
 # carry over the manually-authored NL maps slide from the base deck, placing it
-# right after the Netherlands results slide. The first two generated slides are the
-# descriptives tables (country + NUTS1), then the NL results, so NL sits at
-# KeepFirst+3. InsertFromFile reads a fresh copy so a locked/open $Base is not a problem.
+# right after the Netherlands results slide. Rather than count the (now variable)
+# number of leading descriptives / cap slides, find the NL results slide by its
+# subtitle marker — robust to slide additions/removals. InsertFromFile reads a
+# fresh copy so a locked/open $Base is not a problem.
 if ($MapsSlide -gt 0) {
   $mapsCopy = Join-Path $env:TEMP ("maps_{0}.pptx" -f ([guid]::NewGuid().ToString("N").Substring(0,8)))
   Copy-Item $Base $mapsCopy -Force
-  $nlPos = $KeepFirst + 3
+  $nlPos = 0
+  foreach ($sl in $deck.Slides) {
+    $txt = ""
+    foreach ($sh in $sl.Shapes) { if ($sh.HasTextFrame) { $txt += $sh.TextFrame.TextRange.Text } }
+    if ($txt -match "multistart vs the LP-relax frontier") { $nlPos = $sl.SlideIndex; break }
+  }
+  if ($nlPos -eq 0) { $nlPos = $KeepFirst + 5 }   # fallback if the marker isn't found
   $m = $deck.Slides.InsertFromFile($mapsCopy, $nlPos, $MapsSlide, $MapsSlide)
-  Write-Host "carried over $m maps slide(s) after slide $nlPos -> total $($deck.Slides.Count)"
+  Write-Host "carried over $m maps slide(s) after NL results (slide $nlPos) -> total $($deck.Slides.Count)"
   Remove-Item $mapsCopy -Force -ErrorAction SilentlyContinue
 }
 

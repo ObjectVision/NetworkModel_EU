@@ -222,48 +222,122 @@ function logisticSlide() {
     { x: 0.45, y: 7.05, w: 12.5, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 
-function descriptivesSlide(csvName, eyebrow, subtitle) {
+// view "pharm": residents per individual pharmacy (catchment split among the
+// pharmacies sharing a cell). view "loc": residents per unique 1 km² location
+// (pharmacies in a cell combined). Each renders the count, residents, the per-X
+// mean and the p10..max distribution of the per-X catchment population.
+function descriptivesSlide(csvName, view, eyebrow, subtitle) {
   const csv = join(__dir, csvName);
   if (!existsSync(csv)) { console.log(`(no ${csvName} — skipping descriptives slide)`); return; }
   const lines = readFileSync(csv, "utf-8").split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) { console.log(`(${csvName} empty — skipping)`); return; }
   const hdr = lines[0].split(","); const ix = {}; hdr.forEach((h, i) => (ix[h] = i));
   const rows = lines.slice(1).map((l) => l.split(","));
   const slide = pptx.addSlide();
   slide.background = { color: "FFFFFF" };
-  slide.addText(eyebrow, { x: 0.45, y: 0.26, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText(eyebrow, { x: 0.45, y: 0.26, w: 11, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
   slide.addText([
-    { text: "Observed pharmacy distribution  ", options: { bold: true, color: INK } },
+    { text: (view === "pharm" ? "Residents per pharmacy  " : "Residents per 1 km² location  "), options: { bold: true, color: INK } },
     { text: subtitle, options: { color: NAVY } },
   ], { x: 0.45, y: 0.52, w: 12.5, h: 0.5, fontSize: 21, fontFace: "Georgia" });
 
-  const COUNTRIES = new Set(["Netherlands", "France", "Italy", "Sweden"]);
+  const COUNTRIES = new Set(["Austria", "Belgium", "Czechia", "Denmark", "Estonia", "France", "Iceland", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Netherlands", "Norway", "Poland", "Portugal", "Slovenia", "Sweden"]);
   const anyNuts = rows.some((r) => !COUNTRIES.has(r[ix.study_area]));  // are NUTS1 rows present?
   const nf = (v) => { const n = Number(v); return isFinite(n) ? Math.round(n).toLocaleString("en-US") : v; };
   const fM = (v) => { const n = Number(v); return isFinite(n) ? (n / 1e6).toFixed(1) + "M" : v; };
   const fs = rows.length <= 8 ? 12 : 8.5;
   const rowH = Math.max(0.205, Math.min(0.45, 5.2 / (rows.length + 1)));
-  const head = ["region", "pharm", "cells", "residents", "resid/ph", "cells >1", "max/cell", "catch p10", "catch p50", "catch p90"];
+
+  const P = view === "pharm"
+    ? { cnt: "n_pharmacies",    per: "residents_per_pharmacy", d: "pharm_", cntLab: "pharm.",    perLab: "resid/ph" }
+    : { cnt: "n_pharmacy_cells", per: "cell_avg",              d: "cell_",  cntLab: "locations", perLab: "resid/loc" };
+
+  const head = ["region", P.cntLab, "residents", P.perLab, "p10", "p25", "p50", "p75", "p90", "max"];
   const body = [head.map((h) => ({ text: h, options: { bold: true, color: "FFFFFF", fill: NAVY, fontSize: Math.min(fs, 10), align: h === "region" ? "left" : "center", fontFace: "Calibri", margin: [1, 2, 1, 3] } }))];
   rows.forEach((r, i) => {
     const reg = r[ix.study_area]; const isC = COUNTRIES.has(reg); const hi = isC && anyNuts;
     const fill = hi ? "E6EDF4" : (i % 2 ? PANEL : "FFFFFF");
-    const c = [(anyNuts && !isC ? "    " : "") + reg, nf(r[ix.n_pharmacies]), nf(r[ix.n_pharmacy_cells]), fM(r[ix.n_residents]),
-      nf(r[ix.residents_per_pharmacy]), nf(r[ix.n_cells_multi]), nf(r[ix.max_pharm_in_cell]),
-      nf(r[ix.cell_p10]), nf(r[ix.cell_p50]), nf(r[ix.cell_p90])];
+    const c = [(anyNuts && !isC ? "    " : "") + reg, nf(r[ix[P.cnt]]), fM(r[ix.n_residents]), nf(r[ix[P.per]]),
+      nf(r[ix[P.d + "p10"]]), nf(r[ix[P.d + "p25"]]), nf(r[ix[P.d + "p50"]]), nf(r[ix[P.d + "p75"]]), nf(r[ix[P.d + "p90"]]), nf(r[ix[P.d + "max"]])];
     body.push(c.map((v, ci) => ({ text: v, options: {
       fontSize: fs, bold: hi, align: ci === 0 ? "left" : "center", color: INK,
       fill, fontFace: "Calibri", valign: "middle", margin: [1, 2, 1, 3] } })));
   });
-  slide.addTable(body, { x: 0.5, y: 1.7, w: 12.33, colW: [2.0, 1.12, 1.05, 1.2, 1.35, 1.12, 1.12, 1.12, 1.12, 1.13], rowH, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
-  slide.addText("Catchment = residents whose nearest pharmacy cell is this one (pharmacies combined per cell); catch p10/50/90 = percentiles of that catchment population. " + (anyNuts ? "Country rows bold, NUTS1 below. " : "") + "Per-pharmacy distribution & full percentiles in pharmacy_descriptives.csv.",
+  slide.addTable(body, { x: 0.5, y: 1.7, w: 12.33, colW: [2.2, 1.25, 1.3, 1.3, 1.16, 1.16, 1.16, 1.16, 1.16, 1.16], rowH, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
+  const note = view === "pharm"
+    ? "Catchment = residents whose nearest pharmacy is this one (a cell's catchment split evenly among the pharmacies in it); p10..max = percentiles of that per-pharmacy catchment."
+    : "A location = a unique 1 km² cell with ≥1 pharmacy; catchment = residents whose nearest pharmacy cell is this one; p10..max = percentiles of that per-location catchment.";
+  slide.addText(note + (anyNuts ? " Country rows bold, NUTS1 indented below." : "") + " Source: pharmacy_descriptives.csv (Lewis, 22 May).",
     { x: 0.5, y: 7.12, w: 12.33, h: 0.3, fontSize: 8, italic: true, color: MUTED, fontFace: "Calibri" });
+}
+
+// Preliminary capacitated-ladder results (rungs A/B/C, no cost function) for one
+// country, read from cap_results_<country>.csv (collect_cap.py). Placed right
+// before the region (Pareto-frontier) slides so it precedes NL's.
+function capSlide(csvName) {
+  const csv = join(__dir, csvName);
+  if (!existsSync(csv)) { console.log(`(no ${csvName} — skipping cap slide)`); return; }
+  const lines = readFileSync(csv, "utf-8").split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) { console.log(`(${csvName} has no rows — skipping cap slide)`); return; }
+  const hdr = lines[0].split(","); const ix = {}; hdr.forEach((h, i) => (ix[h] = i));
+  const rows = lines.slice(1).map((l) => l.split(","));
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+  slide.addText("PRELIMINARY · CATCHMENT-CAP LADDER (NO COST FUNCTION)", { x: 0.45, y: 0.26, w: 12, h: 0.3, fontSize: 12, bold: true, color: TOPP, charSpacing: 2 });
+  slide.addText([
+    { text: "Netherlands — capping catchments instead of a cost function  ", options: { bold: true, color: INK } },
+    { text: "— S1 fix #, ↓travel · S2 ↓#, hold travel", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.52, w: 12.5, h: 0.5, fontSize: 20, fontFace: "Georgia" });
+
+  const ruleOf = (scen, rung) => scen === "S1"
+    ? ({ A: "max cap · multi per cell", B: "max cap · one per cell", C: "urban fixed · model rest" }[rung] || rung)
+    : ({ A: "min+max cap · all", B: "min+max cap · non-urban" }[rung] || rung);
+  const nf = (v) => { const n = Number(v); return isFinite(n) ? Math.round(n).toLocaleString("en-US") : v; };
+  const dtr = (v) => { const n = Number(v); return (n >= 0 ? "+" : "") + n.toFixed(1) + "%"; };
+
+  const head = ["", "rule", "min cap", "max cap", "pharm.", "cells", "Δ travel", "mean t", "stranded", "urban fix", "catch p50", "catch p90"];
+  const body = [head.map((h) => ({ text: h, options: { bold: true, color: "FFFFFF", fill: NAVY, fontSize: 9.5, align: (h === "" || h === "rule") ? "left" : "center", fontFace: "Calibri", margin: [2, 3, 2, 3] } }))];
+  rows.forEach((r, i) => {
+    const scen = r[ix.scen], rung = r[ix.rung], dt = Number(r[ix.dtravel_pct]);
+    const c = [`${scen}-${rung}`, ruleOf(scen, rung),
+      r[ix.min_cap] === "-" ? "—" : nf(r[ix.min_cap]), nf(r[ix.max_cap]),
+      nf(r[ix.n_pharm]), nf(r[ix.n_cells]), dtr(r[ix.dtravel_pct]),
+      Number(r[ix.mean_t]).toFixed(2), Number(r[ix.strand_pct]).toFixed(2) + "%",
+      nf(r[ix.urban_fx]), nf(r[ix.load_p50]), nf(r[ix.load_p90])];
+    body.push(c.map((v, ci) => ({
+      text: v, options: {
+        fontSize: 11, bold: ci === 0, align: ci <= 1 ? "left" : "center",
+        color: ci === 6 ? (dt < 0 ? "1E7A52" : "B23A2E") : INK,
+        fill: i % 2 ? PANEL : "FFFFFF", fontFace: "Calibri", valign: "middle", margin: [2, 3, 2, 3],
+      },
+    })));
+  });
+  slide.addTable(body, { x: 0.35, y: 1.7, w: 12.63, colW: [1.0, 2.75, 1.0, 1.0, 0.92, 0.82, 1.05, 0.92, 1.0, 0.95, 1.1, 1.1], rowH: 0.46, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
+
+  slide.addText([
+    { text: "S1 ", options: { bold: true, color: MULTI } },
+    { text: "keeps today's pharmacy count and minimises travel under a max catchment cap — ", options: { color: INK } },
+    { text: "A ", options: { bold: true, color: MULTI } }, { text: "dense cells may hold several pharmacies, ", options: { color: INK } },
+    { text: "B ", options: { bold: true, color: MULTI } }, { text: "one per cell, ", options: { color: INK } },
+    { text: "C ", options: { bold: true, color: MULTI } }, { text: "urban centres fixed, model the rest.", options: { color: INK } },
+  ], { x: 0.45, y: 5.35, w: 12.5, h: 0.45, fontSize: 11, fontFace: "Calibri", valign: "top" });
+  slide.addText([
+    { text: "S2 ", options: { bold: true, color: MULTI } },
+    { text: "minimises the pharmacy count under a min (viability) + max catchment while holding travel ≈ today — A all facilities, B only outside urban centres. ", options: { color: INK } },
+    { text: "The cost-function rung (S1-D / S2-C) is the λ-sweep on the following pages.", options: { color: NAVY } },
+  ], { x: 0.45, y: 5.85, w: 12.5, h: 0.55, fontSize: 11, fontFace: "Calibri", valign: "top" });
+  slide.addText("Preliminary · LINEAR travel cost · cap from the observed cell-catchment distribution (p90≈18k, max≈35k). 'stranded' = demand the cap cannot serve within reach, priced at c(t_max). 'catch p50/p90' = per-pharmacy catchment population. Δ travel vs today's coverage-honest travel.",
+    { x: 0.45, y: 6.62, w: 12.5, h: 0.5, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 
 let regions = data;
 if (only) regions = data.filter((e) => e.region === only);
 if (!only && !args.includes("--no-summary")) {
-  descriptivesSlide("pharmacy_descriptives.csv", "BASELINE INDICATORS", "— descriptive indicators (Lewis, 22 May)");
-  descriptivesSlide("pharmacy_descriptives_nuts1.csv", "BASELINE INDICATORS · NUTS1", "— NUTS1 breakdown within FR / IT / SE");
+  descriptivesSlide("pharmacy_descriptives.csv",       "pharm", "BASELINE · RESIDENTS PER PHARMACY",       "— per country");
+  descriptivesSlide("pharmacy_descriptives_nuts1.csv", "pharm", "BASELINE · RESIDENTS PER PHARMACY",       "— key NUTS1 regions (FR / IT / SE)");
+  descriptivesSlide("pharmacy_descriptives.csv",       "loc",   "BASELINE · RESIDENTS PER 1 KM² LOCATION", "— per country");
+  descriptivesSlide("pharmacy_descriptives_nuts1.csv", "loc",   "BASELINE · RESIDENTS PER 1 KM² LOCATION", "— key NUTS1 regions (FR / IT / SE)");
+  capSlide("cap_results_Netherlands.csv");
 }
 regions.forEach(regionSlide);
 if (!only && !args.includes("--no-summary")) { summarySlide(); statusSlide(); logisticSlide(); }
