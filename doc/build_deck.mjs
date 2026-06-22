@@ -326,8 +326,10 @@ function capSlide(csvName) {
     { text: "minimises the pharmacy count under a min (viability) + max catchment while holding travel ≈ today — A all facilities, B only outside urban centres. ", options: { color: INK } },
     { text: "The cost-function rung (S1-D / S2-C) is the λ-sweep on the following pages.", options: { color: NAVY } },
   ], { x: 0.45, y: 5.85, w: 12.5, h: 0.55, fontSize: 11, fontFace: "Calibri", valign: "top" });
-  slide.addText("Preliminary · LINEAR travel cost · cap from the observed cell-catchment distribution (p90≈18k, max≈35k). 'stranded' = demand the cap cannot serve within reach, priced at c(t_max). 'catch p50/p90' = per-pharmacy catchment population. Δ travel vs today's coverage-honest travel.",
-    { x: 0.45, y: 6.62, w: 12.5, h: 0.5, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
+  slide.addText([
+    { text: "PRELIMINARY — INDICATIVE ONLY. ", options: { bold: true, color: "B23A2E" } },
+    { text: "S1 (fixed-count) figures are sensitive to LP-relaxation rounding and can shift on re-run (a robust multistart rounding is still to be ported); read the direction, not the exact %. LINEAR travel cost · cap from the observed cell-catchment distribution (p90≈18k, max≈35k). 'stranded' = demand the cap cannot serve within reach, priced at c(t_max). 'catch p50/p90' = per-pharmacy catchment. Δ travel vs today's coverage-honest travel.", options: { color: MUTED } },
+  ], { x: 0.45, y: 6.55, w: 12.5, h: 0.6, fontSize: 8.5, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
 let regions = data;
