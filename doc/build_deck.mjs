@@ -222,18 +222,18 @@ function logisticSlide() {
     { x: 0.45, y: 7.05, w: 12.5, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 
-function descriptivesSlide() {
-  const csv = join(__dir, "pharmacy_descriptives.csv");
-  if (!existsSync(csv)) { console.log("(no pharmacy_descriptives.csv — skipping descriptives slide)"); return; }
+function descriptivesSlide(csvName, eyebrow, subtitle) {
+  const csv = join(__dir, csvName);
+  if (!existsSync(csv)) { console.log(`(no ${csvName} — skipping descriptives slide)`); return; }
   const lines = readFileSync(csv, "utf-8").split(/\r?\n/).filter((l) => l.trim());
   const hdr = lines[0].split(","); const ix = {}; hdr.forEach((h, i) => (ix[h] = i));
   const rows = lines.slice(1).map((l) => l.split(","));
   const slide = pptx.addSlide();
   slide.background = { color: "FFFFFF" };
-  slide.addText("BASELINE INDICATORS", { x: 0.45, y: 0.26, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText(eyebrow, { x: 0.45, y: 0.26, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
   slide.addText([
     { text: "Observed pharmacy distribution  ", options: { bold: true, color: INK } },
-    { text: "— descriptive indicators (Lewis, 22 May)", options: { color: NAVY } },
+    { text: subtitle, options: { color: NAVY } },
   ], { x: 0.45, y: 0.52, w: 12.5, h: 0.5, fontSize: 21, fontFace: "Georgia" });
 
   const COUNTRIES = new Set(["Netherlands", "France", "Italy", "Sweden"]);
@@ -261,7 +261,10 @@ function descriptivesSlide() {
 
 let regions = data;
 if (only) regions = data.filter((e) => e.region === only);
-if (!only && !args.includes("--no-summary")) descriptivesSlide();
+if (!only && !args.includes("--no-summary")) {
+  descriptivesSlide("pharmacy_descriptives.csv", "BASELINE INDICATORS", "— descriptive indicators (Lewis, 22 May)");
+  descriptivesSlide("pharmacy_descriptives_nuts1.csv", "BASELINE INDICATORS · NUTS1", "— NUTS1 breakdown within FR / IT / SE");
+}
 regions.forEach(regionSlide);
 if (!only && !args.includes("--no-summary")) { summarySlide(); statusSlide(); logisticSlide(); }
 

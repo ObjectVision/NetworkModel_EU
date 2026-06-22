@@ -24,9 +24,11 @@ if "%LOG_DIR%"==""    set "LOG_DIR=%~dp0logs"
 if "%OUT_DIR%"==""    set "OUT_DIR=C:\LocalData\networkmodel_eu\Pharmacies_Descriptives"
 set "ITEM=/Analyses/Pharmacies/Descriptives/Table"
 
-REM Study areas: Netherlands (whole country) + the NUTS1 regions of FR / IT / SE.
+REM Study areas: the countries with data (NL, FR, IT, SE) + the NUTS1 regions of
+REM FR / IT / SE (NL has no NUTS1 split). Country rows feed the country-level table;
+REM NUTS1 rows feed the breakdown table.
 if "%~1"=="" (
-    set "STUDY_AREAS=Netherlands FR1 FRB FRC FRD FRE FRF FRG FRH FRI FRJ FRK FRL FRM ITC ITF ITG ITH ITI SE1 SE2 SE3"
+    set "STUDY_AREAS=Netherlands France Italy Sweden FR1 FRB FRC FRD FRE FRF FRG FRH FRI FRJ FRK FRL FRM ITC ITF ITG ITH ITI SE1 SE2 SE3"
 ) else (
     set "STUDY_AREAS=%*"
 )
