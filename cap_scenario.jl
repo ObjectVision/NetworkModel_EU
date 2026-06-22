@@ -1,37 +1,55 @@
 # ============================================================================
-# cap_scenario.jl — capacitated min-count facility location (ladder rungs A/B)
+# cap_scenario.jl — ladder rungs A/B/C WITHOUT a cost function (doc/topics.md,
+# refined per the Lewis/Bernhard scenario definitions).
 # ----------------------------------------------------------------------------
-# This is the *primary* ladder mechanism from doc/topics.md, NOT the Option-D
-# lambda sweep. Instead of trading travel against a facility-cost weight w, it
-# answers: "how FEW pharmacies do we need so that everyone is served and no
-# pharmacy's catchment exceeds MAX_CAP residents (S1) — and, for S2, no open
-# pharmacy serves fewer than MIN_CAP residents either?"
+# Two scenarios, each minimised over an explicit catchment constraint rather
+# than a facility-cost weight w (that is Option D / the lambda sweep):
 #
-# It is controlled exactly like lambda_sweep.jl — through environment variables,
-# reusing settings.jl / lp_run.jl (CountryData, the c(t) travel-cost function,
-# the Arrow loaders). The two scenario drivers s1_cap.jl / s2_cap.jl just set
-# scenario-appropriate defaults and `include` this file; run_cap_scenarios.bat
-# drives them for the Netherlands.
+#   S1 "reduce travel, keep #facilities constant": place a FIXED number of
+#      pharmacies (TARGET_COUNT, default = today's) to MINIMISE travel, subject
+#      to a max catchment cap so the optimum doesn't collapse every dense cell
+#      to one pharmacy and scatter the rest across the countryside.
+#
+#   S2 "reduce #facilities, keep travel constant": MINIMISE the number of
+#      pharmacies subject to a MIN catchment threshold (each open pharmacy needs
+#      enough customers to be viable) and the same max cap; travel is reported
+#      against today and may optionally be hard-bounded (TRAVEL_SLACK).
+#
+# Rungs (set by the s1_cap.jl / s2_cap.jl drivers via PER_CELL + URBAN_POP):
+#   A  multiple pharmacies per grid cell allowed  -> x[j] integer >= 0
+#   B  at most one pharmacy per grid cell         -> x[j] in {0,1}
+#   C  urban-centre pharmacies held FIXED, only the rest is modelled
+#      -> cells whose own population >= URBAN_POP are fixed open (one per cell)
+#         and excluded from the optimisation (for S1 this is rung C; for S2 this
+#         is rung B "reduce only outside urban centres").
+#
+# The candidate set is one inhabited cell per row (every inhabited cell is a
+# candidate), so "which pharmacies are used" (all / rural-only) is still chosen
+# by CANDIDATE_DIR; the A/B multi-vs-one distinction is the x[j] upper bound,
+# and urban is derived from each cell's own population (a coordinate join to the
+# client table) — no extra GeoDMS export needed.
+#
+# Reuses settings.jl / lp_run.jl (CountryData, c(t), Arrow loaders); controlled
+# entirely by environment variables, like lambda_sweep.jl.
 #
 # Environment variables
-#   COUNTRIES       space-separated study areas (default from settings.jl)
-#   CANDIDATE_DIR   pharmacy candidate-data dir (default <proj>/NewPharmacies).
-#                   *** This is how "which pharmacies are used" is controlled ***:
-#                   point it at an all-pharmacies export, or at a rural-only
-#                   export, or at a one-per-cell (rung B) vs multi-per-cell
-#                   (rung A) export. The script just optimises over whatever
-#                   <country>_{od,i,j}.arrow it finds there.
-#   EXISTING_DIR    observed-pharmacy dir for the baseline reference
-#                   (default <proj>/ExistingPharmacies)
-#   MIN_CAP         min catchment (residents) per OPEN pharmacy — hard threshold.
-#                   "0" = off (S1). Space-separated list = sweep several values.
-#   MAX_CAP         max catchment (residents) per pharmacy — the cap. "Inf" = off.
-#                   Space-separated list = sweep several values.
-#   SCENARIO        label used in console output + arrow output paths (e.g. S1/S2)
-#   TRAVEL_FUNC     travel-cost function c(t), via settings.jl (LINEAR/LOGISTIC/…)
-#   REPAIR_ITERS    max capacity-repair LP re-solves after rounding (default 40)
-#   WRITE_ARROW     "1" to also write an open-set + per-client traveltime arrow
-#                   for mapping (default "1")
+#   COUNTRIES       study areas (default from settings.jl)
+#   CANDIDATE_DIR   candidate pharmacy data dir (default <proj>/NewPharmacies);
+#                   point at a rural-only export to scope the analysis
+#   EXISTING_DIR    observed-pharmacy dir for the baseline (default ExistingPharmacies)
+#   SCENARIO        S1 | S2   (objective; also the output label)
+#   PER_CELL        multi | one   (rung A vs B; S2 normally one)
+#   URBAN_POP       cell own-population threshold for "urban" (0 = off = rung A/B;
+#                   >0 = rung C/S2-B: fix urban cells, model the rest)
+#   MAX_CAP         max catchment per pharmacy, residents ("Inf" = off; list = sweep)
+#   MIN_CAP         min catchment per pharmacy, residents (S2; "0" = off; list = sweep)
+#   TARGET_COUNT    S1 fixed pharmacy count (default = baseline cells used; for
+#                   rung A set it to the raw pharmacy count to allow real packing)
+#   TRAVEL_SLACK    S2 optional hard bound: served travel <= baseline*(1+slack)
+#                   ("" = off, report only)
+#   MULTI_MAX       rung-A cap on pharmacies per cell (default 8)
+#   TRAVEL_FUNC     travel-cost function c(t) via settings.jl
+#   WRITE_ARROW     "1" to write open-set + per-client traveltime arrows (default 1)
 # ============================================================================
 
 include("lp_run.jl")          # -> settings.jl (c, CountryData, COUNTRIES, paths)
@@ -41,20 +59,23 @@ LinearAlgebra.BLAS.set_num_threads(Sys.CPU_THREADS)
 
 pln(args...) = (println(args...); flush(stdout))
 
-const PROJ            = LOCAL_DATA_PROJ_DIR
-const CANDIDATE_DIR   = get(ENV, "CANDIDATE_DIR", joinpath(PROJ, "NewPharmacies"))
-const EXISTING_DIR    = get(ENV, "EXISTING_DIR",  joinpath(PROJ, "ExistingPharmacies"))
-const SCENARIO        = get(ENV, "SCENARIO", "cap")
-const REPAIR_ITERS    = parse(Int,     get(ENV, "REPAIR_ITERS", "40"))
-const WRITE_ARROW     = get(ENV, "WRITE_ARROW", "1") == "1"
+const PROJ          = LOCAL_DATA_PROJ_DIR
+const CANDIDATE_DIR = get(ENV, "CANDIDATE_DIR", joinpath(PROJ, "NewPharmacies"))
+const EXISTING_DIR  = get(ENV, "EXISTING_DIR",  joinpath(PROJ, "ExistingPharmacies"))
+const SCENARIO      = uppercase(get(ENV, "SCENARIO", "S1"))
+const PER_CELL      = Symbol(lowercase(get(ENV, "PER_CELL", SCENARIO == "S1" ? "multi" : "one")))
+const URBAN_POP     = parse(Float64, get(ENV, "URBAN_POP", "0"))
+const MULTI_MAX     = parse(Int,     get(ENV, "MULTI_MAX", "8"))
+const WRITE_ARROW   = get(ENV, "WRITE_ARROW", "1") == "1"
+const TRAVEL_SLACK  = haskey(ENV, "TRAVEL_SLACK") && ENV["TRAVEL_SLACK"] != "" ?
+                          parse(Float64, ENV["TRAVEL_SLACK"]) : nothing
 
 parse_cap(s) = (uppercase(strip(s)) in ("INF", "INFINITY")) ? Inf : parse(Float64, s)
-caplist(envname, default) = parse_cap.(split(get(ENV, envname, default)))
-
+caplist(name, default) = parse_cap.(split(get(ENV, name, default)))
 const MIN_CAPS = caplist("MIN_CAP", "0")
 const MAX_CAPS = caplist("MAX_CAP", "Inf")
 
-# --- loaders (dir-based, mirroring lambda_sweep.jl) --------------------------
+# --- loaders (dir-based, mirroring lambda_sweep.jl) + per-cell population -----
 function load_dir(dir, country; apply_factor::Bool)
     od  = Arrow.Table(joinpath(dir, "$(country)_od.arrow"))
     loc = Arrow.Table(joinpath(dir, "$(country)_i.arrow"))
@@ -99,12 +120,21 @@ function load_dir(dir, country; apply_factor::Bool)
         nearest_facility[i] = facilities_col[best_k]
     end
 
-    return CountryData(N, M, facilities, wpop, clients_col, t_ij_col, facilities_col,
+    data = CountryData(N, M, facilities, wpop, clients_col, t_ij_col, facilities_col,
                        locations, facility_rows, client_pop, nearest_facility)
+
+    # own-cell population per candidate cell, by (x,y) join to the client table
+    # (used to classify urban cells for rung C). Candidates with no co-located
+    # client (uninhabited reachable cells) get 0 -> always rural.
+    fjx, fjy = Float64.(fac[:x]), Float64.(fac[:y])
+    cix, ciy = Float64.(loc[:x]), Float64.(loc[:y])
+    cpop     = Float64.(loc[:total_pop])
+    popxy    = Dict((cix[k], ciy[k]) => cpop[k] for k in 1:length(cix))
+    fac_id   = Int.(fac[:id])
+    own_pop  = Dict(fac_id[k] => get(popxy, (fjx[k], fjy[k]), 0.0) for k in 1:length(fac_id))
+    return data, own_pop
 end
 
-# Baseline: each client served by its nearest OBSERVED pharmacy (the reference
-# the S1/S2 results are compared against — same as lambda_sweep.jl).
 function baseline_metrics(data)
     total_c = 0.0; total_t = 0.0; used = Set{Int}()
     for (_, rows) in data.locations
@@ -121,36 +151,36 @@ end
 pctile(sorted, p) = isempty(sorted) ? 0.0 :
     sorted[clamp(round(Int, p * (length(sorted) - 1)) + 1, 1, length(sorted))]
 
-# Silence the bundled IPX solver, which prints to stdout even with HiGHS'
-# output_flag/log_to_console off. Restores stdout even if optimize! throws.
+# Silence the bundled IPX solver (prints even with output_flag off); restores
+# stdout even if optimize! throws.
 solve_quiet!(model) = redirect_stdout(devnull) do; optimize!(model); end
 
-function check_status(model, min_cap, max_cap)
+function check_status(model, tag)
     ts = termination_status(model)
     if ts in (INFEASIBLE, INFEASIBLE_OR_UNBOUNDED)
-        error("infeasible at max_cap=$max_cap, min_cap=$min_cap — the caps cannot be met " *
-              "for all reachable demand. Raise MAX_CAP / lower MIN_CAP, or enrich candidates.")
+        error("$tag infeasible — relax the caps / target, or enrich candidates.")
     elseif ts ∉ (OPTIMAL, LOCALLY_SOLVED, ALMOST_OPTIMAL)
-        error("cap LP (min_cap=$min_cap, max_cap=$max_cap) did not solve (status=$ts).")
+        error("$tag did not solve (status=$ts).")
     end
 end
 
-# --- phase 1: capacitated min-count placement (lexicographic, two solves) ----
-# Solve A — minimise the facility COUNT (+ stranded-demand penalty).
-# Solve B — minimise TRAVEL among solutions using no more facilities than A.
-# Both objectives are single-scale, so the LP stays well-conditioned (no tiny
-# tie-break weight): A places no premium on travel, B then picks, of all
-# minimum-count covers, the one with the least travel — "as few as the cap
-# allows, placed optimally". A stranded slack s[i] (priced at BIG = c(t_max))
-# makes the model ALWAYS feasible: demand that cannot be served within
-# [min_cap, max_cap] (a dense cell above the cap, or a remote cluster too small
-# to clear the min threshold) is stranded rather than crashing the LP, and
-# surfaces as the reported strand%.
-function solve_cap_relax(data, min_cap, max_cap)
+# --- the LP relaxation -------------------------------------------------------
+# Shared structure for S1 and S2. x[j] upper bound encodes rung A (multi: <=
+# MULTI_MAX) vs B (one: <= 1); urban-fixed cells are pinned to x[j] == 1. A
+# stranded slack s[i] (priced at BIG = c(t_max)) keeps the model feasible and
+# turns "the cap forbids serving this demand" into a reported strand% instead of
+# an infeasible LP.
+#   S1: minimise travel (+ strand) s.t. sum(x) == target_count.
+#   S2: lexicographic — minimise count (+ strand), then travel at that count;
+#       optional served-travel <= travel_bound.
+function solve_relax(data, own_pop, min_cap, max_cap, target_count, travel_bound)
     (; N, facilities, wpop, t_ij_col, facilities_col, locations, facility_rows, client_pop) = data
 
     BIG        = c(maximum(t_ij_col))
     client_ids = collect(keys(locations))
+    urban      = URBAN_POP > 0 ? Set(j for j in facilities if get(own_pop, j, 0.0) >= URBAN_POP) :
+                                 Set{Int}()
+    ubound(j)  = j in urban ? 1 : (PER_CELL == :multi ? MULTI_MAX : 1)
 
     model = Model(HiGHS.Optimizer)
     set_optimizer_attribute(model, "presolve", "on")
@@ -160,8 +190,12 @@ function solve_cap_relax(data, min_cap, max_cap)
     set_optimizer_attribute(model, "run_crossover", "on")
 
     @variable(model, 0 <= y[1:N] <= 1)
-    @variable(model, 0 <= x[j in facilities] <= 1)
-    @variable(model, 0 <= s[i in client_ids] <= 1)   # stranded fraction of client i
+    @variable(model, x[j in facilities])
+    @variable(model, 0 <= s[i in client_ids] <= 1)
+    for j in facilities
+        set_lower_bound(x[j], j in urban ? 1.0 : 0.0)   # urban fixed open
+        set_upper_bound(x[j], Float64(ubound(j)))
+    end
 
     @expression(model, strand, sum(s[i] * BIG * client_pop[i] for i in client_ids))
     @expression(model, travel, sum(y[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N))
@@ -176,37 +210,64 @@ function solve_cap_relax(data, min_cap, max_cap)
     for j in facilities
         isempty(facility_rows[j]) && continue
         load_j = @expression(model, sum(y[k] * wpop[k] for k in facility_rows[j]))
-        isfinite(max_cap) && @constraint(model, load_j <= max_cap * x[j])
-        min_cap > 0        && @constraint(model, load_j >= min_cap * x[j])
+        isfinite(max_cap)          && @constraint(model, load_j <= max_cap * x[j])
+        (min_cap > 0 && !(j in urban)) && @constraint(model, load_j >= min_cap * x[j])
+    end
+    travel_bound === nothing || @constraint(model, travel <= travel_bound)
+
+    if SCENARIO == "S1"
+        @constraint(model, nfac == target_count)
+        @objective(model, Min, travel + strand)
+        solve_quiet!(model); check_status(model, "S1 LP")
+    else
+        @objective(model, Min, nfac + strand)
+        solve_quiet!(model); check_status(model, "S2 count LP")
+        K = clamp(ceil(Int, value(nfac) - 1e-6), 1, MULTI_MAX * length(facilities))
+        @constraint(model, nfac <= K)
+        @objective(model, Min, travel + strand)
+        solve_quiet!(model); check_status(model, "S2 travel LP")
     end
 
-    # Solve A: minimum count (stranding dominates so coverage comes first).
-    @objective(model, Min, nfac + strand)
-    solve_quiet!(model); check_status(model, min_cap, max_cap)
-    K = clamp(ceil(Int, value(nfac) - 1e-6), 1, length(facilities))
-
-    # Solve B: minimum travel, using no more than K facilities (warm-started).
-    @constraint(model, nfac <= K)
-    @objective(model, Min, travel + strand)
-    solve_quiet!(model); check_status(model, min_cap, max_cap)
-
-    x_relaxed = value.(x)
-    tol = 1e-6
-    sum_x        = sum(x_relaxed[j] for j in facilities)
-    travel_relax = value(travel)
-    n_frac       = sum(tol < x_relaxed[j] < 1 - tol for j in facilities)
-    return (x_relaxed=x_relaxed, sum_x=sum_x, travel_relax=travel_relax, n_frac=n_frac, K=K)
+    x_relaxed = Dict(j => value(x[j]) for j in facilities)
+    return (x_relaxed=x_relaxed, sum_x=value(nfac), travel_relax=value(travel), urban=urban)
 end
 
-# --- phase 2: capacitated assignment LP for a FIXED open set ----------------
-# Minimise served travel; a client with no open candidate within reach (or
-# squeezed out by the cap) is priced at BIG = c(t_max) via a stranded slack, so
-# the metric is coverage-honest and the LP is always feasible. Returns honest
-# travel, served/stranded population, per-facility loads, mean travel time, the
-# dominant per-client assignment, and the set of stranded clients.
-function assign_capacitated(open_set, data, max_cap, BIG)
-    (; wpop, t_ij_col, facilities_col, locations, facility_rows, client_pop) = data
+# Round x to integer pharmacy counts per cell. urban cells stay >= 1. For S1 the
+# total is forced to exactly target_count; for S2 it is round(sum_x).
+function round_open(x_relaxed, data, urban, target_count)
+    facs = data.facilities
+    ub(j) = j in urban ? 1 : (PER_CELL == :multi ? MULTI_MAX : 1)
+    m = Dict(j => clamp(j in urban ? max(round(Int, x_relaxed[j]), 1) : round(Int, x_relaxed[j]),
+                        0, ub(j)) for j in facs)
 
+    target = target_count === nothing ? round(Int, sum(values(m))) : target_count
+    desc = sort(facs, by=j -> x_relaxed[j], rev=true)
+    cur  = sum(values(m))
+    gi = 0
+    while cur < target && gi < 50 * length(facs)        # add to highest-x cells with headroom
+        for j in desc
+            cur >= target && break
+            if m[j] < ub(j); m[j] += 1; cur += 1; end
+        end
+        gi += length(facs)
+    end
+    gi = 0
+    while cur > target && gi < 50 * length(facs)        # remove from lowest-x non-urban open cells
+        for j in Iterators.reverse(desc)
+            cur <= target && break
+            if m[j] > 0 && !(j in urban); m[j] -= 1; cur -= 1; end
+        end
+        gi += length(facs)
+    end
+    return Dict(j => v for (j, v) in m if v > 0)
+end
+
+# --- assignment for a fixed open set (with per-cell multiplicity) ------------
+# Minimise served travel; stranded demand priced at BIG. Capacity of an open
+# cell = mult * max_cap (rung A lets a dense cell hold several pharmacies).
+function assign(open_mult, data, max_cap, BIG)
+    (; wpop, t_ij_col, facilities_col, locations, facility_rows, client_pop) = data
+    open_set  = keys(open_mult)
     rows_open = Dict(i => [k for k in rows if facilities_col[k] in open_set]
                      for (i, rows) in locations)
     open_rows  = collect(Iterators.flatten(values(rows_open)))
@@ -220,194 +281,132 @@ function assign_capacitated(open_set, data, max_cap, BIG)
     set_optimizer_attribute(m, "run_crossover", "on")
 
     @variable(m, 0 <= y[k in open_rows] <= 1)
-    @variable(m, 0 <= s[i in client_ids] <= 1)      # stranded fraction of client i
-
+    @variable(m, 0 <= s[i in client_ids] <= 1)
     @objective(m, Min,
         sum(y[k] * c(t_ij_col[k]) * wpop[k] for k in open_rows) +
         sum(s[i] * BIG * client_pop[i] for i in client_ids))
-
     for (i, ro) in rows_open
         @constraint(m, sum(y[k] for k in ro) + s[i] == 1)
     end
     if isfinite(max_cap)
         for j in open_set
             isempty(facility_rows[j]) && continue
-            @constraint(m, sum(y[k] * wpop[k] for k in facility_rows[j]) <= max_cap)
+            @constraint(m, sum(y[k] * wpop[k] for k in facility_rows[j]) <= max_cap * open_mult[j])
         end
     end
+    solve_quiet!(m); check_status(m, "assignment LP")
 
-    solve_quiet!(m)
-    ts = termination_status(m)
-    ts in (OPTIMAL, LOCALLY_SOLVED, ALMOST_OPTIMAL) ||
-        error("assignment LP did not solve (status=$ts).")
-
-    yv = Dict(k => value(y[k]) for k in open_rows)
+    yv    = Dict(k => value(y[k]) for k in open_rows)
     loads = Dict(j => sum(yv[k] * wpop[k] for k in facility_rows[j] if haskey(yv, k); init=0.0)
                  for j in open_set)
-
     travel_served = sum(yv[k] * c(t_ij_col[k]) * wpop[k] for k in open_rows; init=0.0)
     served_pop    = sum(yv[k] * wpop[k] for k in open_rows; init=0.0)
     tw_time       = sum(yv[k] * t_ij_col[k] * wpop[k] for k in open_rows; init=0.0)
     mean_t        = served_pop > 0 ? tw_time / served_pop : 0.0
 
-    stranded = Set{Int}(); stranded_pop = 0.0
+    stranded_pop = 0.0
     for i in client_ids
-        si = value(s[i])
-        if si > 1e-6
-            push!(stranded, i)
-            stranded_pop += si * client_pop[i]
-        end
+        si = value(s[i]); si > 1e-6 && (stranded_pop += si * client_pop[i])
     end
     travel_honest = travel_served + stranded_pop * BIG
 
-    # dominant assignment per (non-stranded) client, for the mapping arrow
     assigned_k = Dict{Int,Int}()
     for (i, ro) in rows_open
         isempty(ro) && continue
         best_k = ro[argmax(yv[k] for k in ro)]
         yv[best_k] > 1e-6 && (assigned_k[i] = best_k)
     end
-
-    return (loads=loads, travel_served=travel_served, travel_honest=travel_honest,
-            served_pop=served_pop, stranded_pop=stranded_pop, mean_t=mean_t,
-            stranded=stranded, assigned_k=assigned_k)
-end
-
-# Cheap, LP-free pre-pass: ensure every client has at least one open, reachable
-# facility (so the assignment LP usually runs once; residual capacity stranding
-# is then handled by the repair loop below).
-function ensure_coverage!(open_set, data, sorted_by_x)
-    (; locations, facility_rows, clients_col) = data
-    covered = Set{Int}()
-    for j in open_set, k in facility_rows[j]
-        push!(covered, clients_col[k])
-    end
-    uncovered = Set(i for i in keys(locations) if !(i in covered))
-    for j in sorted_by_x
-        isempty(uncovered) && break
-        j in open_set && continue
-        jc = Set(clients_col[k] for k in facility_rows[j])
-        if !isdisjoint(jc, uncovered)
-            push!(open_set, j); setdiff!(uncovered, jc)
-        end
-    end
-    return open_set
-end
-
-# Round the relaxed x to an open set of the LP-relaxed size (the top round(sum_x)
-# facilities by x — honouring phase-1's consolidation rather than flooding with
-# small ones), then assign.
-#
-# force_coverage (S1, min_cap == 0): there is no reason to leave anyone unserved
-# except a binding max cap, so add facilities for any unreachable client and run
-# a repair loop that opens the closed candidate reaching the most stranded demand
-# until no one is stranded (bounded by REPAIR_ITERS).
-#
-# NOT force_coverage (S2, min_cap > 0): stranding is a *legitimate* outcome — a
-# remote cluster too small to clear the min threshold is meant to stay unserved
-# rather than spawn a sub-threshold pharmacy. Forcing coverage here would re-open
-# exactly the tiny facilities the min threshold is designed to prevent and blow
-# the count past phase-1's consolidated size. So we round to round(sum_x) and
-# assign once, honouring phase-1's stranding; below_min / strand% report the gap.
-function round_and_assign(x_relaxed, sum_x, data, max_cap, BIG, force_coverage)
-    (; facilities, facility_rows, clients_col, client_pop) = data
-    sorted_by_x = sort(collect(facilities), by=j -> x_relaxed[j], rev=true)
-
-    p_open   = clamp(round(Int, sum_x), 1, length(facilities))
-    open_set = Set(sorted_by_x[1:p_open])
-
-    if !force_coverage
-        return open_set, assign_capacitated(open_set, data, max_cap, BIG)
-    end
-
-    ensure_coverage!(open_set, data, sorted_by_x)
-    local res
-    for _ in 0:REPAIR_ITERS
-        res = assign_capacitated(open_set, data, max_cap, BIG)
-        isempty(res.stranded) && break
-        best_j, best_gain = -1, 0.0
-        for j in sorted_by_x
-            j in open_set && continue
-            g = 0.0
-            for k in facility_rows[j]
-                clients_col[k] in res.stranded && (g += client_pop[clients_col[k]])
-            end
-            g > best_gain && ((best_j, best_gain) = (j, g))
-        end
-        best_j == -1 && break
-        push!(open_set, best_j)
-    end
-    return open_set, res
+    return (loads=loads, travel_honest=travel_honest, stranded_pop=stranded_pop,
+            mean_t=mean_t, assigned_k=assigned_k)
 end
 
 # --- per-(country, cap-combo) driver ----------------------------------------
 function header()
-    pln(rpad("scenario", 10), rpad("min_cap", 10), rpad("max_cap", 10),
-        rpad("n_open", 8), rpad("base_cells", 11), rpad("sum_x", 9),
-        rpad("travel", 14), rpad("base_travel", 14), rpad("dtravel%", 10),
-        rpad("mean_t", 8), rpad("strand%", 9), rpad("below_min", 10),
-        rpad("load_p50", 10), rpad("load_p90", 10), rpad("load_max", 10))
+    pln(rpad("scen", 6), rpad("rung", 6), rpad("min_cap", 9), rpad("max_cap", 9),
+        rpad("n_pharm", 8), rpad("n_cells", 8), rpad("base", 7), rpad("sum_x", 8),
+        rpad("travel", 13), rpad("base_trav", 13), rpad("dtravel%", 9),
+        rpad("mean_t", 8), rpad("strand%", 8), rpad("urban_fx", 9),
+        rpad("below_min", 10), rpad("load_p50", 9), rpad("load_p90", 9), rpad("load_max", 9))
 end
 
-function run_combo(country, data, base, min_cap, max_cap)
+function rung_label()
+    if SCENARIO == "S1"
+        URBAN_POP > 0 && return "C"            # urban fixed, model the rest
+        return PER_CELL == :multi ? "A" : "B"  # multi vs one per cell
+    else                                        # S2: A = global, B = outside urban only
+        return URBAN_POP > 0 ? "B" : "A"
+    end
+end
+
+function run_combo(country, data, own_pop, base, min_cap, max_cap, target_count)
     BIG = c(maximum(data.t_ij_col))
-    rel = solve_cap_relax(data, min_cap, max_cap)
-    open_set, asg = round_and_assign(rel.x_relaxed, rel.sum_x, data, max_cap, BIG, min_cap == 0)
+    travel_bound = (SCENARIO == "S2" && TRAVEL_SLACK !== nothing) ?
+                       base.cost_c * (1 + TRAVEL_SLACK) : nothing
+    rel = solve_relax(data, own_pop, min_cap, max_cap, target_count, travel_bound)
+    open_mult = round_open(rel.x_relaxed, data, rel.urban,
+                           SCENARIO == "S1" ? target_count : nothing)
+    asg = assign(open_mult, data, max_cap, BIG)
 
-    loads_sorted = sort(collect(values(asg.loads)))
-    n_below_min  = min_cap > 0 ? count(<(min_cap - 1e-6), loads_sorted) : 0
-    strand_pct   = base.total_pop > 0 ? asg.stranded_pop / base.total_pop * 100 : 0.0
-    dtravel_pct  = (asg.travel_honest - base.cost_c) / base.cost_c * 100
+    n_pharm = sum(values(open_mult))
+    n_cells = length(open_mult)
+    urban_fx = count(j -> j in rel.urban, keys(open_mult))
+    # per-PHARMACY catchment (cell load split over its mult pharmacies) — this is
+    # what the cap constrains, so the distribution/max stay <= max_cap.
+    pploads = sort([asg.loads[j] / open_mult[j] for j in keys(open_mult)])
+    n_below_min  = min_cap > 0 ? count(j -> !(j in rel.urban) && open_mult[j] == 1 &&
+                                            asg.loads[j] < min_cap - 1e-6, keys(open_mult)) : 0
+    strand_pct = base.total_pop > 0 ? asg.stranded_pop / base.total_pop * 100 : 0.0
+    dtravel    = (asg.travel_honest - base.cost_c) / base.cost_c * 100
 
-    pln(rpad(SCENARIO, 10),
-        rpad(min_cap == 0 ? "-" : string(round(Int, min_cap)), 10),
-        rpad(isfinite(max_cap) ? string(round(Int, max_cap)) : "Inf", 10),
-        rpad(length(open_set), 8), rpad(base.n_used, 11),
-        rpad(round(rel.sum_x, digits=1), 9),
-        rpad(round(asg.travel_honest, digits=0), 14),
-        rpad(round(base.cost_c, digits=0), 14),
-        rpad(round(dtravel_pct, digits=2), 10),
+    pln(rpad(SCENARIO, 6), rpad(rung_label(), 6),
+        rpad(min_cap == 0 ? "-" : string(round(Int, min_cap)), 9),
+        rpad(isfinite(max_cap) ? string(round(Int, max_cap)) : "Inf", 9),
+        rpad(n_pharm, 8), rpad(n_cells, 8), rpad(base.n_used, 7),
+        rpad(round(rel.sum_x, digits=1), 8),
+        rpad(round(asg.travel_honest, digits=0), 13),
+        rpad(round(base.cost_c, digits=0), 13),
+        rpad(round(dtravel, digits=2), 9),
         rpad(round(asg.mean_t, digits=3), 8),
-        rpad(round(strand_pct, digits=3), 9),
-        rpad(n_below_min, 10),
-        rpad(round(pctile(loads_sorted, 0.50), digits=0), 10),
-        rpad(round(pctile(loads_sorted, 0.90), digits=0), 10),
-        rpad(round(isempty(loads_sorted) ? 0.0 : loads_sorted[end], digits=0), 10))
+        rpad(round(strand_pct, digits=3), 8),
+        rpad(urban_fx, 9), rpad(n_below_min, 10),
+        rpad(round(pctile(pploads, 0.50), digits=0), 9),
+        rpad(round(pctile(pploads, 0.90), digits=0), 9),
+        rpad(round(isempty(pploads) ? 0.0 : pploads[end], digits=0), 9))
 
     if WRITE_ARROW
         outdir = joinpath(CANDIDATE_DIR, country, "cap",
-                          "$(SCENARIO)_min$(round(Int,min_cap))_max$(isfinite(max_cap) ? round(Int,max_cap) : 0)")
+            "$(SCENARIO)_$(rung_label())_min$(round(Int,min_cap))_max$(isfinite(max_cap) ? round(Int,max_cap) : 0)")
         mkpath(outdir)
-        open_vec = [j in open_set ? 1 : 0 for j in data.facilities]
         Arrow.write(joinpath(outdir, "assignment.arrow"),
-                    (id = data.facilities, open = open_vec))
+                    (id = data.facilities, open = [get(open_mult, j, 0) for j in data.facilities]))
         ids = sort(collect(keys(asg.assigned_k)))
         Arrow.write(joinpath(outdir, "traveltime.arrow"),
                     (id = ids, t_ij = [data.t_ij_col[asg.assigned_k[i]] for i in ids]))
     end
-    return (min_cap=min_cap, max_cap=max_cap, n_open=length(open_set),
-            travel=asg.travel_honest, mean_t=asg.mean_t,
-            stranded_pct=strand_pct, n_below_min=n_below_min, loads=loads_sorted)
 end
 
 function analyze_country(country)
-    pln(); pln("=" ^ 100); pln("Country: $country   (scenario $SCENARIO)"); pln("=" ^ 100)
+    pln(); pln("=" ^ 110)
+    pln("Country: $country   scenario $SCENARIO   rung $(rung_label())   per_cell=$PER_CELL   urban_pop=$URBAN_POP")
+    pln("=" ^ 110)
     pln("Candidates: $CANDIDATE_DIR")
     pln("Baseline:   $EXISTING_DIR")
 
-    existing = load_dir(EXISTING_DIR,  country; apply_factor=false)
-    data     = load_dir(CANDIDATE_DIR, country; apply_factor=true)
-    base     = baseline_metrics(existing)
-    pln("  candidates: N=$(data.N) OD rows, M=$(data.M) facilities")
-    pln("  baseline:   $(base.n_used) pharmacies used, total pop $(round(Int, base.total_pop)), " *
+    existing, _      = load_dir(EXISTING_DIR,  country; apply_factor=false)
+    data, own_pop    = load_dir(CANDIDATE_DIR, country; apply_factor=true)
+    base             = baseline_metrics(existing)
+    target_count     = haskey(ENV, "TARGET_COUNT") ? parse(Int, ENV["TARGET_COUNT"]) : base.n_used
+    pln("  candidates: N=$(data.N) OD rows, M=$(data.M) cells")
+    pln("  baseline:   $(base.n_used) cells used, total pop $(round(Int, base.total_pop)), " *
         "travel(c) $(round(base.cost_c, digits=0)), mean_t $(round(base.mean_t, digits=3)) min")
+    SCENARIO == "S1" && pln("  S1 target #pharmacies: $target_count")
 
     pln(); header()
     for max_cap in MAX_CAPS, min_cap in MIN_CAPS
         try
-            run_combo(country, data, base, min_cap, max_cap)
+            run_combo(country, data, own_pop, base, min_cap, max_cap, target_count)
         catch e
-            pln("  [combo min_cap=$min_cap max_cap=$max_cap] FAILED: $(sprint(showerror, e))")
+            pln("  [min_cap=$min_cap max_cap=$max_cap] FAILED: $(sprint(showerror, e))")
         end
     end
 end

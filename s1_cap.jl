@@ -1,15 +1,29 @@
-# S1 — cap scenario, ladder rungs A & B (doc/topics.md).
-# "Same kind of coverage as today, but cap each pharmacy's catchment": minimise
-# the NUMBER of pharmacies needed so everyone is served and no pharmacy exceeds
-# MAX_CAP residents. No minimum-catchment threshold (MIN_CAP = 0).
+# S1 — "reduce travel, keep the number of pharmacies constant" (doc/topics.md).
+# Place a FIXED number of pharmacies (TARGET_COUNT, default = today's cell count)
+# to MINIMISE travel, with a max catchment cap so the optimum doesn't collapse
+# every dense cell to one pharmacy and scatter the rest across the countryside.
 #
-#   Rung A (multiple pharmacies per cell)  vs  rung B (combine within a cell,
-#   one per cell) is chosen by the candidate data you point CANDIDATE_DIR at —
-#   provide the multi-per-cell export for A, the one-per-cell export for B.
-#   "All vs rural-only" is likewise just a different CANDIDATE_DIR.
+# Pick the rung with RUNG=A|B|C (default A — Lewis's "start at A"):
+#   A  allow MULTIPLE pharmacies per grid cell (x[j] integer >= 0); for a true
+#      packing test set TARGET_COUNT to the raw pharmacy count (e.g. 1992 for NL).
+#   B  at most ONE pharmacy per grid cell (combine within a cell first).
+#   C  hold URBAN-centre pharmacies fixed (cells with own pop >= URBAN_POP) and
+#      only model the rest of the territory.
 #
-# Control via env (see cap_scenario.jl for the full list):
-#   COUNTRIES, CANDIDATE_DIR, EXISTING_DIR, MAX_CAP (residents), TRAVEL_FUNC.
-get(ENV, "MIN_CAP",  "") == "" && (ENV["MIN_CAP"]  = "0")
-get(ENV, "SCENARIO", "") == "" && (ENV["SCENARIO"] = "S1")
+# Other control via env (see cap_scenario.jl): COUNTRIES, CANDIDATE_DIR,
+# EXISTING_DIR, MAX_CAP, TARGET_COUNT, URBAN_POP, TRAVEL_FUNC.
+ENV["SCENARIO"] = "S1"
+rung = uppercase(get(ENV, "RUNG", "A"))
+if rung == "A"
+    get(ENV, "PER_CELL", "") == "" && (ENV["PER_CELL"] = "multi")
+    ENV["URBAN_POP"] = "0"
+elseif rung == "B"
+    get(ENV, "PER_CELL", "") == "" && (ENV["PER_CELL"] = "one")
+    ENV["URBAN_POP"] = "0"
+elseif rung == "C"
+    get(ENV, "PER_CELL", "") == "" && (ENV["PER_CELL"] = "one")
+    get(ENV, "URBAN_POP", "0") == "0" && (ENV["URBAN_POP"] = "25000")  # ~ NL dense-cell pop
+else
+    error("RUNG must be A, B or C for S1 (got $rung)")
+end
 include("cap_scenario.jl")
