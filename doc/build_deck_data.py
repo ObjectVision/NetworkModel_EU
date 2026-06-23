@@ -7,11 +7,18 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FUNCS = ["LINEAR", "LOGISTIC"]
 # display order matches the existing deck
-ORDER = ["Netherlands", "FR1", "FRB", "FRC", "FRD", "FRE", "FRF", "FRG", "FRH",
+ORDER = ["Netherlands",
+         "Luxembourg", "Estonia", "Latvia", "Slovenia",
+         "FR1", "FRB", "FRC", "FRD", "FRE", "FRF", "FRG", "FRH",
          "FRI", "FRJ", "FRK", "FRL", "FRM", "ITC", "ITF", "ITG", "ITH", "ITI",
          "SE1", "SE2", "SE3"]
 NICE = {
     "Netherlands": ("NETHERLANDS", "Netherlands"),
+    "Luxembourg": ("LUXEMBOURG", "Luxembourg"),
+    "Estonia": ("ESTONIA", "Estonia"),
+    "Latvia": ("LATVIA", "Latvia"),
+    "Slovenia": ("SLOVENIA", "Slovenia"),
+    "Lithuania": ("LITHUANIA", "Lithuania"),
     "FR1": ("FRANCE · FR1", "Île-de-France"),
     "FRB": ("FRANCE · FRB", "Centre-Val de Loire"),
     "FRC": ("FRANCE · FRC", "Bourgogne-Franche-Comté"),
