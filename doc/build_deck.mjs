@@ -272,64 +272,70 @@ function descriptivesSlide(csvName, view, eyebrow, subtitle) {
 }
 
 // Preliminary capacitated-ladder results (rungs A/B/C, no cost function) for one
-// country, read from cap_results_<country>.csv (collect_cap.py). Placed right
-// before the region (Pareto-frontier) slides so it precedes NL's.
+// country, as one card per rung — real numbers where cap_results_<country>.csv
+// (collect_cap.py) has a row, "run pending" otherwise. Placed right before the
+// region (Pareto-frontier) slides so it precedes NL's.
 function capSlide(csvName) {
   const csv = join(__dir, csvName);
-  if (!existsSync(csv)) { console.log(`(no ${csvName} — skipping cap slide)`); return; }
-  const lines = readFileSync(csv, "utf-8").split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) { console.log(`(${csvName} has no rows — skipping cap slide)`); return; }
-  const hdr = lines[0].split(","); const ix = {}; hdr.forEach((h, i) => (ix[h] = i));
-  const rows = lines.slice(1).map((l) => l.split(","));
+  const lines = existsSync(csv) ? readFileSync(csv, "utf-8").split(/\r?\n/).filter((l) => l.trim()) : [];
+  const data = {};
+  if (lines.length >= 2) {
+    const hdr = lines[0].split(","); const ix = {}; hdr.forEach((h, i) => (ix[h] = i));
+    lines.slice(1).forEach((l) => { const f = l.split(","); data[f[ix.scen] + f[ix.rung]] = { f, ix }; });
+  }
   const slide = pptx.addSlide();
   slide.background = { color: "FFFFFF" };
   slide.addText("PRELIMINARY · CATCHMENT-CAP LADDER (NO COST FUNCTION)", { x: 0.45, y: 0.26, w: 12, h: 0.3, fontSize: 12, bold: true, color: TOPP, charSpacing: 2 });
   slide.addText([
-    { text: "Netherlands — capping catchments instead of a cost function  ", options: { bold: true, color: INK } },
+    { text: "Netherlands — five rungs, capping catchments instead of a cost function  ", options: { bold: true, color: INK } },
     { text: "— S1 fix #, ↓travel · S2 ↓#, hold travel", options: { color: NAVY } },
-  ], { x: 0.45, y: 0.52, w: 12.5, h: 0.5, fontSize: 20, fontFace: "Georgia" });
+  ], { x: 0.45, y: 0.52, w: 12.5, h: 0.5, fontSize: 19, fontFace: "Georgia" });
 
-  const ruleOf = (scen, rung) => scen === "S1"
-    ? ({ A: "max cap · multi per cell", B: "max cap · one per cell", C: "urban fixed · model rest" }[rung] || rung)
-    : ({ A: "min+max cap · all", B: "min+max cap · non-urban" }[rung] || rung);
   const nf = (v) => { const n = Number(v); return isFinite(n) ? Math.round(n).toLocaleString("en-US") : v; };
-  const dtr = (v) => { const n = Number(v); return (n >= 0 ? "+" : "") + n.toFixed(1) + "%"; };
-
-  const head = ["", "rule", "min cap", "max cap", "pharm.", "cells", "Δ travel", "mean t", "stranded", "urban fix", "catch p50", "catch p90"];
-  const body = [head.map((h) => ({ text: h, options: { bold: true, color: "FFFFFF", fill: NAVY, fontSize: 9.5, align: (h === "" || h === "rule") ? "left" : "center", fontFace: "Calibri", margin: [2, 3, 2, 3] } }))];
-  rows.forEach((r, i) => {
-    const scen = r[ix.scen], rung = r[ix.rung], dt = Number(r[ix.dtravel_pct]);
-    const c = [`${scen}-${rung}`, ruleOf(scen, rung),
-      r[ix.min_cap] === "-" ? "—" : nf(r[ix.min_cap]), nf(r[ix.max_cap]),
-      nf(r[ix.n_pharm]), nf(r[ix.n_cells]), dtr(r[ix.dtravel_pct]),
-      Number(r[ix.mean_t]).toFixed(2), Number(r[ix.strand_pct]).toFixed(2) + "%",
-      nf(r[ix.urban_fx]), nf(r[ix.load_p50]), nf(r[ix.load_p90])];
-    body.push(c.map((v, ci) => ({
-      text: v, options: {
-        fontSize: 11, bold: ci === 0, align: ci <= 1 ? "left" : "center",
-        color: ci === 6 ? (dt < 0 ? "1E7A52" : "B23A2E") : INK,
-        fill: i % 2 ? PANEL : "FFFFFF", fontFace: "Calibri", valign: "middle", margin: [2, 3, 2, 3],
-      },
-    })));
-  });
-  slide.addTable(body, { x: 0.35, y: 1.7, w: 12.63, colW: [1.0, 2.75, 1.0, 1.0, 0.92, 0.82, 1.05, 0.92, 1.0, 0.95, 1.1, 1.1], rowH: 0.46, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
+  const cards = [
+    { key: "S1A", title: "S1 · A", rule: "max cap · multiple per cell" },
+    { key: "S1B", title: "S1 · B", rule: "max cap · one per cell" },
+    { key: "S1C", title: "S1 · C", rule: "urban fixed · model the rest" },
+    { key: "S2A", title: "S2 · A", rule: "min + max cap · all facilities" },
+    { key: "S2B", title: "S2 · B", rule: "min + max cap · outside urban" },
+  ];
+  const card = (x, y, w, h, c) => {
+    const d = data[c.key];
+    slide.addShape(pptx.ShapeType.roundRect, { x, y, w, h, rectRadius: 0.06, fill: { color: "F2F5F8" }, line: { color: d ? MULTI : "C9D2DB", width: 1 } });
+    slide.addText(c.title, { x: x + 0.18, y: y + 0.11, w: w - 0.3, h: 0.3, fontSize: 15, bold: true, color: d ? MULTI : "8A98A6", fontFace: "Calibri" });
+    slide.addText(c.rule, { x: x + 0.18, y: y + 0.45, w: w - 0.3, h: 0.3, fontSize: 9.5, italic: true, color: MUTED, fontFace: "Calibri" });
+    if (!d) {
+      slide.addText("full-scale run\npending", { x: x + 0.18, y: y + 0.95, w: w - 0.36, h: 0.9, fontSize: 12, color: "8A98A6", align: "center", valign: "middle", fontFace: "Calibri" });
+      return;
+    }
+    const { f, ix } = d; const dt = Number(f[ix.dtravel_pct]); const scen = f[ix.scen];
+    slide.addText([
+      { text: (dt >= 0 ? "+" : "") + dt.toFixed(1) + "%", options: { bold: true, fontSize: 25, color: dt < 0 ? "1E7A52" : "B23A2E" } },
+      { text: "  travel vs today", options: { fontSize: 10.5, color: MUTED } },
+    ], { x: x + 0.18, y: y + 0.85, w: w - 0.3, h: 0.5, fontFace: "Georgia" });
+    const lines2 = (scen === "S1"
+      ? [`${nf(f[ix.n_pharm])} pharmacies · ${nf(f[ix.n_cells])} cells`,
+         `${Number(f[ix.strand_pct]).toFixed(1)}% stranded · cap ${nf(f[ix.max_cap])}`]
+      : [`${nf(f[ix.n_pharm])} pharmacies (was ${nf(f[ix.base])})`,
+         `${Number(f[ix.strand_pct]).toFixed(1)}% stranded · min ${nf(f[ix.min_cap])}`])
+      .concat(f[ix.urban_fx] !== "0" ? [`${nf(f[ix.urban_fx])} urban pharmacies fixed`] : []);
+    slide.addText(lines2.map((t) => ({ text: t, options: { breakLine: true } })),
+      { x: x + 0.18, y: y + 1.48, w: w - 0.3, h: 0.95, fontSize: 10, color: INK, fontFace: "Calibri", lineSpacingMultiple: 1.05, valign: "top" });
+  };
+  const cw = 4.07, ch = 2.5, gap = 0.2, x0 = 0.5;
+  cards.slice(0, 3).forEach((c, i) => card(x0 + i * (cw + gap), 1.45, cw, ch, c));
+  cards.slice(3).forEach((c, i) => card(x0 + i * (cw + gap), 4.15, cw, ch, c));
 
   slide.addText([
     { text: "S1 ", options: { bold: true, color: MULTI } },
-    { text: "keeps today's pharmacy count and minimises travel under a max catchment cap — ", options: { color: INK } },
-    { text: "A ", options: { bold: true, color: MULTI } }, { text: "dense cells may hold several pharmacies, ", options: { color: INK } },
-    { text: "B ", options: { bold: true, color: MULTI } }, { text: "one per cell, ", options: { color: INK } },
-    { text: "C ", options: { bold: true, color: MULTI } }, { text: "urban centres fixed, model the rest.", options: { color: INK } },
-  ], { x: 0.45, y: 5.35, w: 12.5, h: 0.45, fontSize: 11, fontFace: "Calibri", valign: "top" });
-  slide.addText([
+    { text: "keeps today's count, minimises travel under a max catchment cap.  ", options: { color: INK } },
     { text: "S2 ", options: { bold: true, color: MULTI } },
-    { text: "minimises the pharmacy count under a min (viability) + max catchment while holding travel ≈ today — A all facilities, B only outside urban centres. ", options: { color: INK } },
-    { text: "The cost-function rung (S1-D / S2-C) is the λ-sweep on the following pages.", options: { color: NAVY } },
-  ], { x: 0.45, y: 5.85, w: 12.5, h: 0.55, fontSize: 11, fontFace: "Calibri", valign: "top" });
+    { text: "minimises the count under a min (viability) + max catchment, holding travel ≈ today.  Cost-function rung (S1-D / S2-C) = the λ-sweep that follows.", options: { color: INK } },
+  ], { x: 8.77, y: 4.15, w: 4.05, h: 2.5, fontSize: 11, fontFace: "Calibri", valign: "top" });
   slide.addText([
     { text: "PRELIMINARY — INDICATIVE ONLY. ", options: { bold: true, color: "B23A2E" } },
-    { text: "S1 (fixed-count) figures are sensitive to LP-relaxation rounding and can shift on re-run (a robust multistart rounding is still to be ported); read the direction, not the exact %. LINEAR travel cost · cap from the observed cell-catchment distribution (p90≈18k, max≈35k). 'stranded' = demand the cap cannot serve within reach, priced at c(t_max). 'catch p50/p90' = per-pharmacy catchment. Δ travel vs today's coverage-honest travel.", options: { color: MUTED } },
-  ], { x: 0.45, y: 6.55, w: 12.5, h: 0.6, fontSize: 8.5, italic: true, fontFace: "Calibri", valign: "top" });
+    { text: "Full-scale ladder run incomplete; S1 (fixed-count) figures are sensitive to LP-relaxation rounding and can shift on re-run (robust multistart rounding still to be ported) — read the direction, not the exact %. LINEAR travel cost; max cap = NL observed cell-catchment max (~35k). 'stranded' = demand the cap can't serve within reach, priced at c(t_max).", options: { color: MUTED } },
+  ], { x: 0.45, y: 6.72, w: 12.5, h: 0.55, fontSize: 8.5, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
 let regions = data;
