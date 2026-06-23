@@ -133,21 +133,15 @@ function summarySlide() {
 function statusSlide() {
   const slide = pptx.addSlide();
   slide.background = { color: "FFFFFF" };
-  slide.addText("ROADMAP", { x: 0.45, y: 0.24, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText("ROADMAP", { x: 0.45, y: 0.28, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
   slide.addText([
-    { text: "The A→D ladder per scenario  ", options: { bold: true, color: INK } },
-    { text: "— start at A, only step down", options: { color: NAVY } },
-  ], { x: 0.45, y: 0.5, w: 12.5, h: 0.42, fontSize: 21, fontFace: "Georgia" });
+    { text: "Status against Lewis's & Bernhard's framing  ", options: { bold: true, color: INK } },
+    { text: "— implemented · in progress · remaining", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.54, w: 12.5, h: 0.42, fontSize: 21, fontFace: "Georgia" });
   slide.addText([
-    { text: "Headline shift (May–Jun thread): ", options: { bold: true, color: "B23A2E" } },
-    { text: "the primary mechanisms are a ", options: { color: INK } },
-    { text: "max-catchment cap", options: { bold: true, color: INK } },
-    { text: " + ", options: { color: INK } },
-    { text: "min-catchment threshold", options: { bold: true, color: INK } },
-    { text: " (urban pharmacies optionally held fixed). The ", options: { color: INK } },
-    { text: "facility-cost λ-sweep is Option D — the fallback", options: { bold: true, color: INK } },
-    { text: "; this deck still presents D as the headline.", options: { color: MUTED } },
-  ], { x: 0.45, y: 0.96, w: 12.5, h: 0.34, fontSize: 10.5, fontFace: "Calibri", valign: "top" });
+    { text: "The λ-sweep is the working general method. ", options: { bold: true, color: INK } },
+    { text: "A proposed A→D ladder would cap catchments + set a min threshold to sidestep it — but the descriptives show catchments vary so widely (p10–p90 several-fold; many pharmacies at zero) that realistic bounds are hard to set, and the ladder may not actually simplify the problem.", options: { color: MUTED } },
+  ], { x: 0.45, y: 0.97, w: 12.5, h: 0.4, fontSize: 9.5, fontFace: "Calibri", valign: "top" });
 
   const GREEN = "1E7A52", AMBER = "B9791C", SLATE = "5B6B7B";
   const col = (x, tint, fill, title, items) => {
@@ -162,17 +156,16 @@ function statusSlide() {
     "Lewis's 3 cases live: S1 (same #, ↓travel) · S2 (same travel, ↓#) · S3 full frontier",
     "All 6 of Lewis's 22-May descriptive indicators, per country (deck pages 5–8)",
     "Catchments now by ROAD-network travel time (not Euclidean); #empty + smallest non-zero catchment reported",
-    "Cap-ladder rungs (cost-function-free): S1-A multiple/cell · S1-B one/cell · S2-A/B min+max cap — run for NL",
+    "Cap-ladder rungs prototyped (cost-function-free, exploratory): S1-A/B · S2-A/B — run for NL",
     "LINEAR & LOGISTIC travel costs both run & compared",
     "Coverage: 17 countries + per-NUTS-1 (FR/IT/SE); inhabited-cell candidates, pharmacies merged per cell (1 992→1 617 NL)",
   ]);
   col(4.62, AMBER, "FBF5EA", "In progress ◐", [
     "Sweeping the 13 newly-available countries (small→large) — networks + OD now prepped per country",
-    "Max-catchment cap from the observed distribution (95th pct / max) — distribution now in hand from the descriptives",
-    "Min-catchment as an ABSOLUTE hard threshold wired into S2 (today: soft λ-tied penalty, unused by the sweep); sweep several values",
-    "One- vs multiple-per-cell as explicit A/B variants",
+    "Then per-NUTS-1 λ-sweeps for the large countries (FR / IT / PL)",
     "Fix baseline_metrics: it drops un-reachable clients (ITG ≈14% of pop) while the sweep prices them at c(t_max) — make consistent before any distance-to-Pareto metric",
-    "A→B trigger: report S1-A share of facilities at/near the cap",
+    "A single 2-D status-quo→frontier distance metric (coverage-honest; stranded priced at c(t_max))",
+    "Exploring (not committed): max-cap + min-threshold rungs — but the descriptives suggest realistic bounds are hard to set, so this may not pay off",
   ]);
   col(8.84, SLATE, "F2F5F8", "Remaining ○", [
     "Urban/non-urban flag → model only non-urban, hold urban fixed (options B/C)",
@@ -188,7 +181,7 @@ function statusSlide() {
 
   slide.addText([
     { text: "Open questions for the group:  ", options: { bold: true, color: NAVY } },
-    { text: "cap value = 95th pct vs observed max?  ·  min-threshold value(s) to test?  ·  pooled-across-countries vs per-country caps?  ·  best way to communicate λ?", options: { color: MUTED } },
+    { text: "is the cap/threshold ladder worth pursuing given how widely catchments vary?  ·  logistic vs linear travel cost (the equity-weighting choice)?  ·  best way to communicate λ?", options: { color: MUTED } },
   ], { x: 0.45, y: 6.5, w: 12.5, h: 0.7, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
