@@ -179,6 +179,8 @@ function statusSlide() {
     "Aggregate Pareto frontier per country (combine the regional sweeps)",
     "Counterfactuals: −10% pop · replace a known X% · choose which X to close (hard)",
     "Pharmacist-based cap (Ana); caps/thresholds pooled across countries, reported per-country",
+    "Border-cases",
+    "Corr catchment & travel costs",
   ]);
 
   slide.addText([
