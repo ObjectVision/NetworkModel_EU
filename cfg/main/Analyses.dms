@@ -18,9 +18,34 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 
 			attribute<float32> cnt (cells) := Locations/Pharmacies/within_StudyArea/uq_cells/Count_Objects_Per_Cell;
 
-			// assign each 1km cell to its nearest pharmacy cell; sum residents into that cell
-			attribute<cells>   nearest_cell   (grid)  := connect(Locations/Pharmacies/within_StudyArea/uq_cells/geometry, Base_grid_1km/points/geometry);
-			attribute<float64> cell_catchment (cells) := sum(float64(Base_grid_1km/points/Population), nearest_cell), Descr = "Metric 6: residents whose nearest pharmacy cell is this one (pharmacies combined per cell).";
+			// --- nearest pharmacy CELL per 1km cell ---------------------------------
+			// Euclidean straight-line nearest (kept for reference / comparison):
+			attribute<cells> nearest_cell_euclid (grid) := connect(Locations/Pharmacies/within_StudyArea/uq_cells/geometry, Base_grid_1km/points/geometry);
+
+			// Road-network nearest, derived from the existing-pharmacy Allocation (OD road
+			// impedance). Per client we take the lowest-impedance pharmacy, then relate that
+			// per-client result back to the 1km grid:
+			//   best_od                      : per client, the OD row of minimum road impedance
+			//                                  (min_index -> domain Client, value = an Alloc row)
+			//   nearest_cell_by_road_client  : that row's pharmacy cell (Facility == cells)
+			//   grid_client_rel              : per 1km grid cell, its client index, matched on the
+			//                                  shared 1km grid domain (grid_domain_rel). null where
+			//                                  the cell is not an OD client (ModelParameters/Client
+			//                                  == 0, or no pharmacy within max_traveltime_to_facility)
+			//   nearest_cell_by_road         : road-nearest pharmacy cell per 1km grid cell
+			// (use the full Allocation path, not a unit alias — a `unit := other` alias
+			//  does not expose the other's named sub-items like /facility_rel)
+			attribute<AllocateClientsToExistingPharmacies/Allocation>
+			                  best_od                     (Client) := min_index(AllocateClientsToExistingPharmacies/Allocation/impedance, AllocateClientsToExistingPharmacies/Allocation/client_rel);
+			attribute<cells>  nearest_cell_by_road_client (Client) := AllocateClientsToExistingPharmacies/Allocation/facility_rel[best_od];
+			attribute<Client> grid_client_rel             (grid)   := rlookup(Base_grid_1km/points/grid_domain_rel, Client/grid_domain_rel);
+			attribute<cells>  nearest_cell_by_road        (grid)   := nearest_cell_by_road_client[grid_client_rel];
+
+			// Catchment is ROAD-based: each 1km cell's residents go to its road-nearest pharmacy
+			// cell. Only OD-client cells carry a road-nearest, so the catchment covers the resident
+			// population of those cells; to cover ALL residents point ModelParameters/Client at
+			// 'population' instead of 'pop_primaryschool' (then the OD spans every inhabited cell).
+			attribute<float64> cell_catchment (cells) := sum(float64(Base_grid_1km/points/Population), nearest_cell_by_road), Descr = "Metric 6: residents whose nearest pharmacy cell (by road) is this one.";
 
 			// per-pharmacy catchment: cell catchment shared equally among pharmacies in the cell
 			attribute<float64> pharm_catchment (pharm) := cell_catchment[Locations/Pharmacies/within_StudyArea/uq_cells_rel] / float64(cnt[Locations/Pharmacies/within_StudyArea/uq_cells_rel]), Descr = "Metric 5: catchment per individual pharmacy.";
