@@ -133,53 +133,63 @@ function summarySlide() {
 function statusSlide() {
   const slide = pptx.addSlide();
   slide.background = { color: "FFFFFF" };
-  slide.addText("ROADMAP", { x: 0.45, y: 0.28, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText("ROADMAP", { x: 0.45, y: 0.24, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
   slide.addText([
-    { text: "Status against Bernhard's & Lewis's framing  ", options: { bold: true, color: INK } },
-    { text: "— implemented · in progress · remaining", options: { color: NAVY } },
-  ], { x: 0.45, y: 0.54, w: 12.5, h: 0.5, fontSize: 21, fontFace: "Georgia" });
+    { text: "The A→D ladder per scenario  ", options: { bold: true, color: INK } },
+    { text: "— start at A, only step down", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.5, w: 12.5, h: 0.42, fontSize: 21, fontFace: "Georgia" });
+  slide.addText([
+    { text: "Headline shift (May–Jun thread): ", options: { bold: true, color: "B23A2E" } },
+    { text: "the primary mechanisms are a ", options: { color: INK } },
+    { text: "max-catchment cap", options: { bold: true, color: INK } },
+    { text: " + ", options: { color: INK } },
+    { text: "min-catchment threshold", options: { bold: true, color: INK } },
+    { text: " (urban pharmacies optionally held fixed). The ", options: { color: INK } },
+    { text: "facility-cost λ-sweep is Option D — the fallback", options: { bold: true, color: INK } },
+    { text: "; this deck still presents D as the headline.", options: { color: MUTED } },
+  ], { x: 0.45, y: 0.96, w: 12.5, h: 0.34, fontSize: 10.5, fontFace: "Calibri", valign: "top" });
 
   const GREEN = "1E7A52", AMBER = "B9791C", SLATE = "5B6B7B";
   const col = (x, tint, fill, title, items) => {
-    slide.addShape(pptx.ShapeType.roundRect, { x, y: 1.3, w: 4.07, h: 5.05, rectRadius: 0.05, fill: { color: fill }, line: { color: tint, width: 1 } });
-    slide.addText(title, { x: x + 0.18, y: 1.42, w: 3.7, h: 0.32, fontSize: 13, bold: true, color: tint, fontFace: "Calibri" });
+    slide.addShape(pptx.ShapeType.roundRect, { x, y: 1.42, w: 4.07, h: 4.95, rectRadius: 0.05, fill: { color: fill }, line: { color: tint, width: 1 } });
+    slide.addText(title, { x: x + 0.18, y: 1.5, w: 3.7, h: 0.3, fontSize: 13, bold: true, color: tint, fontFace: "Calibri" });
     slide.addText(items.map((t) => ({ text: t, options: { bullet: { indent: 12 }, breakLine: true } })),
-      { x: x + 0.2, y: 1.82, w: 3.72, h: 4.45, fontSize: 9.5, color: INK, fontFace: "Calibri", lineSpacingMultiple: 1.0, paraSpaceAfter: 5, valign: "top" });
+      { x: x + 0.2, y: 1.86, w: 3.72, h: 4.45, fontSize: 9, color: INK, fontFace: "Calibri", lineSpacingMultiple: 0.98, paraSpaceAfter: 4, valign: "top" });
   };
 
   col(0.4, GREEN, "F0F6F2", "Implemented ✓", [
-    "Tabula-rasa LP allocation — replaces the old one-by-one greedy",
-    "Linear facility cost a+bx → reduces to λ·#facilities in the LP (λ = w·a, a=100k)",
-    "λ-sweep → Pareto curve of #facilities vs travel cost",
-    "Lewis's 3 cases live: S1 (same #, ↓travel) · S2 (same travel, ↓#) · S3 full frontier (↓both)",
-    "LINEAR & LOGISTIC travel costs both run & compared (this deck)",
-    "Inhabited-cell candidates; pharmacies merged per grid cell (1 992→1 617 in NL)",
-    "Per-region (NUTS-1) analysis — 22 regions across FR/IT/SE/NL",
-    "Fractional = the LP lower bound (travel_relax); rounded to integer by multistart, so we ship whole pharmacies — and the fractional LP is the cheap part",
+    "Tabula-rasa LP allocation + λ-sweep → Pareto curve of #facilities vs travel cost (Option D)",
+    "Lewis's 3 cases live: S1 (same #, ↓travel) · S2 (same travel, ↓#) · S3 full frontier",
+    "All 6 of Lewis's 22-May descriptive indicators, per country (deck pages 5–8)",
+    "Catchments now by ROAD-network travel time (not Euclidean); #empty + smallest non-zero catchment reported",
+    "Cap-ladder rungs (cost-function-free): S1-A multiple/cell · S1-B one/cell · S2-A/B min+max cap — run for NL",
+    "LINEAR & LOGISTIC travel costs both run & compared",
+    "Coverage: 17 countries + per-NUTS-1 (FR/IT/SE); inhabited-cell candidates, pharmacies merged per cell (1 992→1 617 NL)",
   ]);
   col(4.62, AMBER, "FBF5EA", "In progress ◐", [
-    "Status-quo → curve distance: coverage-honest (stranded priced at c(t_max)); a single 2-D distance metric still to formalize",
-    "Logistic params: now midpoint 30 / scale 15 min — retune to Lewis's ~5 & ~45-min kinks, then sweep sensitivity",
-    "Regional vs unconstrained-frontier gap — have per-region curves, not yet the \"how far from unconstrained\" comparison",
-    "Investigate FR1, ITG, SE2 vs the much-lower baseline — higher λ required? (baseline & sweep use different location sets)",
+    "Sweeping the 13 newly-available countries (small→large) — networks + OD now prepped per country",
+    "Max-catchment cap from the observed distribution (95th pct / max) — distribution now in hand from the descriptives",
+    "Min-catchment as an ABSOLUTE hard threshold wired into S2 (today: soft λ-tied penalty, unused by the sweep); sweep several values",
+    "One- vs multiple-per-cell as explicit A/B variants",
+    "Fix baseline_metrics: it drops un-reachable clients (ITG ≈14% of pop) while the sweep prices them at c(t_max) — make consistent before any distance-to-Pareto metric",
+    "A→B trigger: report S1-A share of facilities at/near the cap",
   ]);
   col(8.84, SLATE, "F2F5F8", "Remaining ○", [
-    "Calibrate a real pharmacy a,b (schools: 99 699 + 3 277.5x); decide if fixed cost depends on <6-y care",
-    "Communicate λ intuitively — e.g. express it in travel-time-equivalent units (person-min per facility)",
-    "Settlement candidate set: verify existing pharmacies ⊂ settlements, then restrict locations",
-    "Catchment-realism check outside urban areas — any cell un-servable by one pharmacy?",
-    "non-linear facility cost (after linear) · other travel shapes if needed",
-    "Mixed-integer testing of S2 for a few small regions",
-    "Lewis' indicators as in his e-mail of 22 May",
+    "Urban/non-urban flag → model only non-urban, hold urban fixed (options B/C)",
+    "Settlement candidate set: verify existing ⊂ settlements, then restrict locations",
+    "Retune logistic to Lewis's ~5 & ~45-min kinks; add flat-then-linear; sweep sensitivity",
+    "Calibrate real pharmacy a,b (schools: 99 699 + 3 277.5x); ?fixed cost vs <6-y care",
+    "Communicate λ intuitively (person-minutes / value-per-user)",
+    "Cost-function-free S3: balance #/capita vs mean travel, widen beyond the A–B segment",
     "Aggregate Pareto frontier per country (combine the regional sweeps)",
-    "Counterfactuals: −10% pop (easy) · replace a known X% (easy) · choose which X to close (hard)",
-    "Analyse locations & client counts for NL and ITF",
+    "Counterfactuals: −10% pop · replace a known X% · choose which X to close (hard)",
+    "Pharmacist-based cap (Ana); caps/thresholds pooled across countries, reported per-country",
   ]);
 
   slide.addText([
     { text: "Open questions for the group:  ", options: { bold: true, color: NAVY } },
-    { text: "fixed cost constant with vs without <6-y care?  ·  logistic vs linear = the equity-weighting choice  ·  best way to communicate λ?", options: { color: MUTED } },
-  ], { x: 0.45, y: 6.55, w: 12.5, h: 0.7, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
+    { text: "cap value = 95th pct vs observed max?  ·  min-threshold value(s) to test?  ·  pooled-across-countries vs per-country caps?  ·  best way to communicate λ?", options: { color: MUTED } },
+  ], { x: 0.45, y: 6.5, w: 12.5, h: 0.7, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
 function logisticSlide() {
