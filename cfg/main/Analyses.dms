@@ -50,6 +50,13 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			// per-pharmacy catchment: cell catchment shared equally among pharmacies in the cell
 			attribute<float64> pharm_catchment (pharm) := cell_catchment[Locations/Pharmacies/within_StudyArea/uq_cells_rel] / float64(cnt[Locations/Pharmacies/within_StudyArea/uq_cells_rel]), Descr = "Metric 5: catchment per individual pharmacy.";
 
+			// A 0-catchment pharmacy/cell is one that is never the road-nearest for any populated
+			// cell (a fully shadowed neighbour, or — rarely — sitting on a disconnected road
+			// fragment). Map those to null so min() reports the smallest NON-zero catchment, and
+			// count them separately (n_empty) so the redundancy magnitude stays visible.
+			attribute<float64> cell_catchment_nz  (cells) := cell_catchment  == 0d ? null_d : cell_catchment;
+			attribute<float64> pharm_catchment_nz (pharm) := pharm_catchment == 0d ? null_d : pharm_catchment;
+
 			parameter<uint32>  n_pharm := #pharm;
 			parameter<uint32>  n_cells := #cells;
 			parameter<float64> n_res   := sum(float64(Base_grid_1km/points/Population));
@@ -74,6 +81,8 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 				attribute<uint32>  max_pharm_in_cell      (row1) := const(uint32(max(cnt)), row1);
 
 				// metric 6 — catchment population distribution, pharmacies combined per cell
+				attribute<uint32>  cell_n_empty (row1) := const(sum(uint32(cell_catchment == 0d)), row1);  // #locations never road-nearest
+				attribute<float64> cell_min_nz  (row1) := const(min(cell_catchment_nz), row1);             // smallest NON-zero catchment
 				attribute<float64> cell_min (row1) := const(min(cell_catchment), row1);
 				attribute<float64> cell_p10 (row1) := rth_element(cell_catchment, 0.10f, c_rel);
 				attribute<float64> cell_p25 (row1) := rth_element(cell_catchment, 0.25f, c_rel);
@@ -84,6 +93,8 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 				attribute<float64> cell_avg (row1) := const(sum(cell_catchment) / float64(n_cells), row1);
 
 				// metric 5 — catchment population distribution, per individual pharmacy
+				attribute<uint32>  pharm_n_empty (row1) := const(sum(uint32(pharm_catchment == 0d)), row1);  // #pharmacies never road-nearest
+				attribute<float64> pharm_min_nz  (row1) := const(min(pharm_catchment_nz), row1);             // smallest NON-zero catchment
 				attribute<float64> pharm_min (row1) := const(min(pharm_catchment), row1);
 				attribute<float64> pharm_p10 (row1) := rth_element(pharm_catchment, 0.10f, p_rel);
 				attribute<float64> pharm_p25 (row1) := rth_element(pharm_catchment, 0.25f, p_rel);

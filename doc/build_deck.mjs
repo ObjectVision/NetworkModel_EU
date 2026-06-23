@@ -252,22 +252,24 @@ function descriptivesSlide(csvName, view, eyebrow, subtitle) {
     ? { cnt: "n_pharmacies",    per: "residents_per_pharmacy", d: "pharm_", cntLab: "pharm.",    perLab: "resid/ph" }
     : { cnt: "n_pharmacy_cells", per: "cell_avg",              d: "cell_",  cntLab: "locations", perLab: "resid/loc" };
 
-  const head = ["region", P.cntLab, "residents", P.perLab, "min", "p10", "p25", "p50", "p75", "p90", "max"];
+  const head = ["region", P.cntLab, "residents", P.perLab, "#empty", "min>0", "p10", "p25", "p50", "p75", "p90", "max"];
   const body = [head.map((h) => ({ text: h, options: { bold: true, color: "FFFFFF", fill: NAVY, fontSize: Math.min(fs, 10), align: h === "region" ? "left" : "center", fontFace: "Calibri", margin: [1, 2, 1, 3] } }))];
   rows.forEach((r, i) => {
     const reg = r[ix.study_area]; const isC = COUNTRIES.has(reg); const hi = isC && anyNuts;
     const fill = hi ? "E6EDF4" : (i % 2 ? PANEL : "FFFFFF");
     const c = [(anyNuts && !isC ? "    " : "") + reg, nf(r[ix[P.cnt]]), fM(r[ix.n_residents]), nf(r[ix[P.per]]),
-      nf(r[ix[P.d + "min"]]), nf(r[ix[P.d + "p10"]]), nf(r[ix[P.d + "p25"]]), nf(r[ix[P.d + "p50"]]), nf(r[ix[P.d + "p75"]]), nf(r[ix[P.d + "p90"]]), nf(r[ix[P.d + "max"]])];
+      nf(r[ix[P.d + "n_empty"]]), nf(r[ix[P.d + "min_nz"]]), nf(r[ix[P.d + "p10"]]), nf(r[ix[P.d + "p25"]]), nf(r[ix[P.d + "p50"]]), nf(r[ix[P.d + "p75"]]), nf(r[ix[P.d + "p90"]]), nf(r[ix[P.d + "max"]])];
     body.push(c.map((v, ci) => ({ text: v, options: {
       fontSize: fs, bold: hi, align: ci === 0 ? "left" : "center", color: INK,
       fill, fontFace: "Calibri", valign: "middle", margin: [1, 2, 1, 3] } })));
   });
-  slide.addTable(body, { x: 0.5, y: 1.7, w: 12.33, colW: [2.0, 1.13, 1.2, 1.2, 0.97, 0.97, 0.97, 0.97, 0.97, 0.97, 0.98], rowH, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
+  slide.addTable(body, { x: 0.5, y: 1.7, w: 12.33, colW: [1.85, 1.05, 1.08, 1.08, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.97], rowH, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
+  const empt = view === "pharm" ? "pharmacies" : "locations";
   const note = view === "pharm"
     ? "Catchment = residents whose nearest pharmacy BY ROAD-NETWORK travel time is this one (a cell's catchment split evenly among the pharmacies in it); p10..max = percentiles of that per-pharmacy catchment."
     : "A location = a unique 1 km² cell with ≥1 pharmacy; catchment = residents whose nearest pharmacy cell BY ROAD is this one; p10..max = percentiles of that per-location catchment.";
-  slide.addText(note + (anyNuts ? " Country rows bold, NUTS1 indented below." : "") + " Source: pharmacy_descriptives.csv (road OD; Lewis, 22 May).",
+  const note2 = ` #empty = ${empt} that are never the road-nearest for any populated cell (fully shadowed / disconnected); min>0 = smallest non-zero catchment.`;
+  slide.addText(note + note2 + (anyNuts ? " Country rows bold, NUTS1 indented below." : "") + " Source: pharmacy_descriptives.csv (road OD; Lewis, 22 May).",
     { x: 0.5, y: 7.12, w: 12.33, h: 0.3, fontSize: 8, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 
