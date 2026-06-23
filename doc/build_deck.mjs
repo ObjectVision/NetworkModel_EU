@@ -345,9 +345,48 @@ function capSlide(csvName) {
   ], { x: 0.45, y: 6.72, w: 12.5, h: 0.55, fontSize: 8.5, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
+// Proposed meeting agenda. Generated as the FIRST slide of region_summary.pptx;
+// merge_deck.ps1 then moves it to position 2 (between the title and the rest of
+// the concept slides). Marker text "Proposed agenda" is what the merge looks for.
+function agendaSlide() {
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+  slide.addText("AGENDA", { x: 0.45, y: 0.34, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText([
+    { text: "Proposed agenda  ", options: { bold: true, color: INK } },
+    { text: "— assessing the current pharmacy distribution", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.62, w: 12.5, h: 0.5, fontSize: 24, fontFace: "Georgia" });
+
+  const items = [
+    ["Scope & method", "Tabula-rasa LP allocation + λ-sweep over the road-network OD; how to read the #facilities ↔ travel-cost frontier.", false],
+    ["The current distribution", "Descriptive metrics per country & key NUTS1 — residents per pharmacy and catchment-size distributions, by road.", false],
+    ["Scenario results", "S1 (same #, less travel) and S2 (same travel, fewer pharmacies) per country and NUTS1 — what the frontiers show so far.", false],
+    ["Travel-cost function", "Logistic vs linear, and the adapted logit with kinks at ~5 & ~45 min (following page).", true],
+    ["Cap / threshold ladder", "A proposed shortcut to the λ-sweep — but catchments vary so widely that realistic min/max bounds are hard to set. Pursue or drop?", true],
+    ["Known issues & roadmap", "Baseline consistency (FRM / ITG / SE2; clients with no reachable pharmacy); priorities and next steps.", false],
+  ];
+  const y0 = 1.6, dy = 0.86;
+  items.forEach((it, i) => {
+    const y = y0 + i * dy;
+    slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y, w: 0.44, h: 0.44, rectRadius: 0.22, fill: { color: NAVY }, line: { width: 0 } });
+    slide.addText(String(i + 1), { x: 0.5, y, w: 0.44, h: 0.44, align: "center", valign: "middle", fontSize: 16, bold: true, color: "FFFFFF", fontFace: "Calibri" });
+    slide.addText([
+      { text: it[0], options: { bold: true, color: INK } },
+      ...(it[2] ? [{ text: "    ▸ for discussion / decision", options: { color: MULTI, italic: true, fontSize: 11 } }] : []),
+    ], { x: 1.12, y: y - 0.03, w: 11.6, h: 0.32, fontSize: 15, fontFace: "Calibri", valign: "middle" });
+    slide.addText(it[1], { x: 1.12, y: y + 0.29, w: 11.7, h: 0.46, fontSize: 11.5, color: MUTED, fontFace: "Calibri", valign: "top" });
+  });
+
+  slide.addText([
+    { text: "Decisions sought:  ", options: { bold: true, color: NAVY } },
+    { text: "travel-cost shape (logistic vs linear / adapted logit)  ·  whether the cap–threshold ladder is worth pursuing  ·  how to communicate λ.", options: { color: MUTED } },
+  ], { x: 0.45, y: 6.96, w: 12.5, h: 0.4, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
+}
+
 let regions = data;
 if (only) regions = data.filter((e) => e.region === only);
 if (!only && !args.includes("--no-summary")) {
+  agendaSlide();
   descriptivesSlide("pharmacy_descriptives.csv",       "pharm", "BASELINE · RESIDENTS PER PHARMACY",       "— per country");
   descriptivesSlide("pharmacy_descriptives_nuts1.csv", "pharm", "BASELINE · RESIDENTS PER PHARMACY",       "— key NUTS1 regions (FR / IT / SE)");
   descriptivesSlide("pharmacy_descriptives.csv",       "loc",   "BASELINE · RESIDENTS PER 1 KM² LOCATION", "— per country");

@@ -47,6 +47,17 @@ if ($MapsSlide -gt 0) {
   Remove-Item $mapsCopy -Force -ErrorAction SilentlyContinue
 }
 
+# Move the generated Agenda slide to position 2 (after the title, before the rest
+# of the concept slides). It is generated as the first slide of $Insert, so locate
+# it by its marker and move it. Done last so prior index-based inserts are unaffected.
+$agPos = 0
+foreach ($sl in $deck.Slides) {
+  $txt = ""
+  foreach ($sh in $sl.Shapes) { if ($sh.HasTextFrame) { $txt += $sh.TextFrame.TextRange.Text } }
+  if ($txt -match "Proposed agenda") { $agPos = $sl.SlideIndex; break }
+}
+if ($agPos -gt 2) { $deck.Slides.Item($agPos).MoveTo(2); Write-Host "moved agenda slide $agPos -> 2" }
+
 # ppSaveAsOpenXMLPresentation = 24
 $deck.SaveAs($Out, 24)
 $deck.Close()
