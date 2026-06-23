@@ -163,6 +163,8 @@ function statusSlide() {
   col(4.62, AMBER, "FBF5EA", "In progress ◐", [
     "Sweeping the 13 newly-available countries (small→large) — networks + OD now prepped per country",
     "Then per-NUTS-1 λ-sweeps for the large countries (FR / IT / PL)",
+    "Investigate and fix sweeps for FRM, ITG, SE2",
+    "Discuss and apply adapted logit function (see next page)",
     "Fix baseline_metrics: it drops un-reachable clients (ITG ≈14% of pop) while the sweep prices them at c(t_max) — make consistent before any distance-to-Pareto metric",
     "A single 2-D status-quo→frontier distance metric (coverage-honest; stranded priced at c(t_max))",
     "Exploring (not committed): max-cap + min-threshold rungs — but the descriptives suggest realistic bounds are hard to set, so this may not pay off",
