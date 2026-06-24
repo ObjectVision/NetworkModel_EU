@@ -168,6 +168,8 @@ function statusSlide() {
     "Fix baseline_metrics: it drops un-reachable clients (ITG ≈14% of pop) while the sweep prices them at c(t_max) — make consistent before any distance-to-Pareto metric",
     "A single 2-D status-quo→frontier distance metric (coverage-honest; stranded priced at c(t_max))",
     "Exploring (not committed): max-cap + min-threshold rungs — but the descriptives suggest realistic bounds are hard to set, so this may not pay off",
+    "Calculating Poland",
+    "Calculating better estimations for S1 and S2",
   ]);
   col(8.84, SLATE, "F2F5F8", "Remaining ○", [
     "Urban/non-urban flag → model only non-urban, hold urban fixed (options B/C)",
