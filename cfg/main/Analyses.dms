@@ -45,6 +45,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			// cell. Only OD-client cells carry a road-nearest, so the catchment covers the resident
 			// population of those cells; to cover ALL residents point ModelParameters/Client at
 			// 'population' instead of 'pop_primaryschool' (then the OD spans every inhabited cell).
+			attribute<float64> cell_catchment_euclid (cells) := sum(float64(Base_grid_1km/points/Population), nearest_cell_euclid), Descr = "Metric 6: residents whose nearest pharmacy cell (by Euclidean distance) is this one.";
 			attribute<float64> cell_catchment (cells) := sum(float64(Base_grid_1km/points/Population), nearest_cell_by_road), Descr = "Metric 6: residents whose nearest pharmacy cell (by road) is this one.";
 
 			// per-pharmacy catchment: cell catchment shared equally among pharmacies in the cell
