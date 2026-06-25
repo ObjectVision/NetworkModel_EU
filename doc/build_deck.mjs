@@ -387,11 +387,13 @@ function agendaSlide() {
   ], { x: 0.45, y: 6.96, w: 12.5, h: 0.4, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
-// Cross-country table of the λ that hits each scenario target, interpolated from
+// Cross-region table of the λ that hits each scenario target, interpolated from
 // the sweep points. S1: λ where the open-facility count equals the baseline #cells.
 // S2: λ where the multistart travel cost equals the baseline travel. Per travel-cost
 // function (LINEAR / LOGISTIC). λ = w · FACILITY_MIN_COSTS (settings.jl).
-function lambdaTableSlide() {
+// opts: {eyebrow, titleRest, col0, label(e), pick(e), labelWide}.
+const COUNTRY_SET = new Set(["Austria", "Belgium", "Czechia", "Denmark", "Estonia", "France", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Netherlands", "Norway", "Poland", "Portugal", "Slovenia", "Sweden"]);
+function lambdaTableSlide(opts) {
   const FMIN = 100000;  // FACILITY_MIN_COSTS (settings.jl); λ = w · FMIN
   // log-interpolate w against `key` at `target`, between adjacent w-sorted sweep
   // rows that bracket it; null if target is outside the swept range (no bracket).
@@ -408,34 +410,40 @@ function lambdaTableSlide() {
     return null;
   };
   const fL = (v) => (v == null ? "—" : Math.round(v).toLocaleString("en-US"));
-  const COUNTRY = new Set(["Austria", "Belgium", "Czechia", "Denmark", "Estonia", "France", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Netherlands", "Norway", "Poland", "Portugal", "Slovenia", "Sweden"]);
-  const rowsC = data.filter((e) => COUNTRY.has(e.region) && e.func.LINEAR && e.func.LINEAR.baseline);
+  const rowsC = data.filter((e) => opts.pick(e) && e.func.LINEAR && e.func.LINEAR.baseline);
 
   const slide = pptx.addSlide();
   slide.background = { color: "FFFFFF" };
-  slide.addText("SCENARIO λ", { x: 0.45, y: 0.28, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText(opts.eyebrow, { x: 0.45, y: 0.28, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
   slide.addText([
     { text: "Interpolated λ for S1 and S2  ", options: { bold: true, color: INK } },
-    { text: "— per country, by travel-cost function", options: { color: NAVY } },
+    { text: opts.titleRest, options: { color: NAVY } },
   ], { x: 0.45, y: 0.54, w: 12.5, h: 0.5, fontSize: 22, fontFace: "Georgia" });
 
-  const head = ["country", "baseline #", "λ · S1 (lin)", "λ · S2 (lin)", "λ · S1 (log)", "λ · S2 (log)"];
-  const body = [head.map((h) => ({ text: h, options: { bold: true, color: "FFFFFF", fill: NAVY, fontSize: 11, align: h === "country" ? "left" : "center", fontFace: "Calibri", margin: [2, 2, 2, 4] } }))];
+  const n = rowsC.length;
+  const fs = n > 14 ? 9 : 11;
+  const rh = Math.max(0.22, Math.min(0.34, 5.0 / (n + 1)));
+  const c0 = opts.labelWide ? 3.3 : 2.6;
+  const rest = (11.7 - c0 - 1.5) / 4;
+  const colW = [c0, 1.5, rest, rest, rest, rest];
+
+  const head = [opts.col0, "baseline #", "λ · S1 (lin)", "λ · S2 (lin)", "λ · S1 (log)", "λ · S2 (log)"];
+  const body = [head.map((h) => ({ text: h, options: { bold: true, color: "FFFFFF", fill: NAVY, fontSize: Math.min(fs + 1, 11), align: h === opts.col0 ? "left" : "center", fontFace: "Calibri", margin: [2, 2, 2, 4] } }))];
   rowsC.forEach((e, i) => {
     const L = e.func.LINEAR, G = e.func.LOGISTIC;
     const cells = L.baseline.cells;
-    const c = [e.name, cells != null ? cells.toLocaleString("en-US") : "—",
+    const c = [opts.label(e), cells != null ? cells.toLocaleString("en-US") : "—",
       fL(interp(L.rows, "sum_x", cells)), fL(interp(L.rows, "multi", L.baseline.cost)),
       fL(G ? interp(G.rows, "sum_x", G.baseline.cells) : null), fL(G ? interp(G.rows, "multi", G.baseline.cost) : null)];
     const fill = i % 2 ? PANEL : "FFFFFF";
-    body.push(c.map((v, ci) => ({ text: v, options: { fontSize: 11, align: ci === 0 ? "left" : "center", color: INK, fill, fontFace: "Calibri", valign: "middle", margin: [2, 2, 2, 4] } })));
+    body.push(c.map((v, ci) => ({ text: v, options: { fontSize: fs, align: ci === 0 ? "left" : "center", color: INK, fill, fontFace: "Calibri", valign: "middle", margin: [2, 2, 2, 4] } })));
   });
-  slide.addTable(body, { x: 0.8, y: 1.75, w: 11.7, colW: [2.6, 1.8, 1.825, 1.825, 1.825, 1.825], rowH: 0.34, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
+  slide.addTable(body, { x: 0.8, y: 1.68, w: 11.7, colW, rowH: rh, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
 
   slide.addText([
     { text: "λ = w · €100,000 (facility fixed-cost weight). ", options: { bold: true, color: NAVY } },
-    { text: "S1 = λ at which the open-facility count equals the baseline #cells; S2 = λ at which the multistart travel cost equals the baseline — each log-interpolated between adjacent sweep points, per travel-cost function (lin / log). “—” = the baseline target lies outside the swept λ range (S1/S2 not yet bracketed — see roadmap). Country-level sweeps only; FR/IT/SE are run per-NUTS1.", options: { color: MUTED } },
-  ], { x: 0.8, y: 6.85, w: 11.7, h: 0.55, fontSize: 9, italic: true, fontFace: "Calibri", valign: "top" });
+    { text: "S1 = λ at which the open-facility count equals the baseline #cells; S2 = λ at which the multistart travel cost equals the baseline — each log-interpolated between adjacent sweep points, per travel-cost function (lin / log). “—” = the baseline target lies outside the swept λ range (S1/S2 not yet bracketed — see roadmap).", options: { color: MUTED } },
+  ], { x: 0.8, y: 6.9, w: 11.7, h: 0.5, fontSize: 9, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
 let regions = data;
@@ -449,7 +457,11 @@ if (!only && !args.includes("--no-summary")) {
   capSlide("cap_results_Netherlands.csv");
 }
 regions.forEach(regionSlide);
-if (!only && !args.includes("--no-summary")) { lambdaTableSlide(); summarySlide(); statusSlide(); logisticSlide(); }
+if (!only && !args.includes("--no-summary")) {
+  lambdaTableSlide({ eyebrow: "SCENARIO λ", titleRest: "— per country, by travel-cost function", col0: "country", pick: (e) => COUNTRY_SET.has(e.region), label: (e) => e.name });
+  lambdaTableSlide({ eyebrow: "SCENARIO λ · NUTS-1", titleRest: "— FR / IT / SE NUTS-1 regions", col0: "NUTS-1 region", labelWide: true, pick: (e) => !COUNTRY_SET.has(e.region), label: (e) => `${e.region} · ${e.name}` });
+  summarySlide(); statusSlide(); logisticSlide();
+}
 
 await pptx.writeFile({ fileName: join(__dir, outName) });
 console.log(`wrote ${join(__dir, outName)} : ${regions.length} region slide(s)${(!only && !args.includes("--no-summary")) ? " + summary" : ""}`);
