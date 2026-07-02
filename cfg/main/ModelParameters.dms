@@ -32,6 +32,10 @@
 	parameter<string>   Client                         := 'pop_primaryschool'; // 'population' 'pop_primaryschool'
 	parameter<string>   OSM_file_date                  := '20211004';
 	parameter<uint32>   MinPopSizeVoorPotentialSchoolLocation := 1;
+	// Candidate pharmacy cells need >= 50 inhabitants (doc/todo.md A1; agreed in the
+	// 24-Jun-2026 thread: keeps ~98% of pharmacy locations, search space 7.5% -> 2.9% of
+	// EU cells). Cells that currently contain a pharmacy are unioned in regardless.
+	parameter<uint32>   MinPopSizeForPharmacyLocation := 50;
 
 	container Advanced
 	{

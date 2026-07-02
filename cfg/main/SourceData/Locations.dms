@@ -399,5 +399,28 @@ container Locations : using = "geography;units"
 			attribute<float32>              CountCurrentObjects          := rjoin(Base_grid_rel, Schools/within_StudyArea/uq_school_cells/Base_grid_rel, Schools/within_StudyArea/uq_school_cells/CountCurrentObjects);
 		}
 	}
-	unit<uint32> NewPharmacyLocations := NewSchoolLocations;
+	// Candidate pharmacy locations (doc/todo.md A1; 24-Jun thread + methodology draft
+	// §2.2.1): every grid cell with >= MinPopSizeForPharmacyLocation (50) inhabitants
+	// PLUS every cell that currently contains a pharmacy (~2% of pharmacies lie in
+	// <50-pop cells and must stay selectable). No longer an alias of NewSchoolLocations:
+	// that alias also joined CountCurrentObjects against SCHOOLS, so the OD's
+	// nearest-5-current-facilities limit counted school cells in pharmacy runs.
+	unit<uint32> NewPharmacyLocations := select_with_org_rel(
+			   /Geography/Base_grid_1km/points/population >= ModelParameters/MinPopSizeForPharmacyLocation
+			|| IsDefined(rlookup(/Geography/Base_grid_1km/points/geometry[Base_grid], Pharmacies/within_StudyArea/uq_cells/values))
+		)
+	{
+		attribute<BaseProjection> geometry            := org_rel -> geometry;
+		attribute<bool>           IsStudyArea         := = /ModelParameters/Use_NUTS1_selection
+			? 'IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/NUTS1/Subset/geometry))'
+			: 'IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry))';
+
+		unit<uint32> within_StudyArea := select_with_org_rel(IsStudyArea)
+		{
+			attribute<BaseProjection>       geometry                     := org_rel -> geometry;
+			attribute<Base_grid>            Base_grid_rel                := geometry[Base_grid];
+			attribute<float32>              Count_Objects_Per_Cell       := const(1f, .);
+			attribute<float32>              CountCurrentObjects          := MakeDefined(rjoin(Base_grid_rel, Pharmacies/within_StudyArea/uq_cells/Base_grid_rel, Pharmacies/within_StudyArea/uq_cells/CountCurrentObjects), 0f);
+		}
+	}
 }

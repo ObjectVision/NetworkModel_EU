@@ -198,19 +198,19 @@ function logisticSlide() {
   slide.addText("TRAVEL-COST FUNCTION", { x: 0.45, y: 0.28, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
   slide.addText([
     { text: "Logistic c(t)  ", options: { bold: true, color: INK } },
-    { text: "— current vs a Lewis-tuned alternative", options: { color: NAVY } },
+    { text: "— the adopted Lewis-tuned curve vs the previous one", options: { color: NAVY } },
   ], { x: 0.45, y: 0.54, w: 12.5, h: 0.5, fontSize: 22, fontFace: "Georgia" });
 
   const p = join(__dir, "charts", "logistic_compare.png");
   if (existsSync(p)) slide.addImage({ path: p, x: 0.35, y: 1.55, w: 7.8, h: 4.21 });
 
   // right panel: parameters + value table + note
-  slide.addText([{ text: "current", options: { bold: true, color: CUR } }, { text: "   midpoint 30 · scale 15", options: { color: MUTED } }],
+  slide.addText([{ text: "previous", options: { bold: true, color: CUR } }, { text: "   midpoint 30 · scale 15", options: { color: MUTED } }],
     { x: 8.4, y: 1.6, w: 4.6, h: 0.28, fontSize: 12, fontFace: "Calibri" });
-  slide.addText([{ text: "alternative", options: { bold: true, color: ALT } }, { text: "   midpoint 25 · scale 10", options: { color: MUTED } }],
+  slide.addText([{ text: "adopted", options: { bold: true, color: ALT } }, { text: "   midpoint 25 · scale 10", options: { color: MUTED } }],
     { x: 8.4, y: 1.92, w: 4.6, h: 0.28, fontSize: 12, fontFace: "Calibri" });
 
-  const tbl = [["t (min)", "current", "alternative"],
+  const tbl = [["t (min)", "previous", "adopted"],
     ["0", "0.12", "0.08"], ["5", "0.16", "0.12"], ["15", "0.27", "0.27"],
     ["25", "0.42", "0.50"], ["30", "0.50", "0.62"], ["45", "0.73", "0.88"], ["60", "0.88", "0.97"]];
   const rows = tbl.map((r, ri) => r.map((cval, ci) => ({
@@ -224,7 +224,7 @@ function logisticSlide() {
 
   slide.addText([
     { text: "Both cross at ≈15 min (0.27). ", options: { color: INK } },
-    { text: "The alternative is lower below ~10 min (ignores minor relocations) and saturates by ~45 min (caps remote weight) — closer to Lewis's 22-May ask. Not yet swept; see roadmap.", options: { color: MUTED } },
+    { text: "The adopted curve is lower below ~10 min (ignores minor relocations) and saturates by ~45 min (caps remote weight) — Lewis's 22-May ask. Applied in the recalculation (settings.jl defaults; previous variant via LOGISTIC_MIDPOINT=30 LOGISTIC_SCALE=15).", options: { color: MUTED } },
   ], { x: 8.4, y: 4.7, w: 4.6, h: 1.05, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 
   slide.addText("c(t) is applied to travel time in minutes (raw OD seconds ÷ 60); LINEAR uses c(t)=t. settings.jl:82",

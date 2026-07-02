@@ -63,8 +63,12 @@ const MS_SEED     = parse(Int, get(ENV, "MS_SEED",     "20240601"))
 const FUNC_INT_TO_NAME = Dict(v => k for (k, v) in FUNC_NAMES)
 travel_func_name = FUNC_INT_TO_NAME[travel_func]
 
-logistic_midpoint = 30.0  # minutes
-logistic_scale    = 15.0  # minutes
+# Adapted logit (doc/todo.md C8; roadmap "apply adapted logit"): midpoint 25 / scale 10
+# tracks Lewis's ~5 & ~45-min kinks — lower below ~10 min (indifferent to minor
+# relocations), saturating by ~45 min (caps remote weight). See the deck's travel-cost
+# page. Env-overridable; the pre-recalc variant was LOGISTIC_MIDPOINT=30 SCALE=15.
+logistic_midpoint = parse(Float64, get(ENV, "LOGISTIC_MIDPOINT", "25"))  # minutes
+logistic_scale    = parse(Float64, get(ENV, "LOGISTIC_SCALE",    "10"))  # minutes
 
 function c(t)
     if travel_func == FUNC_QUADRATIC
