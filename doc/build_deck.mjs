@@ -485,7 +485,13 @@ function optProblemSlide() {
   };
   ing(1.4, "c(t) — travel cost, t in minutes", "LINEAR c(t)=t; LOGISTIC c(t)=1/(1+e^−(t−30)/15). The swept LPs run once per function.");
   ing(2.32, "λ = w · €100,000 — the price of a pharmacy", "Linear facility cost a+b·q reduces to λ·#open: the b·q part is constant once every client is assigned, so only the fixed cost a matters.");
-  ing(3.35, "One LP per λ, exact", "JuMP + HiGHS dual simplex; the model is built once and re-solved along the w-grid from the previous optimal basis (lp_run.jl solve_at_w!) — millions of yᵢⱼ, minutes per point.");
+  ing(3.24, "One LP per λ, exact", "JuMP + HiGHS dual simplex; the model is built once and re-solved along the w-grid from the previous optimal basis (lp_run.jl solve_at_w!) — millions of yᵢⱼ, minutes per point.");
+  // review flags — modelling details the group should challenge
+  slide.addShape(pptx.ShapeType.roundRect, { x: 7.45, y: 4.22, w: 5.4, h: 0.78, rectRadius: 0.05, fill: { color: "FBF5EA" }, line: { color: "B9791C", width: 1 } });
+  slide.addText([
+    { text: "⚠ For review:  ", options: { bold: true, color: "B9791C" } },
+    { text: "each client's OD is capped at its 5 nearest facilities (max_nr_facilities_per_client) — it shrinks the LP but limits reassignment choice; and in DK / ITG / FRM / SE2 not every client can be matched (unreachable within t_max → dropped from the baseline, forced-served in the LP), so ★ and frontier are not yet fully comparable there. Feedback welcome.", options: { color: INK } },
+  ], { x: 7.58, y: 4.28, w: 5.16, h: 0.68, fontSize: 8.3, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 0.98 });
 
   // bottom: bounds story
   slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 5.05, w: 12.33, h: 1.85, rectRadius: 0.06, fill: { color: PANEL }, line: { color: "D9E0E7", width: 1 } });
