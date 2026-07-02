@@ -446,10 +446,117 @@ function lambdaTableSlide(opts) {
   ], { x: 0.8, y: 6.9, w: 11.7, h: 0.5, fontSize: 9, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
+// The optimization problem, as actually implemented in lp_run.jl
+// (build_lp_warmstart / solve_at_w!): uncapacitated facility location, solved as
+// an LP relaxation per λ, warm-started along the w-grid. merge_deck.ps1 moves this
+// to position 3 via the marker "The optimization problem".
+function optProblemSlide() {
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+  slide.addText("MODEL", { x: 0.45, y: 0.3, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText([
+    { text: "The optimization problem  ", options: { bold: true, color: INK } },
+    { text: "— uncapacitated facility location on the road OD", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.56, w: 12.5, h: 0.5, fontSize: 22, fontFace: "Georgia" });
+
+  // formulation panel (dark)
+  slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 1.35, w: 6.6, h: 3.4, rectRadius: 0.06, fill: { color: INK }, line: { width: 0 } });
+  const M = (t, o = {}) => ({ text: t, options: { fontFace: "Cambria Math", color: "FFFFFF", ...o } });
+  slide.addText([
+    M("min", { bold: true, color: "8FD4F0" }), M("x,y", { fontSize: 10, subscript: true, color: "8FD4F0" }),
+    M("   Σᵢ Σⱼ  popᵢ · c(tᵢⱼ) · yᵢⱼ   +   λ · Σⱼ xⱼ", {}),
+  ], { x: 0.8, y: 1.55, w: 6.1, h: 0.45, fontSize: 16 });
+  slide.addText([
+    [M("s.t.", { bold: true, color: "8FD4F0" }), M("  Σⱼ yᵢⱼ  =  1"), M("          every client fully assigned", { fontFace: "Calibri", fontSize: 10.5, color: "9FB0C2" })],
+    [M("      yᵢⱼ  ≤  xⱼ"), M("            only to open pharmacies", { fontFace: "Calibri", fontSize: 10.5, color: "9FB0C2" })],
+    [M("      xⱼ ∈ {0,1}"), M("  →  relaxed to  0 ≤ xⱼ ≤ 1,   yᵢⱼ ≥ 0", { color: "FFD9A0" })],
+  ].map((line) => line.map((seg, si) => ({ ...seg, options: { ...seg.options, breakLine: si === line.length - 1 } }))).flat(),
+    { x: 0.8, y: 2.1, w: 6.1, h: 1.5, fontSize: 15, lineSpacingMultiple: 1.35 });
+  slide.addText([
+    M("i", { italic: true }), M(" = populated 1 km² cells (clients) · ", { fontFace: "Calibri", fontSize: 10.5, color: "C7D2DD" }),
+    M("j", { italic: true }), M(" = candidate pharmacy cells · ", { fontFace: "Calibri", fontSize: 10.5, color: "C7D2DD" }),
+    M("(i,j)", { italic: true }), M(" only where the road network gives tᵢⱼ ≤ t_max — the exported OD", { fontFace: "Calibri", fontSize: 10.5, color: "C7D2DD" }),
+  ], { x: 0.8, y: 3.75, w: 6.0, h: 0.8, fontSize: 11, valign: "top" });
+
+  // right column: ingredients
+  const ing = (y, head, body) => {
+    slide.addText(head, { x: 7.45, y, w: 5.4, h: 0.28, fontSize: 12.5, bold: true, color: NAVY, fontFace: "Calibri" });
+    slide.addText(body, { x: 7.45, y: y + 0.27, w: 5.4, h: 0.62, fontSize: 10.5, color: MUTED, fontFace: "Calibri", valign: "top" });
+  };
+  ing(1.4, "c(t) — travel cost, t in minutes", "LINEAR c(t)=t; LOGISTIC c(t)=1/(1+e^−(t−30)/15). The swept LPs run once per function.");
+  ing(2.32, "λ = w · €100,000 — the price of a pharmacy", "Linear facility cost a+b·q reduces to λ·#open: the b·q part is constant once every client is assigned, so only the fixed cost a matters.");
+  ing(3.35, "One LP per λ, exact", "JuMP + HiGHS dual simplex; the model is built once and re-solved along the w-grid from the previous optimal basis (lp_run.jl solve_at_w!) — millions of yᵢⱼ, minutes per point.");
+
+  // bottom: bounds story
+  slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 5.05, w: 12.33, h: 1.65, rectRadius: 0.06, fill: { color: PANEL }, line: { color: "D9E0E7", width: 1 } });
+  slide.addText([
+    { text: "Why the relaxation, and what it buys.  ", options: { bold: true, color: INK } },
+    { text: "With xⱼ ∈ {0,1} this is the NP-hard uncapacitated facility-location problem. Relaxing x to [0,1] gives an LP we solve exactly: its optimum is a certified ", options: { color: MUTED } },
+    { text: "lower bound", options: { bold: true, color: BASE } },
+    { text: " (the grey dashed line on every region page). Rounding the fractional x* back to a real set of pharmacies (next: multistart) gives a feasible configuration — an ", options: { color: MUTED } },
+    { text: "upper bound", options: { bold: true, color: MULTI } },
+    { text: ". The true integer optimum is pinched between the two; on the region pages the gap is +0–18% (LINEAR) and +0–4.7% (LOGISTIC).", options: { color: MUTED } },
+  ], { x: 0.75, y: 5.22, w: 11.85, h: 1.35, fontSize: 11.5, fontFace: "Calibri", valign: "top" });
+
+  slide.addText("Implementation: lp_run.jl (build_lp_warmstart / solve_at_w!) · weights popᵢ = total residents of cell i (CLIENT_WEIGHT=total_pop) · OD from GeoDMS impedance_matrix_od64, t = seconds/60.",
+    { x: 0.5, y: 7.05, w: 12.33, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
+}
+
+// How the fractional LP solution is rounded to real pharmacies — the multistart
+// method in lp_run.jl (multistart_round / swap_round! / travel_of), and why the
+// result is an upper bound. merge_deck.ps1 moves this to position 6 via the
+// marker "How multistart rounds".
+function multistartSlide() {
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+  slide.addText("FROM FRACTIONS TO PHARMACIES", { x: 0.45, y: 0.3, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText([
+    { text: "How multistart rounds the LP relaxation  ", options: { bold: true, color: INK } },
+    { text: "— and why it is an upper bound", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.56, w: 12.5, h: 0.5, fontSize: 22, fontFace: "Georgia" });
+
+  const steps = [
+    ["Fix the count", "p = round(Σ xⱼ*) — the integer pharmacy count nearest the LP's fractional total, so every rounded point stays on the same axis as the relaxation."],
+    ["Seed 10 candidate sets", "top-p by x* and the CELF greedy set (so the result can never be worse than either), plus 8 x*-weighted random draws (Efraimidis–Spirakis); must-open pharmacies (x*≈1) are always kept."],
+    ["Polish by swaps", "best-improving open↔closed swaps over the fractional pool (Resende–Werneck fast interchange). Each swap is accepted only if the exact travel delta improves — cost strictly decreases, ≤ 12 rounds per seed."],
+    ["Score coverage-honestly, keep the best", "every client priced at its nearest open pharmacy, c(t); a client left with no open pharmacy in the OD (stranded) is priced at c(t_max) — the worst travel time in the data, so abandoning remote clusters is never free. Lowest total wins."],
+  ];
+  const y0 = 1.42, dy = 0.98;
+  steps.forEach((s, i) => {
+    const y = y0 + i * dy;
+    slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y, w: 0.44, h: 0.44, rectRadius: 0.22, fill: { color: NAVY }, line: { width: 0 } });
+    slide.addText(String(i + 1), { x: 0.5, y, w: 0.44, h: 0.44, align: "center", valign: "middle", fontSize: 16, bold: true, color: "FFFFFF", fontFace: "Calibri" });
+    slide.addText(s[0], { x: 1.12, y: y - 0.02, w: 6.4, h: 0.3, fontSize: 14, bold: true, color: INK, fontFace: "Calibri" });
+    slide.addText(s[1], { x: 1.12, y: y + 0.27, w: 6.55, h: 0.68, fontSize: 10.5, color: MUTED, fontFace: "Calibri", valign: "top" });
+  });
+
+  // right panel: the upper-bound argument (verified against lp_run.jl)
+  slide.addShape(pptx.ShapeType.roundRect, { x: 8.0, y: 1.42, w: 4.83, h: 3.9, rectRadius: 0.06, fill: { color: "F0F6F2" }, line: { color: "1E7A52", width: 1 } });
+  slide.addText("Why this is an upper bound ✓", { x: 8.2, y: 1.54, w: 4.45, h: 0.3, fontSize: 13, bold: true, color: "1E7A52", fontFace: "Calibri" });
+  slide.addText([
+    { text: "The rounded set is a feasible point of the original problem: exactly p pharmacies actually open (x integer) and every client explicitly assigned. Feasible ⟹ its objective can only be ≥ the integer optimum, which is ≥ the LP optimum:", options: { color: INK, breakLine: true } },
+    { text: "", options: { breakLine: true, fontSize: 4 } },
+    { text: "LP relax  ≤  integer optimum  ≤  multistart", options: { bold: true, color: "1E7A52", align: "center", breakLine: true } },
+    { text: "", options: { breakLine: true, fontSize: 4 } },
+    { text: "Rigorous whenever stranded = 0 — the common case (see the summary table). With stranding, strict full-coverage is infeasible at that count; the point is then priced conservatively (c is non-decreasing, so c(t_max) ≥ any real within-OD assignment) and the stranded count is reported next to every figure.", options: { color: MUTED, breakLine: true } },
+  ], { x: 8.2, y: 1.88, w: 4.45, h: 3.35, fontSize: 10.5, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 1.04 });
+
+  slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 5.5, w: 12.33, h: 1.25, rectRadius: 0.06, fill: { color: PANEL }, line: { color: "D9E0E7", width: 1 } });
+  slide.addText([
+    { text: "Checked against the implementation (lp_run.jl).  ", options: { bold: true, color: INK } },
+    { text: "The swap profit is the exact per-swap travel change (gain − loss + interaction term — verified case-by-case), so polish is monotone and multistart ≤ min(top-p, greedy) by construction; the final choice re-evaluates every polished set from scratch (travel_of). Deterministic: fixed RNG seed, so decks reproduce. Cost: seconds per point — the LP solve dominates.", options: { color: MUTED } },
+  ], { x: 0.75, y: 5.65, w: 11.85, h: 1.0, fontSize: 11, fontFace: "Calibri", valign: "top" });
+
+  slide.addText("lp_run.jl: multistart_round (seeds), swap_round! (fast interchange), travel_of (coverage-honest metric), assign_nearest (final assignment) · MS_RESTARTS=10, MS_ROUNDS=12, MS_SEED fixed.",
+    { x: 0.5, y: 6.95, w: 12.33, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
+}
+
 let regions = data;
 if (only) regions = data.filter((e) => e.region === only);
 if (!only && !args.includes("--no-summary")) {
   agendaSlide();
+  optProblemSlide();
+  multistartSlide();
   descriptivesSlide("pharmacy_descriptives.csv",       "pharm", "BASELINE · RESIDENTS PER PHARMACY",       "— per country");
   descriptivesSlide("pharmacy_descriptives_nuts1.csv", "pharm", "BASELINE · RESIDENTS PER PHARMACY",       "— key NUTS1 regions (FR / IT / SE)");
   descriptivesSlide("pharmacy_descriptives.csv",       "loc",   "BASELINE · RESIDENTS PER 1 KM² LOCATION", "— per country");

@@ -47,16 +47,23 @@ if ($MapsSlide -gt 0) {
   Remove-Item $mapsCopy -Force -ErrorAction SilentlyContinue
 }
 
-# Move the generated Agenda slide to position 2 (after the title, before the rest
-# of the concept slides). It is generated as the first slide of $Insert, so locate
-# it by its marker and move it. Done last so prior index-based inserts are unaffected.
-$agPos = 0
-foreach ($sl in $deck.Slides) {
-  $txt = ""
-  foreach ($sh in $sl.Shapes) { if ($sh.HasTextFrame) { $txt += $sh.TextFrame.TextRange.Text } }
-  if ($txt -match "Proposed agenda") { $agPos = $sl.SlideIndex; break }
+# Move the generated concept slides into their positions among the kept slides:
+#   agenda -> 2, optimization-problem -> 3, multistart summary -> 6.
+# Each is generated at the head of $Insert and located by a marker phrase. Done
+# last (after all index-based inserts) and in ascending target order; re-scan
+# after every move because MoveTo shifts the indices.
+function Move-ByMarker([string]$pattern, [int]$target) {
+  $pos = 0
+  foreach ($sl in $deck.Slides) {
+    $txt = ""
+    foreach ($sh in $sl.Shapes) { if ($sh.HasTextFrame) { $txt += $sh.TextFrame.TextRange.Text } }
+    if ($txt -match $pattern) { $pos = $sl.SlideIndex; break }
+  }
+  if ($pos -gt 0 -and $pos -ne $target) { $deck.Slides.Item($pos).MoveTo($target); Write-Host "moved '$pattern' slide $pos -> $target" }
 }
-if ($agPos -gt 2) { $deck.Slides.Item($agPos).MoveTo(2); Write-Host "moved agenda slide $agPos -> 2" }
+Move-ByMarker "Proposed agenda" 2
+Move-ByMarker "The optimization problem" 3
+Move-ByMarker "How multistart rounds" 6
 
 # ppSaveAsOpenXMLPresentation = 24
 $deck.SaveAs($Out, 24)
