@@ -7,7 +7,10 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
 
 ## A. Input / search-space changes (agreed — do first, they change every downstream number)
 
-1. **Restrict the candidate set to grid cells with ≥ 50 inhabitants, plus all cells that
+1. ✅ *(implemented 2-Jul, commit 7c6768f — recalc batch running via `run_recalc_batch.ps1`;
+   also fixed: the candidate set's CountCurrentObjects was joined against SCHOOLS, so the
+   OD's nearest-5-current-facilities limit counted school cells in pharmacy runs)*
+   **Restrict the candidate set to grid cells with ≥ 50 inhabitants, plus all cells that
    currently contain a pharmacy.**
    Agreed in the 24-Jun thread (Chris: ≥50 keeps ~98% of pharmacy locations, shrinks the
    search space from ~7.5% to ~2.9% of EU cells; Lewis: "allocating all pharmacies to grid
@@ -66,16 +69,16 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
    (networks + ODs already prepared); after item 1 shrinks the candidate set, retry
    country-level Poland as well. Roadmap bullet "Calculating Poland".
 
-8. **Adapted logit travel-cost function** (roadmap; deck has a comparison page):
+8. ✅ *(implemented 2-Jul, commit 7c6768f — settings.jl defaults now midpoint 25 / scale 10,
+   env-overridable via LOGISTIC_MIDPOINT/LOGISTIC_SCALE; deck page relabelled; LOGISTIC
+   sweeps re-running in the recalc batch)*
+   **Adapted logit travel-cost function** (roadmap; deck has a comparison page):
    decide parameters with the group — current LOGISTIC is midpoint 30 / scale 15 min;
    the proposed alternative (midpoint 25 / scale 10) tracks Lewis's ~5 & ~45-min kinks;
    the methodology draft (§2.1) specifies a **log-logistic** transform. Align the draft,
    `settings.jl c(t)`, and the deck, then re-sweep the LOGISTIC variants.
 
-9. **Border cases** (roadmap): ODs are clipped per study area, so clients near national
-   (and NUTS-1) borders cannot use facilities across the border — travel costs are
-   overstated there. Quantify the affected population share; decide whether cross-border
-   ODs (or an EU-wide run) are needed.
+9. (deleted handling border-cases)
 
 ## D. Reporting / documentation after the recalculation
 
