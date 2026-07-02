@@ -495,8 +495,10 @@ function optProblemSlide() {
     { text: "lower bound", options: { bold: true, color: BASE } },
     { text: " (the grey dashed line); rounding x* to a real set of pharmacies (multistart, p. 6) gives a feasible ", options: { color: MUTED } },
     { text: "upper bound", options: { bold: true, color: MULTI } },
-    { text: " — the integer optimum is pinched between the two (+0–18% LINEAR, +0–4.7% LOGISTIC). Equivalently, λ is the Lagrange multiplier on a facility-budget constraint: the sweep traces the lower convex envelope of the (#open, travel) frontier, so frontier points inside non-convex gaps are unreachable by any λ — there S1/S2 must be interpolated between sweep points, or pinned exactly with a cardinality constraint (roadmap: better S1/S2 estimations).", options: { color: MUTED } },
-  ], { x: 0.75, y: 5.2, w: 11.85, h: 1.62, fontSize: 10.5, fontFace: "Calibri", valign: "top" });
+    { text: " — the integer optimum is pinched between the two (+0–18% LINEAR, +0–4.7% LOGISTIC).", options: { color: MUTED, breakLine: true } },
+    { text: "Relation to the p-median problem.  ", options: { bold: true, color: INK } },
+    { text: "Imposing the count (Σⱼ xⱼ = p) instead of pricing it gives exactly the p-median problem with costs c(tᵢⱼ) (ReVelle & Swain 1970) — S1 at the baseline count is a p-median instance. The λ-sweep is its Lagrangian relaxation w.r.t. that constraint (Cornuéjols, Fisher & Nemhauser 1977): it recovers only the p’s on the lower convex envelope of the p-median value function, so p-values in non-convex gaps are unreachable by any λ — there S1/S2 are interpolated between sweep points, or pinned exactly with the cardinality constraint (roadmap: better S1/S2 estimations). The swap polish of p. 6 is the classic p-median vertex-substitution search.", options: { color: MUTED } },
+  ], { x: 0.75, y: 5.2, w: 11.85, h: 1.62, fontSize: 10, fontFace: "Calibri", valign: "top" });
 
   slide.addText("Implementation: lp_run.jl (build_lp_warmstart / solve_at_w!) · weights popᵢ = total residents of cell i (CLIENT_WEIGHT=total_pop) · OD from GeoDMS impedance_matrix_od64, t = seconds/60.",
     { x: 0.5, y: 7.05, w: 12.33, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
@@ -518,7 +520,7 @@ function multistartSlide() {
   const steps = [
     ["Fix the count", "p = round(Σ xⱼ*) — the integer pharmacy count nearest the LP's fractional total, so every rounded point stays on the same axis as the relaxation."],
     ["Seed 10 candidate sets", "top-p by x* and the lazy-greedy set (CELF, Leskovec et al. 2007 — marginal travel gains are submodular), so the result can never be worse than either; plus 8 x*-weighted random draws (Efraimidis–Spirakis 2006 A-Res); must-open pharmacies (x*≈1) are always kept."],
-    ["Polish by swaps", "best-improving open↔closed swaps over the fractional pool (fast interchange, Resende & Werneck 2007). Each swap is accepted only if the exact travel delta improves — cost strictly decreases, ≤ 12 rounds per seed."],
+    ["Polish by swaps", "best-improving open↔closed swaps over the fractional pool — the classic p-median vertex-substitution search, in its fast-interchange form (Resende & Werneck 2007). Each swap is accepted only if the exact travel delta improves — cost strictly decreases, ≤ 12 rounds per seed."],
     ["Score coverage-honestly, keep the best", "every client priced at its nearest open pharmacy, c(t); a client left with no open pharmacy in the OD (stranded) is priced at c(t_max) — the worst travel time in the data, so abandoning remote clusters is never free. Lowest total wins."],
   ];
   const y0 = 1.42, dy = 0.98;
