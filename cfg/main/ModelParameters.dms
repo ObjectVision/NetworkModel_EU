@@ -29,7 +29,10 @@
 	
 	parameter<bool>     Use_NUTS1_selection            := IsDefined(NUTS1_rel);
 	parameter<bool>     Use_Country_selection          := StudyArea != 'EU' && !Use_NUTS1_selection;
-	parameter<string>   Client                         := 'pop_primaryschool'; // 'population' 'pop_primaryschool'
+	// doc/todo.md A2 (methodology draft par. 2.1): for pharmacies the ENTIRE population
+	// contributes to demand, so the OD client set covers every inhabited cell — not just
+	// cells with school-age children. Switch back to 'pop_primaryschool' for school runs.
+	parameter<string>   Client                         := 'population'; // 'population' 'pop_primaryschool'
 	parameter<string>   OSM_file_date                  := '20211004';
 	parameter<uint32>   MinPopSizeVoorPotentialSchoolLocation := 1;
 	// Candidate pharmacy cells need >= 50 inhabitants (doc/todo.md A1; agreed in the

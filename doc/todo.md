@@ -27,7 +27,11 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
      silently skips rewriting), rebuild network1/network2 + alloc, re-sweep. Bonus: the
      LP shrinks ~2.5×, so sweeps get materially cheaper (helps Poland, §C6).
 
-2. **Clients = whole population for pharmacy runs.**
+2. ✅ *(implemented 2-Jul — `Client := 'population'`; pilot Luxembourg: client population
+   now exactly the 634,435 residents; Existing OD 5.4k→8.0k rows, New OD 76k→119k;
+   both network sides rebuilt per area in the recalc batch. Switch back to
+   'pop_primaryschool' for school runs.)*
+   **Clients = whole population for pharmacy runs.**
    Methodology §2.1: *"for pharmacies the entire population is expected to contribute to
    demand."* Currently `ModelParameters/Client := 'pop_primaryschool'`, so the OD client
    set only contains cells with school-age children (LP weights are already `total_pop`,
