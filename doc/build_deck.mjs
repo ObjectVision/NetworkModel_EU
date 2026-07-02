@@ -488,15 +488,15 @@ function optProblemSlide() {
   ing(3.35, "One LP per λ, exact", "JuMP + HiGHS dual simplex; the model is built once and re-solved along the w-grid from the previous optimal basis (lp_run.jl solve_at_w!) — millions of yᵢⱼ, minutes per point.");
 
   // bottom: bounds story
-  slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 5.05, w: 12.33, h: 1.65, rectRadius: 0.06, fill: { color: PANEL }, line: { color: "D9E0E7", width: 1 } });
+  slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 5.05, w: 12.33, h: 1.85, rectRadius: 0.06, fill: { color: PANEL }, line: { color: "D9E0E7", width: 1 } });
   slide.addText([
     { text: "Why the relaxation, and what it buys.  ", options: { bold: true, color: INK } },
-    { text: "With xⱼ ∈ {0,1} this is the NP-hard uncapacitated facility-location problem. Relaxing x to [0,1] gives an LP we solve exactly: its optimum is a certified ", options: { color: MUTED } },
+    { text: "With xⱼ ∈ {0,1} this is the (NP-hard) uncapacitated facility-location problem, in its strong disaggregated formulation — one yᵢⱼ ≤ xⱼ per OD pair — whose LP relaxation is known to be nearly integral, which the sweeps confirm (frac_x stays small). The LP optimum is a certified ", options: { color: MUTED } },
     { text: "lower bound", options: { bold: true, color: BASE } },
-    { text: " (the grey dashed line on every region page). Rounding the fractional x* back to a real set of pharmacies (next: multistart) gives a feasible configuration — an ", options: { color: MUTED } },
+    { text: " (the grey dashed line); rounding x* to a real set of pharmacies (multistart, p. 6) gives a feasible ", options: { color: MUTED } },
     { text: "upper bound", options: { bold: true, color: MULTI } },
-    { text: ". The true integer optimum is pinched between the two; on the region pages the gap is +0–18% (LINEAR) and +0–4.7% (LOGISTIC).", options: { color: MUTED } },
-  ], { x: 0.75, y: 5.22, w: 11.85, h: 1.35, fontSize: 11.5, fontFace: "Calibri", valign: "top" });
+    { text: " — the integer optimum is pinched between the two (+0–18% LINEAR, +0–4.7% LOGISTIC). Equivalently, λ is the Lagrange multiplier on a facility-budget constraint: the sweep traces the lower convex envelope of the (#open, travel) frontier, so frontier points inside non-convex gaps are unreachable by any λ — there S1/S2 must be interpolated between sweep points, or pinned exactly with a cardinality constraint (roadmap: better S1/S2 estimations).", options: { color: MUTED } },
+  ], { x: 0.75, y: 5.2, w: 11.85, h: 1.62, fontSize: 10.5, fontFace: "Calibri", valign: "top" });
 
   slide.addText("Implementation: lp_run.jl (build_lp_warmstart / solve_at_w!) · weights popᵢ = total residents of cell i (CLIENT_WEIGHT=total_pop) · OD from GeoDMS impedance_matrix_od64, t = seconds/60.",
     { x: 0.5, y: 7.05, w: 12.33, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
@@ -517,8 +517,8 @@ function multistartSlide() {
 
   const steps = [
     ["Fix the count", "p = round(Σ xⱼ*) — the integer pharmacy count nearest the LP's fractional total, so every rounded point stays on the same axis as the relaxation."],
-    ["Seed 10 candidate sets", "top-p by x* and the CELF greedy set (so the result can never be worse than either), plus 8 x*-weighted random draws (Efraimidis–Spirakis); must-open pharmacies (x*≈1) are always kept."],
-    ["Polish by swaps", "best-improving open↔closed swaps over the fractional pool (Resende–Werneck fast interchange). Each swap is accepted only if the exact travel delta improves — cost strictly decreases, ≤ 12 rounds per seed."],
+    ["Seed 10 candidate sets", "top-p by x* and the lazy-greedy set (CELF, Leskovec et al. 2007 — marginal travel gains are submodular), so the result can never be worse than either; plus 8 x*-weighted random draws (Efraimidis–Spirakis 2006 A-Res); must-open pharmacies (x*≈1) are always kept."],
+    ["Polish by swaps", "best-improving open↔closed swaps over the fractional pool (fast interchange, Resende & Werneck 2007). Each swap is accepted only if the exact travel delta improves — cost strictly decreases, ≤ 12 rounds per seed."],
     ["Score coverage-honestly, keep the best", "every client priced at its nearest open pharmacy, c(t); a client left with no open pharmacy in the OD (stranded) is priced at c(t_max) — the worst travel time in the data, so abandoning remote clusters is never free. Lowest total wins."],
   ];
   const y0 = 1.42, dy = 0.98;
@@ -539,12 +539,14 @@ function multistartSlide() {
     { text: "LP relax  ≤  integer optimum  ≤  multistart", options: { bold: true, color: "1E7A52", align: "center", breakLine: true } },
     { text: "", options: { breakLine: true, fontSize: 4 } },
     { text: "Rigorous whenever stranded = 0 — the common case (see the summary table). With stranding, strict full-coverage is infeasible at that count; the point is then priced conservatively (c is non-decreasing, so c(t_max) ≥ any real within-OD assignment) and the stranded count is reported next to every figure.", options: { color: MUTED, breakLine: true } },
+    { text: "", options: { breakLine: true, fontSize: 4 } },
+    { text: "The multi-vs-relax column in the end tables is therefore a certified optimality gap: the integer optimum lies inside it.", options: { color: INK, italic: true, breakLine: true } },
   ], { x: 8.2, y: 1.88, w: 4.45, h: 3.35, fontSize: 10.5, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 1.04 });
 
   slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 5.5, w: 12.33, h: 1.25, rectRadius: 0.06, fill: { color: PANEL }, line: { color: "D9E0E7", width: 1 } });
   slide.addText([
     { text: "Checked against the implementation (lp_run.jl).  ", options: { bold: true, color: INK } },
-    { text: "The swap profit is the exact per-swap travel change (gain − loss + interaction term — verified case-by-case), so polish is monotone and multistart ≤ min(top-p, greedy) by construction; the final choice re-evaluates every polished set from scratch (travel_of). Deterministic: fixed RNG seed, so decks reproduce. Cost: seconds per point — the LP solve dominates.", options: { color: MUTED } },
+    { text: "An LP-guided matheuristic. The swap profit is the exact per-swap travel change (gain − loss + interaction term — verified case-by-case), so polish is monotone and multistart ≤ min(top-p, greedy) by construction; the final choice re-evaluates every polished set from scratch (travel_of). Deterministic: fixed RNG seed, so decks reproduce. Cost: seconds per point — the LP solve dominates.", options: { color: MUTED } },
   ], { x: 0.75, y: 5.65, w: 11.85, h: 1.0, fontSize: 11, fontFace: "Calibri", valign: "top" });
 
   slide.addText("lp_run.jl: multistart_round (seeds), swap_round! (fast interchange), travel_of (coverage-honest metric), assign_nearest (final assignment) · MS_RESTARTS=10, MS_ROUNDS=12, MS_SEED fixed.",
