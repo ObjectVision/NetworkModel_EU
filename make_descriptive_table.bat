@@ -28,7 +28,9 @@ REM Study areas: the 18 enum countries that now have a pharmacy parquet (Finland
 REM excluded, issue #44) + the NUTS1 regions of FR / IT / SE for the within-country
 REM breakdown. Country rows feed the country-level tables; NUTS1 rows the breakdowns.
 if "%~1"=="" (
-    set "STUDY_AREAS=Austria Belgium Czechia Denmark Estonia France Ireland Iceland Italy Lithuania Luxembourg Latvia Netherlands Norway Poland Portugal Slovenia Sweden FR1 FRB FRC FRD FRE FRF FRG FRH FRI FRJ FRK FRL FRM ITC ITF ITG ITH ITI SE1 SE2 SE3"
+    REM Iceland dropped: no population grid / pharmacy OD (issue #44) — under the
+    REM population-client config its failure mode is a HANG, not a fast error.
+    set "STUDY_AREAS=Austria Belgium Czechia Denmark Estonia France Ireland Italy Lithuania Luxembourg Latvia Netherlands Norway Poland Portugal Slovenia Sweden FR1 FRB FRC FRD FRE FRF FRG FRH FRI FRJ FRK FRL FRM ITC ITF ITG ITH ITI SE1 SE2 SE3 PL2 PL4 PL5 PL6 PL7 PL8 PL9"
 ) else (
     set "STUDY_AREAS=%*"
 )

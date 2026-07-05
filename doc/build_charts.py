@@ -145,8 +145,8 @@ def render_logistic():
         ax.axvline(x, color="#C9A24B", ls=":", lw=1, zorder=1)
     ax.text(5, 1.005, "~5", color="#9A7B1C", fontsize=7.5, ha="center")
     ax.text(45, 1.005, "~45 (Lewis)", color="#9A7B1C", fontsize=7.5, ha="center")
-    ax.plot(t, L(t, 30, 15), color="#185FA5", lw=2.6, label="current  ·  midpoint 30, scale 15", zorder=4)
-    ax.plot(t, L(t, 25, 10), color="#1D9E75", lw=2.6, label="alternative  ·  midpoint 25, scale 10", zorder=5)
+    ax.plot(t, L(t, 30, 15), color="#185FA5", lw=2.6, label="previous  ·  midpoint 30, scale 15", zorder=4)
+    ax.plot(t, L(t, 25, 10), color="#1D9E75", lw=2.6, label="adopted  ·  midpoint 25, scale 10", zorder=5)
     ax.scatter([30], [0.5], color="#185FA5", s=55, edgecolor="white", lw=1, zorder=6)
     ax.scatter([25], [0.5], color="#1D9E75", s=55, edgecolor="white", lw=1, zorder=6)
     ax.set_xlim(0, 60); ax.set_ylim(0, 1.02)
@@ -163,6 +163,82 @@ def render_logistic():
     return p
 
 
+# --- Aggregate frontier over all (disjoint) areas -----------------------------
+# The objective separates by area, so for a COMMON lambda the sum of the regional
+# optima IS the optimum of the combined problem: summing (sum_x, travel) per w gives
+# the exact aggregate lower-bound curve (and summing the multistart points a valid
+# aggregate upper bound). Only w values present in EVERY area are aggregated (the
+# coarse grid; region-specific fine-sweep w's drop out of the intersection).
+# Poland-country is EXCLUDED whenever its NUTS-1 regions are present (disjointness).
+def _interp_at(rows, w):
+    """Log-w interpolate sum_x/relax/multi/frac at w from a region's sorted rows.
+    Exact at the region's own grid points; assumes w within [rows0.w, rows-1.w]."""
+    lo, hi = None, None
+    for r in rows:
+        if r["w"] <= w and (lo is None or r["w"] > lo["w"]):
+            lo = r
+        if r["w"] >= w and (hi is None or r["w"] < hi["w"]):
+            hi = r
+    if lo is None or hi is None:
+        return None
+    if lo["w"] == hi["w"]:
+        return lo
+    f = (math.log(w) - math.log(lo["w"])) / (math.log(hi["w"]) - math.log(lo["w"]))
+    mix = lambda k: lo[k] + f * (hi[k] - lo[k])
+    return dict(w=w, sum_x=mix("sum_x"), relax=mix("relax"), multi=mix("multi"),
+                n_open=mix("n_open"), frac=mix("frac"))
+
+
+def render_aggregate(data):
+    part = [e for e in data if not (e["region"] == "Poland" and any(x["region"].startswith("PL") for x in data))]
+    agg_out = {}
+    for fn in ("LINEAR", "LOGISTIC"):
+        regs = [e for e in part if fn in e["func"] and e["func"][fn].get("rows")]
+        missing = [e["region"] for e in part if e not in regs]
+        if missing:
+            print(f"  [aggregate {fn}] WARNING: skipping areas without {fn} data: {missing}")
+        if len(regs) < 2:
+            continue
+        # union of w values, restricted to the range covered by EVERY area; each area
+        # contributes log-interpolated values between its own adjacent sweep points
+        # (exact at its own grid points) — the same rule as the interpolated-λ tables.
+        per = {e["region"]: sorted([r for r in e["func"][fn]["rows"] if r["w"] > 0], key=lambda r: r["w"]) for e in regs}
+        w_lo = max(rows[0]["w"] for rows in per.values())
+        w_hi = min(rows[-1]["w"] for rows in per.values())
+        union = sorted(set(round(r["w"], 12) for rows in per.values() for r in rows if w_lo <= r["w"] <= w_hi))
+        rows = []
+        for w in union:
+            agg = dict(w=w, sum_x=0.0, relax=0.0, multi=0.0, n_open=0.0, frac=0.0, mean_t=0.0)
+            ok = True
+            for reg, rr in per.items():
+                v = _interp_at(rr, w)
+                if v is None:
+                    ok = False
+                    break
+                agg["sum_x"] += v["sum_x"]; agg["relax"] += v["relax"]; agg["multi"] += v["multi"]
+                agg["n_open"] += v["n_open"]; agg["frac"] += v["frac"]
+            if ok:
+                agg["n_open"] = round(agg["n_open"]); agg["frac"] = round(agg["frac"])
+                rows.append(agg)
+        base = dict(cells=sum(e["func"][fn]["baseline"]["cells"] for e in regs),
+                    cost=sum(e["func"][fn]["baseline"]["cost"] for e in regs),
+                    mean_t=0.0)
+        # S1/S2 only when genuinely bracketed by the aggregate curve
+        sxs = [r["sum_x"] for r in rows]; mts = [r["multi"] for r in rows]
+        s1 = min(rows, key=lambda r: abs(r["sum_x"] - base["cells"])) if min(sxs) <= base["cells"] <= max(sxs) else None
+        s2 = min(rows, key=lambda r: abs(r["multi"] - base["cost"])) if min(mts) <= base["cost"] <= max(mts) else None
+        scen = {k: dict(v) for k, v in (("S1", s1), ("S2", s2)) if v}
+        fd = {"rows": rows, "baseline": base, "scen": scen}
+        render("AGGREGATE", fn, fd)
+        by_sx = sorted(rows, key=lambda r: r["sum_x"])
+        agg_out[fn] = {"n_regions": len(regs), "n_w": len(rows), "baseline": base,
+                       "S1": s1, "S2": s2, "few": by_sx[0], "many": by_sx[-1]}
+        print(f"  [aggregate {fn}] {len(regs)} areas, {len(rows)} union w-points in "
+              f"[{w_lo:g}, {w_hi:g}]; baseline {base['cells']} cells / {base['cost']:.3e}; "
+              f"S1 bracketed: {s1 is not None}, S2 bracketed: {s2 is not None}")
+    json.dump(agg_out, open(os.path.join(ROOT, "doc", "agg_data.json"), "w", encoding="utf-8"), indent=1)
+
+
 def main():
     data = json.load(open(os.path.join(ROOT, "doc", "deck_data.json"), encoding="utf-8"))
     n = 0
@@ -170,8 +246,9 @@ def main():
         for fn, fd in e["func"].items():
             render(e["region"], fn, fd)
             n += 1
+    render_aggregate(data)
     render_logistic()
-    print(f"rendered {n} region charts + logistic comparison into {OUT}")
+    print(f"rendered {n} region charts + aggregate + logistic comparison into {OUT}")
 
 
 if __name__ == "__main__":

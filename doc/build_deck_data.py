@@ -8,10 +8,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FUNCS = ["LINEAR", "LOGISTIC"]
 # display order matches the existing deck
 ORDER = ["Netherlands",
-         "Luxembourg", "Estonia", "Latvia", "Slovenia", "Lithuania", "Ireland", "Norway", "Denmark", "Austria", "Portugal", "Czechia", "Belgium",
+         "Luxembourg", "Estonia", "Latvia", "Slovenia", "Lithuania", "Ireland", "Norway", "Denmark", "Austria", "Portugal", "Czechia", "Belgium", "Poland",
          "FR1", "FRB", "FRC", "FRD", "FRE", "FRF", "FRG", "FRH",
          "FRI", "FRJ", "FRK", "FRL", "FRM", "ITC", "ITF", "ITG", "ITH", "ITI",
-         "SE1", "SE2", "SE3"]
+         "SE1", "SE2", "SE3",
+         "PL2", "PL4", "PL5", "PL6", "PL7", "PL8", "PL9"]
 NICE = {
     "Netherlands": ("NETHERLANDS", "Netherlands"),
     "Luxembourg": ("LUXEMBOURG", "Luxembourg"),
@@ -47,6 +48,14 @@ NICE = {
     "SE1": ("SWEDEN · SE1", "Östra Sverige"),
     "SE2": ("SWEDEN · SE2", "Södra Sverige"),
     "SE3": ("SWEDEN · SE3", "Norra Sverige"),
+    "Poland": ("POLAND", "Poland"),
+    "PL2": ("POLAND · PL2", "Południowy"),
+    "PL4": ("POLAND · PL4", "Północno-Zachodni"),
+    "PL5": ("POLAND · PL5", "Południowo-Zachodni"),
+    "PL6": ("POLAND · PL6", "Północny"),
+    "PL7": ("POLAND · PL7", "Centralny"),
+    "PL8": ("POLAND · PL8", "Wschodni"),
+    "PL9": ("POLAND · PL9", "Mazowiecki"),
 }
 
 FLT = r"([-+]?[\d.]+(?:[eE][-+]?\d+)?)"

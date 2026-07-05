@@ -87,6 +87,67 @@ function regionSlide(e) {
     { x: 0.5, y: 7.12, w: 12.33, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 
+// Aggregate frontier over all disjoint areas (doc/agg_data.json, written by
+// build_charts.py render_aggregate): per common w, #facilities and travel are SUMMED
+// across areas — exact for the combined problem because the objective separates by
+// area at a common λ. Shown right after the individual region slides.
+function aggregateSlide() {
+  const p = join(__dir, "agg_data.json");
+  if (!existsSync(p)) { console.log("(no agg_data.json — skipping aggregate slide)"); return; }
+  const agg = JSON.parse(readFileSync(p, "utf-8"));
+  const L = agg.LINEAR, G = agg.LOGISTIC;
+  if (!L || !G) { console.log("(agg_data incomplete — skipping aggregate slide)"); return; }
+
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+  slide.addText(`ALL AREAS COMBINED · ${L.n_regions} DISJOINT AREAS`, { x: 0.45, y: 0.26, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText([
+    { text: "The aggregated frontier  ", options: { bold: true, color: INK } },
+    { text: "— facilities and travel cost summed per λ", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.52, w: 12.4, h: 0.5, fontSize: 22, fontFace: "Georgia" });
+
+  slide.addText([
+    { text: "aggregate baseline (current)  ", options: { bold: true, color: NAVY } },
+    { text: `${L.baseline.cells.toLocaleString()} pharmacy cells · `, options: { color: INK } },
+    { text: `travel  LIN ${fmtCost(L.baseline.cost)} · LOG ${fmtCost(G.baseline.cost)}`, options: { color: MUTED } },
+  ], { x: 0.45, y: 1.16, w: 12.4, h: 0.3, fontSize: 10, fontFace: "Calibri" });
+
+  const cy = 1.6, cw = 5.85, chh = 3.44;
+  for (const [fn, x] of [["LINEAR", 0.32], ["LOGISTIC", 6.42]]) {
+    const cp = join(__dir, "charts", `AGGREGATE_${fn}.png`);
+    if (existsSync(cp)) slide.addImage({ path: cp, x, y: cy, w: cw, h: chh });
+  }
+
+  const head = ["", "point", "w", "n_open", "Δ facilities", "multi vs relax", "Δ travel (multi)"];
+  const body = [head];
+  for (const [fn, A] of [["LINEAR", L], ["LOGISTIC", G]]) {
+    const pts = [];
+    if (A.S1) pts.push(["S1 (same count)", A.S1]);
+    if (A.S2) pts.push(["S2 (same travel)", A.S2]);
+    pts.push(["fewest facilities swept", A.few]);
+    pts.push(["most facilities swept", A.many]);
+    pts.forEach(([lab, d], i) => {
+      body.push([i === 0 ? fn : "", lab, (+d.w).toPrecision(3), Math.round(d.n_open).toLocaleString("en-US"),
+        spct(pct(d.n_open, A.baseline.cells)), spct(pct(d.multi, d.relax)), spct(pct(d.multi, A.baseline.cost))]);
+    });
+  }
+  const tRows = body.map((row, ri) => row.map((c, ci) => ({
+    text: c, options: {
+      fontSize: ri === 0 ? 9 : 9.5, bold: ri === 0, align: ci <= 1 ? "left" : "center",
+      color: ri === 0 ? "FFFFFF" : INK, fill: ri === 0 ? NAVY : (ri % 2 ? PANEL : "FFFFFF"),
+      fontFace: "Calibri", valign: "middle",
+    },
+  })));
+  slide.addTable(tRows, {
+    x: 0.5, y: 5.32, w: 12.33, colW: [1.2, 2.5, 1.3, 1.5, 1.6, 2.1, 2.13],
+    rowH: 0.28, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle",
+  });
+  const unbr = [ !L.S1 && "S1", !L.S2 && "S2" ].filter(Boolean).join("/");
+  slide.addText(`Exact-by-separability aggregation over ${L.n_regions} disjoint areas (13 countries + FR/IT/SE/PL NUTS-1; country-level Poland excluded in favour of its 7 NUTS-1): at a common λ the sum of the regional optima IS the combined optimum. Summed at the union of swept w-values inside the range every area covers (${L.n_w} points; an area without that exact λ is log-interpolated between its adjacent sweep points — the λ-table rule).` +
+    (unbr ? ` ${unbr} not bracketed: the aggregate baseline (★) lies outside the common λ range — the full-coverage floor exceeds today's count (roadmap: extend the w-grid / exact S1-S2).` : ""),
+    { x: 0.5, y: 6.98, w: 12.33, h: 0.46, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
+}
+
 function summarySlide() {
   const slide = pptx.addSlide();
   slide.background = { color: INK };
@@ -157,28 +218,25 @@ function statusSlide() {
     "All 6 of Lewis's 22-May descriptive indicators, per country (deck pages 5–8)",
     "Catchments now by ROAD-network travel time (not Euclidean); #empty + smallest non-zero catchment reported",
     "Cap-ladder rungs prototyped (cost-function-free, exploratory): S1-A/B · S2-A/B — run for NL",
+    "Recalculation done: candidates = ≥50-pop cells ∪ pharmacy cells · clients = FULL population · adapted logit (25/10) — all 42 areas re-swept, incl. Poland + its 7 NUTS-1",
+    "Aggregated frontier over all 41 disjoint areas (exact by separability) — new page after the region pages",
     "LINEAR & LOGISTIC travel costs both run & compared",
-    "Coverage: 17 countries + per-NUTS-1 (FR/IT/SE); inhabited-cell candidates, pharmacies merged per cell (1 992→1 617 NL)",
   ]);
   col(4.62, AMBER, "FBF5EA", "In progress ◐", [
-    "Sweeping the 13 newly-available countries (small→large) — networks + OD now prepped per country",
-    "Then per-NUTS-1 λ-sweeps for the large countries (FR / IT / PL)",
-    "Investigate and fix sweeps for FRM, ITG, SE2",
-    "Discuss and apply adapted logit function (see next page)",
+    "Investigate and fix sweeps for FRM, ITG, SE2 (diagnosed: baseline drops unreachable clients + w-grid truncation; DK the same)",
+    "Extend the w-grid upward so S1 brackets everywhere — also unlocks aggregate S1/S2",
     "Fix baseline_metrics: it drops un-reachable clients (ITG ≈14% of pop) while the sweep prices them at c(t_max) — make consistent before any distance-to-Pareto metric",
     "A single 2-D status-quo→frontier distance metric (coverage-honest; stranded priced at c(t_max))",
+    "Calculating better estimations for S1 and S2 (exact soft-coverage p-median MIP at p = baseline)",
     "Exploring (not committed): max-cap + min-threshold rungs — but the descriptives suggest realistic bounds are hard to set, so this may not pay off",
-    "Calculating Poland",
-    "Calculating better estimations for S1 and S2",
   ]);
   col(8.84, SLATE, "F2F5F8", "Remaining ○", [
     "Urban/non-urban flag → model only non-urban, hold urban fixed (options B/C)",
     "Settlement candidate set: verify existing ⊂ settlements, then restrict locations",
-    "Retune logistic to Lewis's ~5 & ~45-min kinks; add flat-then-linear; sweep sensitivity",
+    "Flat-then-linear travel-cost variant; sweep logit-parameter sensitivity",
     "Calibrate real pharmacy a,b (schools: 99 699 + 3 277.5x); ?fixed cost vs <6-y care",
     "Communicate λ intuitively (person-minutes / value-per-user)",
     "Cost-function-free S3: balance #/capita vs mean travel, widen beyond the A–B segment",
-    "Aggregate Pareto frontier per country (combine the regional sweeps)",
     "Counterfactuals: −10% pop · replace a known X% · choose which X to close (hard)",
     "Pharmacist-based cap (Ana); caps/thresholds pooled across countries, reported per-country",
     "Border-cases",
@@ -575,6 +633,7 @@ if (!only && !args.includes("--no-summary")) {
 }
 regions.forEach(regionSlide);
 if (!only && !args.includes("--no-summary")) {
+  aggregateSlide();
   lambdaTableSlide({ eyebrow: "SCENARIO λ", titleRest: "— per country, by travel-cost function", col0: "country", pick: (e) => COUNTRY_SET.has(e.region), label: (e) => e.name });
   lambdaTableSlide({ eyebrow: "SCENARIO λ · NUTS-1", titleRest: "— FR / IT / SE NUTS-1 regions", col0: "NUTS-1 region", labelWide: true, pick: (e) => !COUNTRY_SET.has(e.region), label: (e) => `${e.region} · ${e.name}` });
   summarySlide(); statusSlide(); logisticSlide();

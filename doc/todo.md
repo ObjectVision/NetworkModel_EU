@@ -69,7 +69,11 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
 
 ## C. Scenario / run extensions
 
-7. **Poland**: country-level sweep was held (too heavy). Run the 7 PL NUTS-1 sweeps
+7. ✅ *(done 4/5-Jul — all 7 PL NUTS-1 swept; country-level Poland retried and completed
+   under the shrunken candidate set: N=15.1M OD rows, M=90,941; LINEAR 29h + LOGISTIC 3.3h;
+   S1 −18.8% travel at ≈same count, S2 −0.15% travel with 26.6% fewer facilities.
+   Aggregate uses the 7 NUTS-1, excluding country-Poland for disjointness.)*
+   **Poland**: country-level sweep was held (too heavy). Run the 7 PL NUTS-1 sweeps
    (networks + ODs already prepared); after item 1 shrinks the candidate set, retry
    country-level Poland as well. Roadmap bullet "Calculating Poland".
 
@@ -86,7 +90,13 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
 
 ## D. Reporting / documentation after the recalculation
 
-10. **Regenerate** the road-based descriptives (pages 5–8), all sweeps, the interpolated-λ
+10. ✅ *(done 5-Jul — descriptives re-run on the rebuilt Existing ODs (full-population
+    clients; Iceland dropped from the loop: it HANGS under the new config); deck
+    regenerated: 61 slides, 42 region pages incl. Poland + PL NUTS-1, plus a NEW
+    aggregated-frontier page after the region pages — facilities & travel summed per
+    common λ over the 41 disjoint areas, exact by separability, log-interpolated onto
+    the union w-grid; aggregate S1/S2 not bracketed until the w-grid is extended (#4).)*
+    **Regenerate** the road-based descriptives (pages 5–8), all sweeps, the interpolated-λ
     tables and the deck (`build_deck_data.py → build_charts.py → build_deck.mjs →
     merge_deck.ps1`).
 
