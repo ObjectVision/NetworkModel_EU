@@ -118,19 +118,41 @@ function load_from(dir, country; apply_factor::Bool=true)::CountryData
                        locations, facility_rows, client_pop, nearest_facility)
 end
 
-function baseline_metrics(data)
+# Coverage-consistent baseline (doc/todo.md B3). Clients that cannot reach ANY
+# existing pharmacy within the OD (present in the candidate-side OD, absent from the
+# existing-side OD) are priced exactly like the scenario calculations price stranding:
+# BIG = 1.0 for LOGISTIC (the saturation value), c(t_max of the data) otherwise
+# (LINEAR: c_max = t_max). Their travel time enters at t_max. This puts the baseline ★
+# on the same problem as the frontier — previously those clients were silently dropped
+# (DK ~11%, ITG ~15% of residents), understating baseline travel and letting the ★
+# sit below/left of the LP bound. Clients absent from BOTH ODs stay invisible.
+function baseline_metrics(existing, new_data)
     total_c = 0.0
     total_t = 0.0
     used = Set{Int}()
-    for (i, rows) in data.locations
-        best_k = rows[argmin(data.t_ij_col[k] for k in rows)]
-        total_c += c(data.t_ij_col[best_k]) * data.wpop[best_k]
-        total_t += data.t_ij_col[best_k] * data.wpop[best_k]
-        push!(used, data.facilities_col[best_k])
+    for (i, rows) in existing.locations
+        best_k = rows[argmin(existing.t_ij_col[k] for k in rows)]
+        total_c += c(existing.t_ij_col[best_k]) * existing.wpop[best_k]
+        total_t += existing.t_ij_col[best_k] * existing.wpop[best_k]
+        push!(used, existing.facilities_col[best_k])
     end
-    total_pop = sum(data.wpop[rows[1]] for (_, rows) in data.locations)
+    covered_pop = sum(existing.wpop[rows[1]] for (_, rows) in existing.locations)
+    t_max = maximum(new_data.t_ij_col)
+    BIG   = travel_func == FUNC_LOGISTIC ? 1.0 : c(t_max)
+    stranded_pop = 0.0
+    n_stranded   = 0
+    for (i, _) in new_data.locations
+        haskey(existing.locations, i) && continue
+        p = new_data.client_pop[i]
+        stranded_pop += p
+        n_stranded   += 1
+        total_c += BIG * p
+        total_t += t_max * p
+    end
+    total_pop = covered_pop + stranded_pop
     return (cost_c=total_c, time_total=total_t, mean_t=total_t/total_pop,
-            n_used=length(used), total_pop=total_pop)
+            n_used=length(used), total_pop=total_pop,
+            n_stranded=n_stranded, stranded_pop=stranded_pop, big=BIG)
 end
 
 function find_bracket(results, target, getter, descending)
@@ -181,18 +203,19 @@ function analyze_country(country)
     new_data = load_from(NEW_PATH, country)
     pln("  N=$(new_data.N) OD rows, M=$(new_data.M) candidate facilities")
 
-    base = baseline_metrics(existing)
+    base = baseline_metrics(existing, new_data)
     target_cells = base.n_used
     target_raw   = get(RAW_PHARMACY_COUNTS, country, nothing)
 
     pln()
-    pln("Baseline (ExistingPharmacies, each client → nearest pharmacy):")
+    pln("Baseline (ExistingPharmacies, each client → nearest pharmacy; unreachable priced at BIG):")
     pln("  facilities used (cells):     $(target_cells) (of $(existing.M))")
     target_raw === nothing || pln("  raw pharmacy count:          $target_raw (external reference)")
     pln("  total travel cost(c):        $(round(base.cost_c, digits=0))")
     pln("  facility cost @ €$(FACILITY_MIN_COSTS) ea: $(round(target_cells * FACILITY_MIN_COSTS, digits=0))")
     pln("  mean travel time (min):      $(round(base.mean_t, digits=4))")
     pln("  total client population:     $(round(Int, base.total_pop))")
+    pln("  unreachable clients:         $(base.n_stranded) cells / $(round(Int, base.stranded_pop)) residents priced at BIG=$(round(base.big, digits=4)) (coverage-consistent)")
 
     write_baseline_arrows(country, existing)
     pln("  baseline arrows → $(sweep_dir(EXISTING_PATH, country, "baseline"))")
@@ -215,30 +238,55 @@ function analyze_country(country)
     end
 
     pln()
-    pln("Coarse λ sweep (sequential warm-start simplex, 1-2-5 per decade, stop when travel_c > baseline):")
+    pln("Common λ sweep (sequential warm-start simplex, 1-2-5 per decade, NO early stop):")
+    pln("  the SAME grid is solved for every region so a full run gives the aggregate")
+    pln("  frontier complete common-λ support (doc/todo.md B4).")
     print_sweep_header(target_raw)
 
-    ws_coarse = Float64[]
-    for decade in [1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0, 100.0, 1000.0]
-        for mult in (1.0, 2.0, 5.0)
-            push!(ws_coarse, decade * mult)
-        end
-    end
+    # Fixed common grid, identical for every region/country: 1-2-5 per decade,
+    # 1e-4 … 5.0. Any region-dependent stopping rule (the old "stop when travel_c
+    # exceeds baseline") truncates the intersection of swept λ's — one early-stopping
+    # region (Belgium at w=0.1) capped the whole aggregate curve.
+    ws_common = Float64[m * 10.0^d for d in -4:0 for m in (1.0, 2.0, 5.0)]
 
     results = []
-    for w in ws_coarse
+    for w in ws_common
         r = run_lp(w)
         r === nothing && continue
         push!(results, r)
         print_sweep_row(r, target_cells, target_raw)
-        if r.cost_c > base.cost_c
-            pln("  → travel_c=$(round(r.cost_c, digits=0)) > baseline=$(round(base.cost_c, digits=0)); stopping coarse sweep.")
-            break
-        end
     end
     sort!(results, by=x->x.w)
 
     bracket_S1 = find_bracket(results, target_cells, r -> r.sum_x, true)
+
+    # Region-specific upward extension if S1 is still unbracketed after the common
+    # grid: raise λ (×2.5) while sum_x keeps decreasing materially. A plateau with
+    # sum_x above the baseline count means the full-coverage floor exceeds today's
+    # count — structural (needs the soft-coverage MIP, todo B5), not a grid problem.
+    if bracket_S1 === nothing && !isempty(results)
+        pln()
+        pln("S1 (sum_x=$target_cells) not bracketed on the common grid — extending λ upward:")
+        print_sweep_header(target_raw)
+        w = maximum(getfield.(results, :w))
+        prev_sx = minimum(getfield.(results, :sum_x))
+        while w < 1000.0
+            w *= 2.5
+            r = run_lp(w)
+            r === nothing && break
+            push!(results, r)
+            print_sweep_row(r, target_cells, target_raw)
+            r.sum_x <= target_cells && break
+            if prev_sx - r.sum_x < max(1.0, 0.001 * prev_sx)
+                pln("  → sum_x plateaued at $(round(r.sum_x, digits=1)) > target $target_cells: full-coverage floor above the baseline count (structural).")
+                break
+            end
+            prev_sx = r.sum_x
+        end
+        sort!(results, by=x->x.w)
+        bracket_S1 = find_bracket(results, target_cells, r -> r.sum_x, true)
+    end
+
     bracket_S2 = find_bracket(results, base.cost_c,  r -> r.cost_c, false)
 
     if bracket_S1 === nothing && bracket_S2 === nothing

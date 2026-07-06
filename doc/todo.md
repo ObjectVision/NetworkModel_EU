@@ -41,13 +41,24 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
 
 ## B. Consistency fixes exposed by the DK / ITG / FRM / SE2 investigation
 
-3. **Coverage-consistent baseline.** `baseline_metrics` silently drops clients that cannot
+3. ✅ *(implemented 5-Jul in lambda_sweep_simplex.jl baseline_metrics — unreachable
+   clients (in the candidate OD, absent from the existing OD) priced like the scenarios:
+   BIG = 1.0 for LOGISTIC, c(t_max of the data) otherwise; count/pop reported per region.
+   Effective at the next full rerun. Note: after A2, stranding is near-zero in most
+   regions — the islands remain.)*
+   **Coverage-consistent baseline.** `baseline_metrics` silently drops clients that cannot
    reach any existing pharmacy within t_max (DK ~11% of residents, ITG ~15%, SE2 ~5% —
    islands/sparse interior), while the LP must serve everyone. Price the dropped clients
    at c(t_max) in the baseline so the ★ and the frontier are comparable (DK baseline
    travel roughly doubles). Same fix listed on the roadmap ("Fix baseline_metrics").
 
-4. **Extend the w-grid upward** (currently tops out at w = 0.5, λ = €50k). In all three
+4. ✅ *(implemented 5-Jul — fixed COMMON grid 1-2-5 per decade, 1e-4…5.0, identical for
+   every region with NO early stop (the old travel_c>baseline stop truncated the
+   aggregate at one region's exit, e.g. Belgium w=0.1), plus a region-specific upward
+   extension (×2.5, plateau-detected) until S1 brackets. Validated: FRM S1 now brackets
+   at (0.1,0.2). Effective at the next full rerun — then the aggregate has full common-λ
+   support.)*
+   **Extend the w-grid upward** (currently tops out at w = 0.5, λ = €50k). In all three
    regions sum_x was still falling at the top of the grid, so S1 was never bracketed
    ("—" in the interpolated-λ tables; DK floor 459 vs target 444 — nearly there).
    Cheap: append w ∈ {1, 2, 5, …} until sum_x floors or brackets the baseline count.
