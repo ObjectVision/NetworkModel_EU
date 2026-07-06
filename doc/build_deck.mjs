@@ -83,7 +83,7 @@ function regionSlide(e) {
     x: 0.5, y: 5.5, w: 12.33, colW: [1.5, 1.1, 1.5, 1.6, 1.4, 2.6, 2.63],
     rowH: 0.3, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle",
   });
-  slide.addText("Charts: travel_relax & travel_multi (left), frac_x (2nd left), log₁₀(w) (right) vs sum_x; ★ baseline, ◆ S1, ■ S2.  multistart ≤ LP-relax bound; stranded clients priced at c(t_max).",
+  slide.addText("Charts: travel_relax & travel_multi (left), log₁₀(w) (right) vs sum_x; ★ baseline, ◆ S1, ■ S2.  multistart ≤ LP-relax bound; stranded clients priced at c(t_max) — in the baseline too (coverage-consistent).",
     { x: 0.5, y: 7.12, w: 12.33, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 

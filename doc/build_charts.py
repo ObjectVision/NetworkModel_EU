@@ -58,22 +58,11 @@ def render(region, fn, fd):
     sc = fd.get("scen", {})
 
     fig, ax = plt.subplots(figsize=(5.95, 3.5), dpi=200)
-    fig.subplots_adjust(left=0.205, right=0.865, bottom=0.155, top=0.9)
+    fig.subplots_adjust(left=0.125, right=0.865, bottom=0.155, top=0.9)
 
-    # second LEFT axis for frac_x (offset further left)
-    ax_f = ax.twinx()
-    ax_f.spines["left"].set_position(("axes", -0.16))
-    ax_f.yaxis.set_label_position("left"); ax_f.yaxis.set_ticks_position("left")
-    ax_f.spines["left"].set_visible(True)
-    # RIGHT axis for log10(w)
+    # RIGHT axis for log10(w). (frac_x dropped from the charts per Maarten 6-Jul —
+    # it overcomplicated the plot; integrality is still reported in the S1/S2 table.)
     ax_w = ax.twinx()
-
-    # frac (draw first, behind)
-    ax_f.fill_between(sx, frac, color=FRAC, alpha=0.10, zorder=1)
-    ax_f.plot(sx, frac, color=FRAC, lw=1.1, marker=".", ms=4, zorder=2)
-    ax_f.set_ylabel("frac_x  (fractional vars)", color=FRAC, fontsize=8)
-    ax_f.tick_params(axis="y", colors=FRAC, labelsize=7.5)
-    ax_f.set_ylim(0, max(frac) * 1.15 + 1)
 
     # log10(w)
     ax_w.plot(sxw, logw, color=WCOL, lw=1.1, marker=".", ms=4, ls=(0, (4, 2)), zorder=3)
@@ -114,13 +103,12 @@ def render(region, fn, fd):
         ax.set_ylim(0, yhi * 1.06)
 
     ax.set_title(f"{fn}  c(t)", fontsize=11, color=INK, fontweight="bold", pad=6)
-    ax.set_zorder(ax_f.get_zorder() + 2); ax.patch.set_visible(False)
+    ax.set_zorder(ax_w.get_zorder() + 2); ax.patch.set_visible(False)
 
     # unified legend (compact, top-left inside)
     handles = [
         Line2D([0], [0], color=RELAX, ls="--", marker="o", ms=3, label="LP relax (bound)"),
         Line2D([0], [0], color=MULTI, lw=2.2, marker="o", ms=4, label="multistart"),
-        Line2D([0], [0], color=FRAC, marker=".", label="frac_x"),
         Line2D([0], [0], color=WCOL, ls=(0, (4, 2)), marker=".", label="log₁₀(w)"),
         Line2D([0], [0], color=BASE, marker="*", ls="none", ms=8, label="baseline"),
     ]
