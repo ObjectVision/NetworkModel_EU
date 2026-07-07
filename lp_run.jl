@@ -419,6 +419,17 @@ function build_lp_warmstart(data::CountryData)
     return WarmStartState(model, x, y, data)
 end
 
+# High-λ solves kill the warm-started dual simplex: a 1-2-5 step at the top of the
+# grid moves every x-coefficient by λ·Δ ~ 10^5-10^6, the previous optimal basis is
+# far away, and the LP is massively degenerate — w=5.0 took 16.7h on Netherlands
+# (w=0.5 ~1h). IPM doesn't care about basis distance (the old parallel sweep solved
+# w up to 1000 with it), so from IPM_FROM_W upward we solve fresh with IPM+crossover;
+# crossover returns a basis, keeping later simplex solves warm-startable.
+# LP_TIME_LIMIT (seconds) is a safety net: a timed-out solve errors and the sweep
+# skips that point instead of grinding for a day.
+const IPM_FROM_W    = parse(Float64, get(ENV, "IPM_FROM_W",    "0.5"))
+const LP_TIME_LIMIT = parse(Float64, get(ENV, "LP_TIME_LIMIT", "14400"))
+
 function solve_at_w!(state::WarmStartState, w::Real)
     (; model, x, y, data) = state
     (; N, facilities, wpop, t_ij_col, facilities_col, locations) = data
@@ -430,6 +441,11 @@ function solve_at_w!(state::WarmStartState, w::Real)
     for j in facilities
         set_objective_coefficient(model, x[j], λ)
     end
+
+    use_ipm = w >= IPM_FROM_W
+    set_optimizer_attribute(model, "solver", use_ipm ? "ipm" : "simplex")
+    set_optimizer_attribute(model, "run_crossover", use_ipm ? "on" : "off")
+    set_optimizer_attribute(model, "time_limit", LP_TIME_LIMIT)
 
     optimize!(model)
 
