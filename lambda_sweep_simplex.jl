@@ -242,13 +242,15 @@ function analyze_country(country)
     # tiny, so facilities dominate at far lower λ — hence a single grid is wrong (and the
     # LOGISTIC high-λ tail is pathological). 1-2-5 per decade from 1e-4 up to w_max,
     # identical for every region ⇒ the aggregate gets full common-λ support. w_max is set
-    # from the recalc data so sum_x drops below and travel rises above the baseline for ~all
-    # non-structural regions: LINEAR 1.0 (S1 crossings ≤0.5, S2 ≤0.57), LOGISTIC 0.02
-    # (S1 ≤0.007, S2 ≤0.01). The 3 structural coverage-floor regions (Portugal/ITG/PL8)
-    # never bracket S1 at any λ — that's the soft-coverage MIP (todo #5), NOT a grid
-    # problem, so there is NO upward extension (it only ground for hours). Env: SWEEP_WMAX.
+    # from the recalc data so sum_x drops below and travel rises above the baseline for
+    # MOST regions: LINEAR 0.5 (S1 crossings ≤0.5, S2 p90=0.49 — brackets ~90%; the last
+    # ~4 S2 outliers at ≤0.57 would need w=1.0, an hour-long timeout on the giants, not
+    # worth it), LOGISTIC 0.02 (S1 ≤0.007, S2 ≤0.01) which also skips the pathological
+    # w=0.05..5.0 LOGISTIC tail. The 3 structural coverage-floor regions (Portugal/ITG/PL8)
+    # never bracket S1 at any λ — soft-coverage MIP (todo #5), NOT a grid problem, so there
+    # is NO upward extension (it only ground for hours). Env override: SWEEP_WMAX.
     w_max = haskey(ENV, "SWEEP_WMAX") ? parse(Float64, ENV["SWEEP_WMAX"]) :
-            travel_func == FUNC_LOGISTIC ? 0.02 : 1.0
+            travel_func == FUNC_LOGISTIC ? 0.02 : 0.5
     ws_common = sort(unique(Float64[m * 10.0^d for d in -4:0 for m in (1.0, 2.0, 5.0)
                                     if m * 10.0^d <= w_max * (1.0 + 1e-9)]))
     pln()
