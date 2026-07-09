@@ -440,8 +440,23 @@ function solve_at_w!(state::WarmStartState, w::Real)
         set_objective_coefficient(model, x[j], λ)
     end
 
-    set_optimizer_attribute(model, "solver", "ipm")
-    set_optimizer_attribute(model, "run_crossover", "on")
+    # Solver PER TRAVEL FUNCTION (8-Jul, 2nd correction). The two functions want opposite
+    # solvers because of objective scaling:
+    #  • LINEAR — travel objective is large/well-scaled, so warm-start dual simplex steps
+    #    cheaply along the λ-grid (this is what completed the giants in the recalc). IPM is
+    #    pathologically slow on the big full-population LPs (Netherlands: every point from
+    #    w=0.005 up timed out at 1h). The only reason IPM was introduced — the high-λ simplex
+    #    blow-up — is already prevented by the w_max cap (0.5), so LINEAR keeps simplex.
+    #  • LOGISTIC — c(t)∈[0,1] makes travel tiny, facilities dominate, the LP is degenerate
+    #    and warm-start simplex chokes (Austria died at w=0.02); IPM at the capped w≤0.02 is
+    #    fast (Belgium 13-52s/point), so LOGISTIC uses IPM + crossover.
+    if travel_func == FUNC_LOGISTIC
+        set_optimizer_attribute(model, "solver", "ipm")
+        set_optimizer_attribute(model, "run_crossover", "on")
+    else
+        set_optimizer_attribute(model, "solver", "simplex")
+        set_optimizer_attribute(model, "run_crossover", "off")
+    end
     set_optimizer_attribute(model, "time_limit", LP_TIME_LIMIT)
 
     optimize!(model)
