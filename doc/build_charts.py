@@ -51,8 +51,6 @@ def render(region, fn, fd):
     sx = [r["sum_x"] for r in rows]
     relax = [r["relax"] for r in rows]
     multi = [r["multi"] for r in rows]
-    frac = [r["frac"] for r in rows]
-    logw = [math.log10(r["w"]) for r in rows if r["w"] > 0]
     sxw = [r["sum_x"] for r in rows if r["w"] > 0]
     base = fd["baseline"]
     sc = fd.get("scen", {})
@@ -60,18 +58,21 @@ def render(region, fn, fd):
     fig, ax = plt.subplots(figsize=(5.95, 3.5), dpi=200)
     fig.subplots_adjust(left=0.125, right=0.865, bottom=0.155, top=0.9)
 
-    # RIGHT axis for log10(w). (frac_x dropped from the charts per Maarten 6-Jul —
-    # it overcomplicated the plot; integrality is still reported in the S1/S2 table.)
+    # RIGHT axis: log₁₀ of the facility cost weight λ = w·FACILITY_MIN_COSTS (Maarten 8-Jul,
+    # renamed from the opaque "log₁₀(w)"; the offset is constant, +5, so the curve shape is
+    # unchanged). (frac_x dropped 6-Jul — integrality is still in the S1/S2 table.)
+    FMIN = 100000  # FACILITY_MIN_COSTS (settings.jl); λ = w · FMIN
+    logλ = [math.log10(r["w"] * FMIN) for r in rows if r["w"] > 0]
     ax_w = ax.twinx()
-
-    # log10(w)
-    ax_w.plot(sxw, logw, color=WCOL, lw=1.1, marker=".", ms=4, ls=(0, (4, 2)), zorder=3)
-    ax_w.set_ylabel("log₁₀(w)", color=WCOL, fontsize=8)
+    ax_w.plot(sxw, logλ, color=WCOL, lw=1.1, marker=".", ms=4, ls=(0, (4, 2)), zorder=3)
+    ax_w.set_ylabel("log₁₀(facility cost weight €)", color=WCOL, fontsize=8)
     ax_w.tick_params(axis="y", colors=WCOL, labelsize=7.5)
 
-    # travel curves (left, on top)
-    ax.plot(sx, relax, color=RELAX, lw=1.6, ls="--", marker="o", ms=3.2, zorder=5, label="LP relax (bound)")
-    ax.plot(sx, multi, color=MULTI, lw=2.4, marker="o", ms=4.2, zorder=6, label="multistart")
+    # cost bounds. The multistart integer solution is the UPPER bound (solid blue), drawn
+    # first/underneath; the LP relaxation is the LOWER bound (dashed grey), drawn ON TOP so
+    # both stay visible where they nearly coincide (Maarten 8-Jul).
+    ax.plot(sx, multi, color=MULTI, lw=2.4, marker="o", ms=4.2, zorder=5, label="cost upperbound")
+    ax.plot(sx, relax, color=RELAX, lw=1.7, ls="--", marker="o", ms=3.4, zorder=7, label="cost lowerbound")
 
     # baseline (current network): point at (cells, cost) + reference lines
     ax.axhline(base["cost"], color=BASE, ls=":", lw=1.0, alpha=0.55, zorder=4)
@@ -107,9 +108,9 @@ def render(region, fn, fd):
 
     # unified legend (compact, top-left inside)
     handles = [
-        Line2D([0], [0], color=RELAX, ls="--", marker="o", ms=3, label="LP relax (bound)"),
-        Line2D([0], [0], color=MULTI, lw=2.2, marker="o", ms=4, label="multistart"),
-        Line2D([0], [0], color=WCOL, ls=(0, (4, 2)), marker=".", label="log₁₀(w)"),
+        Line2D([0], [0], color=RELAX, ls="--", marker="o", ms=3, label="cost lowerbound"),
+        Line2D([0], [0], color=MULTI, lw=2.2, marker="o", ms=4, label="cost upperbound"),
+        Line2D([0], [0], color=WCOL, ls=(0, (4, 2)), marker=".", label="log₁₀(fac. cost weight)"),
         Line2D([0], [0], color=BASE, marker="*", ls="none", ms=8, label="baseline"),
     ]
     ax.legend(handles=handles, loc="upper right", fontsize=6.8, framealpha=0.85,
