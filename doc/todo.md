@@ -7,6 +7,16 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
 
 ## A. Input / search-space changes (agreed — do first, they change every downstream number)
 
+0. legend of pareto frontier curves;
+   - remove green curves
+   - log(facility const weight)
+   - cost lowerbound, dashed and on top of
+   - cost upperbound
+   - check if both bounds are shown
+0a Update Italian data
+0b interpolate better the locations of S1 and S2, which sligtly conflicts with
+0c make available to Chris the resulting facility locations for S1 and S2 for each region, for use in the GeoDMS
+
 1. ✅ *(implemented 2-Jul, commit 7c6768f — recalc batch running via `run_recalc_batch.ps1`;
    also fixed: the candidate set's CountCurrentObjects was joined against SCHOOLS, so the
    OD's nearest-5-current-facilities limit counted school cells in pharmacy runs)*
