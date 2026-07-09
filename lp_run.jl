@@ -419,16 +419,15 @@ function build_lp_warmstart(data::CountryData)
     return WarmStartState(model, x, y, data)
 end
 
-# High-λ solves kill the warm-started dual simplex: a 1-2-5 step at the top of the
-# grid moves every x-coefficient by λ·Δ ~ 10^5-10^6, the previous optimal basis is
-# far away, and the LP is massively degenerate — w=5.0 took 16.7h on Netherlands
-# (w=0.5 ~1h). IPM doesn't care about basis distance (the old parallel sweep solved
-# w up to 1000 with it), so from IPM_FROM_W upward we solve fresh with IPM+crossover;
-# crossover returns a basis, keeping later simplex solves warm-startable.
-# LP_TIME_LIMIT (seconds) is a safety net: a timed-out solve errors and the sweep
-# skips that point instead of grinding for a day.
-const IPM_FROM_W    = parse(Float64, get(ENV, "IPM_FROM_W",    "0.5"))
-const LP_TIME_LIMIT = parse(Float64, get(ENV, "LP_TIME_LIMIT", "14400"))
+# Always IPM + crossover (8-Jul). Warm-started dual simplex degrades catastrophically
+# on the big full-population LPs: each λ step moves every x-coefficient by λ·Δ ~ 10^5-10^6,
+# so the previous basis is far away and the (massively degenerate) re-solve costs hours —
+# Netherlands w=5.0 took 16.7h, and under LOGISTIC (tiny travel objective → facilities
+# dominate the whole range) even w=0.02 timed out. IPM is basis-distance-immune (the old
+# parallel sweep solved w up to 1000 with it); crossover returns a vertex so sum_x/frac_x
+# and the rounding stay clean. LP_TIME_LIMIT (1h default) makes any pathological point a
+# skipped point, not a stall.
+const LP_TIME_LIMIT = parse(Float64, get(ENV, "LP_TIME_LIMIT", "3600"))
 
 function solve_at_w!(state::WarmStartState, w::Real)
     (; model, x, y, data) = state
@@ -436,15 +435,13 @@ function solve_at_w!(state::WarmStartState, w::Real)
 
     λ = w * FACILITY_MIN_COSTS
 
-    # Update only the x[j] objective coefficients; simplex warm-starts from
-    # the previous basis since constraints and y-coefficients are unchanged.
+    # Update only the x[j] objective coefficients (constraints + y-coeffs unchanged).
     for j in facilities
         set_objective_coefficient(model, x[j], λ)
     end
 
-    use_ipm = w >= IPM_FROM_W
-    set_optimizer_attribute(model, "solver", use_ipm ? "ipm" : "simplex")
-    set_optimizer_attribute(model, "run_crossover", use_ipm ? "on" : "off")
+    set_optimizer_attribute(model, "solver", "ipm")
+    set_optimizer_attribute(model, "run_crossover", "on")
     set_optimizer_attribute(model, "time_limit", LP_TIME_LIMIT)
 
     optimize!(model)

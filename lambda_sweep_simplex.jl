@@ -237,17 +237,23 @@ function analyze_country(country)
         return r
     end
 
+    # Fixed common grid PER TRAVEL FUNCTION (doc/todo.md B4 + 8-Jul). LINEAR and LOGISTIC
+    # live on ~100×-different λ scales — logistic c(t)∈[0,1] makes the travel objective
+    # tiny, so facilities dominate at far lower λ — hence a single grid is wrong (and the
+    # LOGISTIC high-λ tail is pathological). 1-2-5 per decade from 1e-4 up to w_max,
+    # identical for every region ⇒ the aggregate gets full common-λ support. w_max is set
+    # from the recalc data so sum_x drops below and travel rises above the baseline for ~all
+    # non-structural regions: LINEAR 1.0 (S1 crossings ≤0.5, S2 ≤0.57), LOGISTIC 0.02
+    # (S1 ≤0.007, S2 ≤0.01). The 3 structural coverage-floor regions (Portugal/ITG/PL8)
+    # never bracket S1 at any λ — that's the soft-coverage MIP (todo #5), NOT a grid
+    # problem, so there is NO upward extension (it only ground for hours). Env: SWEEP_WMAX.
+    w_max = haskey(ENV, "SWEEP_WMAX") ? parse(Float64, ENV["SWEEP_WMAX"]) :
+            travel_func == FUNC_LOGISTIC ? 0.02 : 1.0
+    ws_common = sort(unique(Float64[m * 10.0^d for d in -4:0 for m in (1.0, 2.0, 5.0)
+                                    if m * 10.0^d <= w_max * (1.0 + 1e-9)]))
     pln()
-    pln("Common λ sweep (sequential warm-start simplex, 1-2-5 per decade, NO early stop):")
-    pln("  the SAME grid is solved for every region so a full run gives the aggregate")
-    pln("  frontier complete common-λ support (doc/todo.md B4).")
+    pln("Common λ sweep ($travel_func_name): fixed grid 1-2-5/decade, 1e-4 … $w_max, always IPM, no early stop.")
     print_sweep_header(target_raw)
-
-    # Fixed common grid, identical for every region/country: 1-2-5 per decade,
-    # 1e-4 … 5.0. Any region-dependent stopping rule (the old "stop when travel_c
-    # exceeds baseline") truncates the intersection of swept λ's — one early-stopping
-    # region (Belgium at w=0.1) capped the whole aggregate curve.
-    ws_common = Float64[m * 10.0^d for d in -4:0 for m in (1.0, 2.0, 5.0)]
 
     results = []
     for w in ws_common
@@ -259,35 +265,10 @@ function analyze_country(country)
     sort!(results, by=x->x.w)
 
     bracket_S1 = find_bracket(results, target_cells, r -> r.sum_x, true)
-
-    # Region-specific upward extension if S1 is still unbracketed after the common
-    # grid: raise λ (×2.5) while sum_x keeps decreasing materially. A plateau with
-    # sum_x above the baseline count means the full-coverage floor exceeds today's
-    # count — structural (needs the soft-coverage MIP, todo B5), not a grid problem.
-    if bracket_S1 === nothing && !isempty(results)
-        pln()
-        pln("S1 (sum_x=$target_cells) not bracketed on the common grid — extending λ upward:")
-        print_sweep_header(target_raw)
-        w = maximum(getfield.(results, :w))
-        prev_sx = minimum(getfield.(results, :sum_x))
-        while w < 1000.0
-            w *= 2.5
-            r = run_lp(w)
-            r === nothing && break
-            push!(results, r)
-            print_sweep_row(r, target_cells, target_raw)
-            r.sum_x <= target_cells && break
-            if prev_sx - r.sum_x < max(1.0, 0.001 * prev_sx)
-                pln("  → sum_x plateaued at $(round(r.sum_x, digits=1)) > target $target_cells: full-coverage floor above the baseline count (structural).")
-                break
-            end
-            prev_sx = r.sum_x
-        end
-        sort!(results, by=x->x.w)
-        bracket_S1 = find_bracket(results, target_cells, r -> r.sum_x, true)
-    end
-
     bracket_S2 = find_bracket(results, base.cost_c,  r -> r.cost_c, false)
+    if bracket_S1 === nothing
+        pln("  S1 (sum_x=$target_cells) not bracketed at w_max=$w_max: full-coverage floor above the baseline count → soft-coverage MIP (todo #5), not a grid issue.")
+    end
 
     if bracket_S1 === nothing && bracket_S2 === nothing
         pln("\nNeither S1 (sum_x=$target_cells) nor S2 (cost=$(round(base.cost_c,digits=0))) found in coarse range.")
