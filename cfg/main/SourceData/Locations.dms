@@ -335,7 +335,15 @@ container Locations : using = "geography;units"
 			attribute<string> Label := Name;
 			attribute<string> Code : ['aut', 'bel', 'cze', 'dnk', 'est', 'fra', 'irl', 'isl', 'ita', 'ltu', 'lux', 'lva', 'nld', 'nor', 'pol', 'prt', 'svn', 'swe']; //'fin',
 
-			attribute<string> FileName := '%NetworkModelDataDir%/Locations/pharmacies/'+Code+'_pharmacies.parquet';
+			// Italy is delivered as an ESPON 2021 point shapefile (native WGS84 geometry,
+			// no lat/lon columns) rather than a parquet; read it via CountryDataShpT below.
+			// All other countries keep the parquet path read via CountryDataT.
+			attribute<string> FileName := Name == 'Italy'
+				? '%NetworkModelDataDir%/Locations/Pharmacies/Italy_espon_2021_pharmacies.shp'
+				: '%NetworkModelDataDir%/Locations/pharmacies/'+Code+'_pharmacies.parquet';
+			attribute<string> Calculator := Name == 'Italy'
+				? 'CountryDataShpT("'+FileName+'")'
+				: 'CountryDataT("'+FileName+'")';
 			container V := for_each_nedv(Name, string(ID(.))+'[..]', void, .);
 		}
 		// Countries whose pharmacy parquet is actually present. Chris's data arrives
@@ -358,7 +366,23 @@ container Locations : using = "geography;units"
 				attribute<geography/BaseProjection> geometry := geometry_wgs[geography/BaseProjection];
 			}
 		}
-		container Countries := for_each_ne(Country/Name, 'CountryDataT("'+Country/FileName+'")');
+		// Variant for point shapefiles that carry a native (CRS-tagged) geometry instead of
+		// separate lat/lon columns (e.g. Italy's ESPON 2021 pharmacy .shp). The geometry is
+		// read directly and reprojected to BaseProjection; downstream (EU union etc.) only
+		// uses Table + Table/geometry, so it is interchangeable with CountryDataT.
+		template CountryDataShpT
+		{
+			parameter<string> fileName;
+			unit<uint32> Table
+			: StorageName = "=FileName"
+			, StorageType = "gdal.vect"
+			, StorageReadOnly = "True"
+			{
+				attribute<geography/wgs84_base>     geometry_wgs;
+				attribute<geography/BaseProjection> geometry := geometry_wgs[geography/BaseProjection];
+			}
+		}
+		container Countries := for_each_ne(Country/Name, Country/Calculator);
 		unit<uint32> EU := ='union_unit('+AsItemList('Countries/'+AvailableCountry/Name+'/Table')+')'
 		{
 			attribute<Country>                  Country_rel := ='union_data(., '+AsItemList('const(Country/V/'+AvailableCountry/Name+', Countries/'+AvailableCountry/Name+'/Table)')+')';
