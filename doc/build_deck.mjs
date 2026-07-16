@@ -520,35 +520,40 @@ function optProblemSlide() {
   // formulation panel (dark)
   slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 1.35, w: 6.6, h: 3.4, rectRadius: 0.06, fill: { color: INK }, line: { width: 0 } });
   const M = (t, o = {}) => ({ text: t, options: { fontFace: "Cambria Math", color: "FFFFFF", ...o } });
+  // SOFT coverage (2026-07-10): a client need NOT be assigned; the unserved share is
+  // priced at BIG. Factoring popᵢ keeps the objective on one line.
   slide.addText([
     M("min", { bold: true, color: "8FD4F0" }), M("x,y", { fontSize: 10, subscript: true, color: "8FD4F0" }),
-    M("   Σᵢ Σⱼ  popᵢ · c(tᵢⱼ) · yᵢⱼ   +   λ · Σⱼ xⱼ", {}),
-  ], { x: 0.8, y: 1.55, w: 6.1, h: 0.45, fontSize: 16 });
+    M("   Σᵢ popᵢ · [ Σⱼ c(tᵢⱼ)·yᵢⱼ  +  BIG·(1 − Σⱼ yᵢⱼ) ]   +   λ · Σⱼ xⱼ", {}),
+  ], { x: 0.8, y: 1.5, w: 6.1, h: 0.4, fontSize: 14 });
+  slide.addText("travel of the served share   +   the unserved share, priced at BIG   +   facility cost",
+    { x: 0.8, y: 1.9, w: 6.1, h: 0.25, fontSize: 9, italic: true, fontFace: "Calibri", color: "9FB0C2" });
   slide.addText([
-    [M("s.t.", { bold: true, color: "8FD4F0" }), M("  Σⱼ yᵢⱼ  =  1"), M("          every client fully assigned", { fontFace: "Calibri", fontSize: 10.5, color: "9FB0C2" })],
+    [M("s.t.", { bold: true, color: "8FD4F0" }), M("  Σⱼ yᵢⱼ  ≤  1"), M("          a client MAY be left unserved", { fontFace: "Calibri", fontSize: 10.5, color: "FFD9A0" })],
     [M("      yᵢⱼ  ≤  xⱼ"), M("            only to open pharmacies", { fontFace: "Calibri", fontSize: 10.5, color: "9FB0C2" })],
     [M("      xⱼ ∈ {0,1}"), M("  →  relaxed to  0 ≤ xⱼ ≤ 1,   yᵢⱼ ≥ 0", { color: "FFD9A0" })],
   ].map((line) => line.map((seg, si) => ({ ...seg, options: { ...seg.options, breakLine: si === line.length - 1 } }))).flat(),
-    { x: 0.8, y: 2.1, w: 6.1, h: 1.5, fontSize: 15, lineSpacingMultiple: 1.35 });
+    { x: 0.8, y: 2.25, w: 6.1, h: 1.4, fontSize: 15, lineSpacingMultiple: 1.35 });
   slide.addText([
     M("i", { italic: true }), M(" = populated 1 km² cells (clients) · ", { fontFace: "Calibri", fontSize: 10.5, color: "C7D2DD" }),
     M("j", { italic: true }), M(" = candidate pharmacy cells · ", { fontFace: "Calibri", fontSize: 10.5, color: "C7D2DD" }),
-    M("(i,j)", { italic: true }), M(" only where the road network gives tᵢⱼ ≤ t_max — the exported OD", { fontFace: "Calibri", fontSize: 10.5, color: "C7D2DD" }),
-  ], { x: 0.8, y: 3.75, w: 6.0, h: 0.8, fontSize: 11, valign: "top" });
+    M("(i,j)", { italic: true }), M(" only where the road network gives tᵢⱼ ≤ t_max — the exported OD.  ", { fontFace: "Calibri", fontSize: 10.5, color: "C7D2DD" }),
+    M("BIG", { italic: true, color: "FFD9A0" }), M(" = price of leaving a client unserved: 120 min (linear) / 1.0 (logistic saturation). Opening a facility only pays off where it saves more travel than λ.", { fontFace: "Calibri", fontSize: 10.5, color: "C7D2DD" }),
+  ], { x: 0.8, y: 3.68, w: 6.05, h: 0.95, fontSize: 11, valign: "top" });
 
   // right column: ingredients
   const ing = (y, head, body) => {
     slide.addText(head, { x: 7.45, y, w: 5.4, h: 0.28, fontSize: 12.5, bold: true, color: NAVY, fontFace: "Calibri" });
     slide.addText(body, { x: 7.45, y: y + 0.27, w: 5.4, h: 0.62, fontSize: 10.5, color: MUTED, fontFace: "Calibri", valign: "top" });
   };
-  ing(1.4, "c(t) — travel cost, t in minutes", "LINEAR c(t)=t; LOGISTIC c(t)=1/(1+e^−(t−30)/15). The swept LPs run once per function.");
-  ing(2.32, "λ = w · €100,000 — the price of a pharmacy", "Linear facility cost a+b·q reduces to λ·#open: the b·q part is constant once every client is assigned, so only the fixed cost a matters.");
+  ing(1.4, "c(t) — travel cost, t in minutes", "LINEAR c(t)=t; LOGISTIC (adapted logit) c(t)=1/(1+e^−(t−25)/10). The swept LPs run once per function.");
+  ing(2.32, "λ = w · €100,000 — the price of a pharmacy", "Linear facility cost a+b·q reduces to λ·#open: the b·q part is ~constant while (nearly) all demand is served, so only the fixed cost a matters. Under soft coverage it cancels only approximately — the unserved share carries no b·q.");
   ing(3.24, "One LP per λ, exact", "JuMP + HiGHS dual simplex; the model is built once and re-solved along the w-grid from the previous optimal basis (lp_run.jl solve_at_w!) — millions of yᵢⱼ, minutes per point.");
   // review flags — modelling details the group should challenge
   slide.addShape(pptx.ShapeType.roundRect, { x: 7.45, y: 4.22, w: 5.4, h: 0.78, rectRadius: 0.05, fill: { color: "FBF5EA" }, line: { color: "B9791C", width: 1 } });
   slide.addText([
     { text: "⚠ For review:  ", options: { bold: true, color: "B9791C" } },
-    { text: "each client's OD is capped at its 5 nearest facilities (max_nr_facilities_per_client) — it shrinks the LP but limits reassignment choice; and in DK / ITG / FRM / SE2 not every client can be matched (unreachable within t_max → dropped from the baseline, forced-served in the LP), so ★ and frontier are not yet fully comparable there. Feedback welcome.", options: { color: INK } },
+    { text: "each client's OD holds every candidate out to its 5 nearest EXISTING pharmacies (max_nr_facilities_per_client) — it shrinks the LP but limits reassignment choice. Clients unreachable within t_max (islands / sparse interior, e.g. ITG) are now priced at BIG on BOTH sides — stranded in the baseline, optionally stranded in the LP — so ★ and frontier are directly comparable. Feedback welcome.", options: { color: INK } },
   ], { x: 7.58, y: 4.28, w: 5.16, h: 0.68, fontSize: 8.3, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 0.98 });
 
   // bottom: bounds story
@@ -561,7 +566,7 @@ function optProblemSlide() {
     { text: "upper bound", options: { bold: true, color: MULTI } },
     { text: " — the integer optimum is pinched between the two (+0–18% LINEAR, +0–4.7% LOGISTIC).", options: { color: MUTED, breakLine: true } },
     { text: "Relation to the p-median problem.  ", options: { bold: true, color: INK } },
-    { text: "Imposing the count (Σⱼ xⱼ = p) instead of pricing it gives exactly the p-median problem with costs c(tᵢⱼ) (ReVelle & Swain 1970) — S1 at the baseline count is a p-median instance. The λ-sweep is its Lagrangian relaxation w.r.t. that constraint (Cornuéjols, Fisher & Nemhauser 1977): it recovers only the p’s on the lower convex envelope of the p-median value function, so p-values in non-convex gaps are unreachable by any λ — there S1/S2 are interpolated between sweep points, or pinned exactly with the cardinality constraint (roadmap: better S1/S2 estimations). The swap polish of p. 6 is the classic p-median vertex-substitution search.", options: { color: MUTED } },
+    { text: "Imposing the count (Σⱼ xⱼ = p) instead of pricing it gives the p-median problem with costs c(tᵢⱼ) (ReVelle & Swain 1970) — S1 at the baseline count is a p-median instance, in its soft-coverage form: a client may go unserved at BIG rather than be forced onto a far facility (an outside option / p-median with an upper bound on assignment cost). The λ-sweep is its Lagrangian relaxation w.r.t. that constraint (Cornuéjols, Fisher & Nemhauser 1977): it recovers only the p’s on the lower convex envelope of the p-median value function, so p-values in non-convex gaps are unreachable by any λ — there S1/S2 are interpolated between sweep points, or pinned exactly with the cardinality constraint (roadmap: better S1/S2 estimations). The swap polish of p. 6 is the classic p-median vertex-substitution search.", options: { color: MUTED } },
   ], { x: 0.75, y: 5.2, w: 11.85, h: 1.62, fontSize: 10, fontFace: "Calibri", valign: "top" });
 
   slide.addText("Implementation: lp_run.jl (build_lp_warmstart / solve_at_w!) · weights popᵢ = total residents of cell i (CLIENT_WEIGHT=total_pop) · OD from GeoDMS impedance_matrix_od64, t = seconds/60.",
@@ -600,11 +605,11 @@ function multistartSlide() {
   slide.addShape(pptx.ShapeType.roundRect, { x: 8.0, y: 1.42, w: 4.83, h: 3.9, rectRadius: 0.06, fill: { color: "F0F6F2" }, line: { color: "1E7A52", width: 1 } });
   slide.addText("Why this is an upper bound ✓", { x: 8.2, y: 1.54, w: 4.45, h: 0.3, fontSize: 13, bold: true, color: "1E7A52", fontFace: "Calibri" });
   slide.addText([
-    { text: "The rounded set is a feasible point of the original problem: exactly p pharmacies actually open (x integer) and every client explicitly assigned. Feasible ⟹ its objective can only be ≥ the integer optimum, which is ≥ the LP optimum:", options: { color: INK, breakLine: true } },
+    { text: "The rounded set is a feasible point of the same (soft-coverage) problem: exactly p pharmacies actually open (x integer), and every client is either assigned to its nearest open pharmacy or explicitly left unserved at BIG. Feasible ⟹ its objective can only be ≥ the integer optimum, which is ≥ the LP optimum:", options: { color: INK, breakLine: true } },
     { text: "", options: { breakLine: true, fontSize: 4 } },
     { text: "LP relax  ≤  integer optimum  ≤  multistart", options: { bold: true, color: "1E7A52", align: "center", breakLine: true } },
     { text: "", options: { breakLine: true, fontSize: 4 } },
-    { text: "Rigorous whenever stranded = 0 — the common case (see the summary table). With stranding, strict full-coverage is infeasible at that count; the point is then priced conservatively (c is non-decreasing, so c(t_max) ≥ any real within-OD assignment) and the stranded count is reported next to every figure.", options: { color: MUTED, breakLine: true } },
+    { text: "Rigorous throughout — no caveat needed. Under soft coverage leaving a client unserved is part of the feasible space, and it is priced at the same BIG in the LP bound, in the rounding and in the baseline. The unserved count is reported next to every figure.", options: { color: MUTED, breakLine: true } },
     { text: "", options: { breakLine: true, fontSize: 4 } },
     { text: "The multi-vs-relax column in the end tables is therefore a certified optimality gap: the integer optimum lies inside it.", options: { color: INK, italic: true, breakLine: true } },
   ], { x: 8.2, y: 1.88, w: 4.45, h: 3.35, fontSize: 10.5, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 1.04 });
