@@ -135,6 +135,8 @@ def metrics_for(base, rows):
 
 
 def main():
+    # optional suffix: `python frontier_metrics.py interp2` → frontier_metrics_interp2.*
+    suffix = sys.argv[1] if len(sys.argv) > 1 else "interp1"
     data = json.load(open(os.path.join(ROOT, "doc", "deck_data.json"), encoding="utf-8"))
     out = {}
     table = []
@@ -150,11 +152,11 @@ def main():
                 continue
             out[reg][fn] = m
             table.append((reg, fn, m))
-    dest = os.path.join(ROOT, "doc", "frontier_metrics_interp1.json")
+    dest = os.path.join(ROOT, "doc", f"frontier_metrics_{suffix}.json")
     json.dump(out, open(dest, "w", encoding="utf-8"), indent=1)
 
     # CSV
-    csv_path = os.path.join(ROOT, "doc", "frontier_metrics_interp1.csv")
+    csv_path = os.path.join(ROOT, "doc", f"frontier_metrics_{suffix}.csv")
     with open(csv_path, "w", newline="", encoding="utf-8") as fh:
         wtr = csv.writer(fh)
         wtr.writerow(["region", "func", "B_x", "B_y", "S1_y", "S2_x",

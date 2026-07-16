@@ -456,8 +456,15 @@ function solve_at_w!(state::WarmStartState, w::Real)
     # is fast and robust for both (ITG LINEAR 4–8 s/point). Warm-started dual simplex steps
     # cheaply along the λ-grid, and soft high-λ points are cheap (few open facilities ⇒ small
     # basis), so the earlier high-λ blow-up that motivated IPM no longer applies.
-    set_optimizer_attribute(model, "solver", "simplex")
-    set_optimizer_attribute(model, "run_crossover", "off")
+    # Env SOLVER=ipm forces interior-point + crossover instead of the default
+    # warm-start simplex. IPM is basis-distance-immune, so it clears the high-λ
+    # simplex cliff on the big LINEAR regions (used for the Belgium/FRI aggregate-
+    # S2 extension). Keep the default simplex for LOGISTIC — soft-coverage IPM
+    # fails there (OTHER_ERROR: the tiny (c(t)−BIG) travel coefficients give too
+    # wide a range). Crossover on for IPM so sum_x/frac_x and the rounding get a vertex.
+    solver = get(ENV, "SOLVER", "simplex")
+    set_optimizer_attribute(model, "solver", solver)
+    set_optimizer_attribute(model, "run_crossover", solver == "ipm" ? "on" : "off")
     set_optimizer_attribute(model, "time_limit", LP_TIME_LIMIT)
 
     optimize!(model)

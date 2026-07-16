@@ -249,7 +249,12 @@ function analyze_country(country)
     # wide grid is affordable. Env override: SWEEP_WMAX.
     w_max = haskey(ENV, "SWEEP_WMAX") ? parse(Float64, ENV["SWEEP_WMAX"]) :
             travel_func == FUNC_LOGISTIC ? 0.5 : 5.0
-    ws_common = sort(unique(Float64[m * 10.0^d for d in -4:0 for m in (1.0, 2.0, 5.0)
+    # Per-decade multipliers, env-overridable for Round-2 densification (e.g.
+    # SWEEP_MULTS="1,1.5,2,3,5,7" halves the 0.2→0.5 λ gap where crossings cluster).
+    mults = haskey(ENV, "SWEEP_MULTS") ?
+            sort(parse.(Float64, split(ENV["SWEEP_MULTS"], ","))) : [1.0, 2.0, 5.0]
+    d_hi = max(0, ceil(Int, log10(w_max)))
+    ws_common = sort(unique(Float64[m * 10.0^d for d in -4:d_hi for m in mults
                                     if m * 10.0^d <= w_max * (1.0 + 1e-9)]))
     pln()
     pln("Common λ sweep ($travel_func_name): fixed grid 1-2-5/decade, 1e-4 … $w_max, warm-start dual simplex, no early stop.")
@@ -302,7 +307,7 @@ function analyze_country(country)
     ws_fine = Float64[]
     d = floor(Int, log_lo)
     while d <= ceil(Int, log_hi)
-        for mult in (1.0, 2.0, 5.0)
+        for mult in mults
             w_candidate = mult * 10.0^d
             if w_lo < w_candidate < w_hi
                 push!(ws_fine, w_candidate)
