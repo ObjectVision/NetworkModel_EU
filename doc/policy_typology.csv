@@ -1,0 +1,43 @@
+region,iso,country,archetype,archetype_name,formalisation,color
+Austria,AT,Austria,1,Rule-of-law–anchored,HIGH,C0392B
+Belgium,BE,Belgium,1,Rule-of-law–anchored,MEDIUM,E67E22
+Czechia,CZ,Czechia,3,Public-interest majoritarian,LOW,27AE60
+Denmark,DK,Denmark,2,Consensual-pluralist,HIGH,C0392B
+Estonia,EE,Estonia,2,Consensual-pluralist,MEDIUM,E67E22
+FR1,FR,France,1,Rule-of-law–anchored,HIGH,C0392B
+FRB,FR,France,1,Rule-of-law–anchored,HIGH,C0392B
+FRC,FR,France,1,Rule-of-law–anchored,HIGH,C0392B
+FRD,FR,France,1,Rule-of-law–anchored,HIGH,C0392B
+FRE,FR,France,1,Rule-of-law–anchored,HIGH,C0392B
+FRF,FR,France,1,Rule-of-law–anchored,HIGH,C0392B
+FRG,FR,France,1,Rule-of-law–anchored,HIGH,C0392B
+FRH,FR,France,1,Rule-of-law–anchored,HIGH,C0392B
+FRI,FR,France,1,Rule-of-law–anchored,HIGH,C0392B
+FRJ,FR,France,1,Rule-of-law–anchored,HIGH,C0392B
+FRK,FR,France,1,Rule-of-law–anchored,HIGH,C0392B
+FRL,FR,France,1,Rule-of-law–anchored,HIGH,C0392B
+FRM,FR,France,1,Rule-of-law–anchored,HIGH,C0392B
+ITC,IT,Italy,1,Rule-of-law–anchored,HIGH,C0392B
+ITF,IT,Italy,1,Rule-of-law–anchored,HIGH,C0392B
+ITG,IT,Italy,1,Rule-of-law–anchored,HIGH,C0392B
+ITH,IT,Italy,1,Rule-of-law–anchored,HIGH,C0392B
+ITI,IT,Italy,1,Rule-of-law–anchored,HIGH,C0392B
+Ireland,IE,Ireland,3,Public-interest majoritarian,LOW,27AE60
+Latvia,LV,Latvia,1,Rule-of-law–anchored,MEDIUM,E67E22
+Lithuania,LT,Lithuania,3,Public-interest majoritarian,LOW,27AE60
+Luxembourg,LU,Luxembourg,1,Rule-of-law–anchored,HIGH,C0392B
+Netherlands,NL,Netherlands,3,Public-interest majoritarian,LOW,27AE60
+Norway,NO,Norway,3,Public-interest majoritarian,LOW,27AE60
+PL2,PL,Poland,1,Rule-of-law–anchored,HIGH,C0392B
+PL4,PL,Poland,1,Rule-of-law–anchored,HIGH,C0392B
+PL5,PL,Poland,1,Rule-of-law–anchored,HIGH,C0392B
+PL6,PL,Poland,1,Rule-of-law–anchored,HIGH,C0392B
+PL7,PL,Poland,1,Rule-of-law–anchored,HIGH,C0392B
+PL8,PL,Poland,1,Rule-of-law–anchored,HIGH,C0392B
+PL9,PL,Poland,1,Rule-of-law–anchored,HIGH,C0392B
+Poland,PL,Poland,1,Rule-of-law–anchored,HIGH,C0392B
+Portugal,PT,Portugal,1,Rule-of-law–anchored,HIGH,C0392B
+SE1,SE,Sweden,3,Public-interest majoritarian,LOW,27AE60
+SE2,SE,Sweden,3,Public-interest majoritarian,LOW,27AE60
+SE3,SE,Sweden,3,Public-interest majoritarian,LOW,27AE60
+Slovenia,SI,Slovenia,1,Rule-of-law–anchored,HIGH,C0392B
