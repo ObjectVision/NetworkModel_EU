@@ -167,7 +167,8 @@ end
 # --- the LP relaxation -------------------------------------------------------
 # Shared structure for S1 and S2. x[j] upper bound encodes rung A (multi: <=
 # MULTI_MAX) vs B (one: <= 1); urban-fixed cells are pinned to x[j] == 1. A
-# stranded slack s[i] (priced at BIG = c(t_max)) keeps the model feasible and
+# stranded slack s[i] (priced at BIG = big_cost(), the same stranded-client price
+# as the λ-sweep; earlier NL ladder runs used the region's c(t_max)) keeps the model feasible and
 # turns "the cap forbids serving this demand" into a reported strand% instead of
 # an infeasible LP.
 #   S1: minimise travel (+ strand) s.t. sum(x) == target_count.
@@ -176,7 +177,7 @@ end
 function solve_relax(data, own_pop, min_cap, max_cap, target_count, travel_bound)
     (; N, facilities, wpop, t_ij_col, facilities_col, locations, facility_rows, client_pop) = data
 
-    BIG        = c(maximum(t_ij_col))
+    BIG        = big_cost()
     client_ids = collect(keys(locations))
     urban      = URBAN_POP > 0 ? Set(j for j in facilities if get(own_pop, j, 0.0) >= URBAN_POP) :
                                  Set{Int}()
@@ -360,7 +361,7 @@ function rung_label()
 end
 
 function run_combo(country, data, own_pop, base, min_cap, max_cap, target_count)
-    BIG = c(maximum(data.t_ij_col))
+    BIG = big_cost()
     travel_bound = (SCENARIO == "S2" && TRAVEL_SLACK !== nothing) ?
                        base.cost_c * (1 + TRAVEL_SLACK) : nothing
     rel = solve_relax(data, own_pop, min_cap, max_cap, target_count, travel_bound)

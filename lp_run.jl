@@ -129,10 +129,10 @@ function client_nearest(open_set, data::CountryData, BIG)
 end
 
 # Coverage-honest travel: every client charged its nearest-open c(t); a client with
-# NO open candidate (stranded by rounding) is charged BIG = c(t_max), the cost of the
-# worst travel time in the exported OD matrix — a principled, dataset-defined penalty
-# (not an arbitrary number), so stranding the rural many-small-fraction clusters is
-# never free. Returns (total weighted travel, #stranded); the count is also reported.
+# NO open candidate (stranded by rounding) is charged BIG = big_cost(), the fixed
+# stranded-client price (c(120 min) for linear-type costs, 1.0 for LOGISTIC — see
+# settings.jl), so stranding the rural many-small-fraction clusters is never free.
+# Returns (total weighted travel, #stranded); the count is also reported.
 function travel_of(open_set, data::CountryData, BIG)
     d1, _, phi1 = client_nearest(open_set, data, BIG)
     t = 0.0; uncov = 0
@@ -217,7 +217,7 @@ function multistart_round(x_relaxed, data::CountryData, p_open, topp_set, greedy
     xvals     = [x_relaxed[j] for j in frac_js]
     k         = clamp(p_open - length(must_open), 0, length(frac_js))
     fixed     = Set(must_open)
-    BIG       = big_cost()   # c(t_max): worst exported travel time, as the stranded-client price
+    BIG       = big_cost()   # fixed stranded-client price: c(120 min) linear / 1.0 logistic
     rng       = MersenneTwister(seed)
 
     seeds = Vector{Set{Int}}()
@@ -228,7 +228,7 @@ function multistart_round(x_relaxed, data::CountryData, p_open, topp_set, greedy
     end
 
     # Select the lowest-travel polished set. Because stranded clients are priced at
-    # BIG = c(t_max), this single metric already prefers coverage; swap_round! also
+    # BIG = big_cost(), this single metric already prefers coverage; swap_round! also
     # avoids creating stranded clients (removing a sole provider costs BIG).
     best_set = union(fixed, seeds[1]); best_t = Inf
     for s in seeds
@@ -406,7 +406,7 @@ function build_lp_warmstart(data::CountryData)
     @variable(model, 0 <= x[j in facilities] <= 1)
 
     # SOFT coverage (agreed 2026-07-10): a client need NOT be assigned to a facility;
-    # leaving it unserved costs BIG = c(t_max) (the same price stranding gets in the
+    # leaving it unserved costs BIG = big_cost() (the same price stranding gets in the
     # baseline and in travel_of). So Σy ≤ 1 (was ==1), and the objective adds the
     # unserved fraction × BIG. Writing the per-client cost as
     #   Σ_k y_k·c(t_k)·p_k + Σ_i p_i·(1 − Σ_k y_k)·BIG
@@ -429,13 +429,12 @@ function build_lp_warmstart(data::CountryData)
     return WarmStartState(model, x, y, data)
 end
 
-# Always IPM + crossover (8-Jul). Warm-started dual simplex degrades catastrophically
-# on the big full-population LPs: each λ step moves every x-coefficient by λ·Δ ~ 10^5-10^6,
-# so the previous basis is far away and the (massively degenerate) re-solve costs hours —
-# Netherlands w=5.0 took 16.7h, and under LOGISTIC (tiny travel objective → facilities
-# dominate the whole range) even w=0.02 timed out. IPM is basis-distance-immune (the old
-# parallel sweep solved w up to 1000 with it); crossover returns a vertex so sum_x/frac_x
-# and the rounding stay clean. LP_TIME_LIMIT (1h default) makes any pathological point a
+# Solver history: on 8-Jul the sweep moved to IPM + crossover because warm-started dual
+# simplex degraded catastrophically on the big full-population HARD-coverage LPs (each λ
+# step moves every x-coefficient by λ·Δ ~ 10^5-10^6, so the previous basis is far away and
+# the massively degenerate re-solve cost hours — Netherlands w=5.0 took 16.7h). Under SOFT
+# coverage (10-Jul) this reversed: solve_at_w! below uses simplex for BOTH travel functions
+# — see the comment there. LP_TIME_LIMIT (1h default) makes any pathological point a
 # skipped point, not a stall.
 const LP_TIME_LIMIT = parse(Float64, get(ENV, "LP_TIME_LIMIT", "3600"))
 
@@ -475,7 +474,7 @@ function solve_at_w!(state::WarmStartState, w::Real)
     n_fractional_x = length(fractional)
     sum_x          = sum(x_relaxed[j] for j in facilities)
     # Coverage-honest LP lower bound (soft coverage): served travel + the unserved
-    # fraction priced at BIG = c(t_max), matching the objective and travel_of. Under
+    # fraction priced at BIG = big_cost(), matching the objective and travel_of. Under
     # Σy ≤ 1 a client may be only partly (or not) served in the relaxation; the dropped
     # fraction must be charged BIG or the bound would understate the integer cost.
     BIG_relax      = big_cost()
@@ -499,7 +498,7 @@ function solve_at_w!(state::WarmStartState, w::Real)
     greedy_set  = greedy_round(x_relaxed, data, p_open)
     multi_set   = multistart_round(x_relaxed, data, p_open, topp_set, greedy_set)
 
-    # One coverage-honest metric for all three: stranded clients priced at c(t_max).
+    # One coverage-honest metric for all three: stranded clients priced at BIG = big_cost().
     BIG = big_cost()
     travel_c_topp,   uncov_topp   = travel_of(topp_set,   data, BIG)
     travel_c_greedy, uncov_greedy = travel_of(greedy_set, data, BIG)

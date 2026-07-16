@@ -55,8 +55,10 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
 3. ✅ *(implemented 5-Jul in lambda_sweep_simplex.jl baseline_metrics — unreachable
    clients (in the candidate OD, absent from the existing OD) priced like the scenarios:
    BIG = 1.0 for LOGISTIC, c(t_max of the data) otherwise; count/pop reported per region.
-   Effective at the next full rerun. Note: after A2, stranding is near-zero in most
-   regions — the islands remain.)*
+   Superseded 12-Jul: BIG is now FIXED at c(120 min) for linear-type costs everywhere
+   (settings.jl big_cost(), env BIG_TRAVELTIME_MIN) — per-region t_max ranged 42–120 min
+   and priced stranding inconsistently across regions. Note: after A2, stranding is
+   near-zero in most regions — the islands remain.)*
    **Coverage-consistent baseline.** `baseline_metrics` silently drops clients that cannot
    reach any existing pharmacy within t_max (DK ~11% of residents, ITG ~15%, SE2 ~5% —
    islands/sparse interior), while the LP must serve everyone. Price the dropped clients
@@ -78,8 +80,9 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
    The LP relaxation is nearly integral (frac_x small), so branch-and-bound is cheap:
    - S1: solve the p-median MIP (binary x + Σx = p, p = baseline count) per region.
    - Make coverage **soft** in the MIP too — a stranding variable per client priced at
-     c(t_max) — so S1 stays well-defined below the full-coverage floor (ITG/SE2 are
-     structural: no λ ever reaches the baseline count under hard coverage).
+     BIG — matching the λ-sweep LP, which is already soft (10-Jul: Σy ≤ 1, unserved
+     priced at BIG; the ex-"structural" ITG/SE2 now bracket, so the MIP is only needed
+     to pin S1/S2 exactly at p, not to make them reachable).
    - Optionally an ε-constraint window over p around the baseline for the local frontier.
 
 6. **Review the OD sparsity rule** (flagged on deck p. 3, feedback requested): each client
@@ -140,6 +143,7 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
     **Align the methodology draft with the implemented solver**: §2.2.2 still describes the
     older randomized-threshold rounding; the implemented method is multistart (top-p +
     CELF-greedy + x*-weighted seeds, swap local search, coverage-honest scoring at
-    c(t_max)) with p = round(Σx*). Also note there that the facility-cost load term
-    β₁·Sⱼ only cancels under full assignment — with soft coverage (item 5) it no longer
-    does exactly.
+    BIG) with p = round(Σx*). Also note there that the facility-cost load term
+    β₁·Sⱼ only cancels under full assignment — with soft coverage it no longer
+    does exactly. Draft needs a re-touch: solver is now warm-start dual simplex for
+    BOTH travel functions (10-Jul, soft coverage), no longer IPM for LOGISTIC.

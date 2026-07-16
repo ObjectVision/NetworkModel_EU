@@ -48,7 +48,7 @@ function regionSlide(e) {
   slide.addText([
     { text: "baseline (current)  ", options: { bold: true, color: NAVY } },
     { text: `${bl.cells.toLocaleString()} cells · ${bl.mean_t.toFixed(2)} min mean · `, options: { color: INK } },
-    { text: `c(t_max) travel  LIN ${fmtCost(bl.cost)} · LOG ${fmtCost(bg.cost)}`, options: { color: MUTED } },
+    { text: `travel (stranded at BIG)  LIN ${fmtCost(bl.cost)} · LOG ${fmtCost(bg.cost)}`, options: { color: MUTED } },
   ], { x: 0.45, y: 1.16, w: 12.4, h: 0.3, fontSize: 10, fontFace: "Calibri" });
 
   // two embedded charts
@@ -83,7 +83,7 @@ function regionSlide(e) {
     x: 0.5, y: 5.5, w: 12.33, colW: [1.5, 1.1, 1.5, 1.6, 1.4, 2.6, 2.63],
     rowH: 0.3, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle",
   });
-  slide.addText("Charts: cost lowerbound (LP relaxation, dashed grey — drawn on top) & cost upperbound (multistart integer solution, solid blue) on the left; log₁₀(facility cost weight €) on the right, vs sum_x; ★ baseline, ◆ S1, ■ S2.  Lower ≤ integer optimum ≤ upper; stranded clients priced at c(t_max) — in the baseline too (coverage-consistent).",
+  slide.addText("Charts: cost lowerbound (LP relaxation, dashed grey — drawn on top) & cost upperbound (multistart integer solution, solid blue) on the left; log₁₀(facility cost weight €) on the right, vs sum_x; ★ baseline, ◆ S1, ■ S2.  Lower ≤ integer optimum ≤ upper; stranded clients priced at BIG (120 min linear / 1.0 logistic) — in the baseline too (coverage-consistent).",
     { x: 0.5, y: 7.12, w: 12.33, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 
@@ -144,7 +144,7 @@ function aggregateSlide() {
   });
   const unbr = [ !L.S1 && "S1", !L.S2 && "S2" ].filter(Boolean).join("/");
   slide.addText(`Exact-by-separability aggregation over ${L.n_regions} disjoint areas (13 countries + FR/IT/SE/PL NUTS-1; country-level Poland excluded in favour of its 7 NUTS-1): at a common λ the sum of the regional optima IS the combined optimum. Summed at the union of swept w-values inside the range every area covers (${L.n_w} points; an area without that exact λ is log-interpolated between its adjacent sweep points — the λ-table rule).` +
-    (unbr ? ` ${unbr} not bracketed: the aggregate baseline (★) lies outside the common λ range — the full-coverage floor exceeds today's count (roadmap: extend the w-grid / exact S1-S2).` : ""),
+    (unbr ? ` ${unbr} not bracketed: the aggregate baseline (★) lies outside the common λ range, which is capped by the slowest regions' sweep limits (LINEAR: Belgium & FRI time out above w = 0.2) — extending those two sweeps closes it; final frontier segment to follow.` : ""),
     { x: 0.5, y: 6.98, w: 12.33, h: 0.46, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 
@@ -187,7 +187,7 @@ function summarySlide() {
   const colW = [0.95, 1.27, 1.27, 1.27, 1.27];
   slide.addTable(mkBlock(data.slice(0, half)), { x: 0.5, y: 3.5, w: 6.03, colW, rowH: 0.27, border: { type: "solid", color: "2A4565", pt: 0.5 }, valign: "middle" });
   slide.addTable(mkBlock(data.slice(half)), { x: 6.8, y: 3.5, w: 6.03, colW, rowH: 0.27, border: { type: "solid", color: "2A4565", pt: 0.5 }, valign: "middle" });
-  slide.addText("cell = multistart travel above the LP-relax bound  (multistart clients stranded by rounding, priced at c(t_max)).  Sparse Swedish regions keep the largest bound-gaps.",
+  slide.addText("cell = multistart travel above the LP-relax bound  (multistart clients stranded by rounding, priced at BIG).  Sparse Swedish regions keep the largest bound-gaps.",
     { x: 0.5, y: 7.12, w: 12.33, h: 0.3, fontSize: 8.5, italic: true, color: "9FB0C2", fontFace: "Calibri" });
 }
 
@@ -221,12 +221,11 @@ function statusSlide() {
     "Recalculation done: candidates = ≥50-pop cells ∪ pharmacy cells · clients = FULL population · adapted logit (25/10) — all 42 areas re-swept, incl. Poland + its 7 NUTS-1",
     "Aggregated frontier over all 41 disjoint areas (exact by separability) — new page after the region pages",
     "LINEAR & LOGISTIC travel costs both run & compared",
+    "Soft coverage (Σy ≤ 1, unserved priced at BIG on BOTH sides): FRM, ITG, SE2, DK now bracket S1 & S2; baseline coverage-consistent",
   ]);
   col(4.62, AMBER, "FBF5EA", "In progress ◐", [
-    "Investigate and fix sweeps for FRM, ITG, SE2 (diagnosed: baseline drops unreachable clients + w-grid truncation; DK the same)",
-    "Extend the w-grid upward so S1 brackets everywhere — also unlocks aggregate S1/S2",
-    "Fix baseline_metrics: it drops un-reachable clients (ITG ≈14% of pop) while the sweep prices them at c(t_max) — make consistent before any distance-to-Pareto metric",
-    "A single 2-D status-quo→frontier distance metric (coverage-honest; stranded priced at c(t_max))",
+    "Extend Belgium & FRI LINEAR sweeps past w = 0.2 (LP time limit) — the last gap: aggregate LINEAR S2",
+    "A single 2-D status-quo→frontier distance metric (coverage-honest; stranded priced at BIG)",
     "Calculating better estimations for S1 and S2 (exact soft-coverage p-median MIP at p = baseline)",
     "Exploring (not committed): max-cap + min-threshold rungs — but the descriptives suggest realistic bounds are hard to set, so this may not pay off",
   ]);
@@ -403,7 +402,7 @@ function capSlide(csvName) {
   ], { x: 8.77, y: 4.15, w: 4.05, h: 2.5, fontSize: 11, fontFace: "Calibri", valign: "top" });
   slide.addText([
     { text: "PRELIMINARY — INDICATIVE ONLY. ", options: { bold: true, color: "B23A2E" } },
-    { text: "Full-scale ladder run incomplete; S1 (fixed-count) figures are sensitive to LP-relaxation rounding and can shift on re-run (robust multistart rounding still to be ported) — read the direction, not the exact %. LINEAR travel cost; max cap = NL observed cell-catchment max (~35k). 'stranded' = demand the cap can't serve within reach, priced at c(t_max).", options: { color: MUTED } },
+    { text: "Full-scale ladder run incomplete; S1 (fixed-count) figures are sensitive to LP-relaxation rounding and can shift on re-run (robust multistart rounding still to be ported) — read the direction, not the exact %. LINEAR travel cost; max cap = NL observed cell-catchment max (~35k). 'stranded' = demand the cap can't serve within reach, priced at that run's c(t_max) (the λ-sweep now prices stranding at BIG).", options: { color: MUTED } },
   ], { x: 0.45, y: 6.72, w: 12.5, h: 0.55, fontSize: 8.5, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
@@ -590,7 +589,7 @@ function multistartSlide() {
     ["Fix the count", "p = round(Σ xⱼ*) — the integer pharmacy count nearest the LP's fractional total, so every rounded point stays on the same axis as the relaxation."],
     ["Seed 10 candidate sets", "top-p by x* and the lazy-greedy set (CELF, Leskovec et al. 2007 — marginal travel gains are submodular), so the result can never be worse than either; plus 8 x*-weighted random draws (Efraimidis–Spirakis 2006 A-Res); must-open pharmacies (x*≈1) are always kept."],
     ["Polish by swaps", "best-improving open↔closed swaps over the fractional pool — the classic p-median vertex-substitution search, in its fast-interchange form (Resende & Werneck 2007). Each swap is accepted only if the exact travel delta improves — cost strictly decreases, ≤ 12 rounds per seed."],
-    ["Score coverage-honestly, keep the best", "every client priced at its nearest open pharmacy, c(t); a client left with no open pharmacy in the OD (stranded) is priced at c(t_max) — the worst travel time in the data, so abandoning remote clusters is never free. Lowest total wins."],
+    ["Score coverage-honestly, keep the best", "every client priced at its nearest open pharmacy, c(t); a client left with no open pharmacy in the OD (stranded) is priced at BIG — 120 min (linear) / 1.0 (logistic), the same price as in the LP and the baseline, so abandoning remote clusters is never free. Lowest total wins."],
   ];
   const y0 = 1.42, dy = 0.98;
   steps.forEach((s, i) => {

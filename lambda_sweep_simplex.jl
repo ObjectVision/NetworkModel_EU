@@ -252,7 +252,7 @@ function analyze_country(country)
     ws_common = sort(unique(Float64[m * 10.0^d for d in -4:0 for m in (1.0, 2.0, 5.0)
                                     if m * 10.0^d <= w_max * (1.0 + 1e-9)]))
     pln()
-    pln("Common λ sweep ($travel_func_name): fixed grid 1-2-5/decade, 1e-4 … $w_max, always IPM, no early stop.")
+    pln("Common λ sweep ($travel_func_name): fixed grid 1-2-5/decade, 1e-4 … $w_max, warm-start dual simplex, no early stop.")
     print_sweep_header(target_raw)
 
     results = []
@@ -267,7 +267,7 @@ function analyze_country(country)
     bracket_S1 = find_bracket(results, target_cells, r -> r.sum_x, true)
     bracket_S2 = find_bracket(results, base.cost_c,  r -> r.cost_c, false)
     if bracket_S1 === nothing
-        pln("  S1 (sum_x=$target_cells) not bracketed at w_max=$w_max: full-coverage floor above the baseline count → soft-coverage MIP (todo #5), not a grid issue.")
+        pln("  S1 (sum_x=$target_cells) not bracketed at w_max=$w_max: under soft coverage the frontier should pass the baseline count — check for skipped/timed-out points or extend SWEEP_WMAX; exact pin via soft-coverage MIP (todo #5).")
     end
 
     # Structural coverage-floor regions (ITG/Portugal/PL8): under the #3 coverage-consistent

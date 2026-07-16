@@ -123,8 +123,8 @@ def render(region, fn, fd):
 
 
 def render_logistic():
-    """Compare the current logistic travel cost (midpoint 30, scale 15) with a
-    Lewis-tuned alternative (midpoint 25, scale 10) over 0-60 min."""
+    """Compare the previous logistic travel cost (midpoint 30, scale 15) with the
+    adopted Lewis-tuned form (midpoint 25, scale 10 — settings.jl default) over 0-60 min."""
     import numpy as np
     t = np.linspace(0, 60, 241)
     L = lambda t, m, s: 1.0 / (1.0 + np.exp(-(t - m) / s))
