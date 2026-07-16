@@ -146,7 +146,13 @@ def parse(path):
 
 def main():
     out = []
+    # Optional partial-deck filter: DECK_ONLY="Netherlands,ITG,..." restricts to a subset
+    # (used for preview decks while a re-run is still finishing the other regions).
+    only = os.environ.get("DECK_ONLY", "").strip()
+    only_set = set(s.strip() for s in only.split(",") if s.strip()) if only else None
     for reg in ORDER:
+        if only_set is not None and reg not in only_set:
+            continue
         entry = {"region": reg, "title": NICE.get(reg, (reg, reg))[0],
                  "name": NICE.get(reg, (reg, reg))[1], "func": {}}
         ok = False

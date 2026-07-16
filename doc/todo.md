@@ -125,7 +125,19 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
 11. **Correlate catchment size with travel costs** (roadmap bullet "Corr catchment &
     travel costs") — now cheap post-processing on the per-region arrows.
 
-12. **Align the methodology draft with the implemented solver**: §2.2.2 still describes the
+12. ✅ *(done 10-Jul — the draft now matches the implementation end-to-end: §2.2.2 rewritten
+    to the multistart rounding (top-p + CELF-greedy + Efraimidis–Spirakis A-Res x*-weighted
+    seeds + Resende–Werneck swap search, incl. the ∝x_j proof; References section added);
+    assumptions switched to SOFT coverage (Σy ≤ 1, unserved demand priced at f(t_max) —
+    matching the 10-Jul solver change); objective corrected to
+    C = Σ f(t)·Q·y + f(t_max)·Q·(1−Σy) + λ·β0·Σx, with the β1·S_j load term explicitly
+    noted as omitted (≈constant under (near-)full assignment); "log-logistic" → logistic
+    (midpoint 25 / scale 10) in all 3 places; OD sparsity rule stated precisely (all
+    candidates up to the 5th-nearest EXISTING facility, 120-min cap); solver per variant
+    (warm-started dual simplex LINEAR, IPM-no-crossover LOGISTIC); λ-grid (1-2-5/decade,
+    per travel function, bisection refinement) and the coverage-consistent baseline in the
+    S1/S2 section.)*
+    **Align the methodology draft with the implemented solver**: §2.2.2 still describes the
     older randomized-threshold rounding; the implemented method is multistart (top-p +
     CELF-greedy + x*-weighted seeds, swap local search, coverage-honest scoring at
     c(t_max)) with p = round(Σx*). Also note there that the facility-cost load term

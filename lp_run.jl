@@ -217,7 +217,7 @@ function multistart_round(x_relaxed, data::CountryData, p_open, topp_set, greedy
     xvals     = [x_relaxed[j] for j in frac_js]
     k         = clamp(p_open - length(must_open), 0, length(frac_js))
     fixed     = Set(must_open)
-    BIG       = c(maximum(t_ij_col))   # c(t_max): worst exported travel time, as the stranded-client price
+    BIG       = big_cost()   # c(t_max): worst exported travel time, as the stranded-client price
     rng       = MersenneTwister(seed)
 
     seeds = Vector{Set{Int}}()
@@ -405,12 +405,22 @@ function build_lp_warmstart(data::CountryData)
     @variable(model, 0 <= y[1:N] <= 1)
     @variable(model, 0 <= x[j in facilities] <= 1)
 
-    # Travel-cost objective term (constant across w); x-term coefficients are
-    # set per call to solve_at_w!. We initialise them to 0 here.
-    @objective(model, Min, sum(y[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N))
+    # SOFT coverage (agreed 2026-07-10): a client need NOT be assigned to a facility;
+    # leaving it unserved costs BIG = c(t_max) (the same price stranding gets in the
+    # baseline and in travel_of). So Σy ≤ 1 (was ==1), and the objective adds the
+    # unserved fraction × BIG. Writing the per-client cost as
+    #   Σ_k y_k·c(t_k)·p_k + Σ_i p_i·(1 − Σ_k y_k)·BIG
+    #   = Σ_k y_k·(c(t_k) − BIG)·p_k  +  BIG·Σ_i p_i        (constant dropped from argmin),
+    # the y-coefficient is (c(t_k) − BIG)·p_k (≤ 0, constant across w); x-coeffs = λ are
+    # set per w in solve_at_w!. This lets the LP CHOOSE to strand a remote client when a
+    # facility that would serve it costs more than the BIG it saves — so the frontier
+    # extends below the full-coverage floor, down to (and past) the existing-facility
+    # count, and the baseline becomes a feasible point on/above it (never below).
+    BIG = big_cost()
+    @objective(model, Min, sum(y[k] * (c(t_ij_col[k]) - BIG) * wpop[k] for k in 1:N))
 
     for (_, rows) in locations
-        @constraint(model, sum(y[k] for k in rows) == 1)
+        @constraint(model, sum(y[k] for k in rows) <= 1)
     end
     for k in 1:N
         @constraint(model, y[k] <= x[facilities_col[k]])
@@ -440,23 +450,15 @@ function solve_at_w!(state::WarmStartState, w::Real)
         set_objective_coefficient(model, x[j], λ)
     end
 
-    # Solver PER TRAVEL FUNCTION (8-Jul, 2nd correction). The two functions want opposite
-    # solvers because of objective scaling:
-    #  • LINEAR — travel objective is large/well-scaled, so warm-start dual simplex steps
-    #    cheaply along the λ-grid (this is what completed the giants in the recalc). IPM is
-    #    pathologically slow on the big full-population LPs (Netherlands: every point from
-    #    w=0.005 up timed out at 1h). The only reason IPM was introduced — the high-λ simplex
-    #    blow-up — is already prevented by the w_max cap (0.5), so LINEAR keeps simplex.
-    #  • LOGISTIC — c(t)∈[0,1] makes travel tiny, facilities dominate, the LP is degenerate
-    #    and warm-start simplex chokes (Austria died at w=0.02); IPM at the capped w≤0.02 is
-    #    fast (Belgium 13-52s/point), so LOGISTIC uses IPM + crossover.
-    if travel_func == FUNC_LOGISTIC
-        set_optimizer_attribute(model, "solver", "ipm")
-        set_optimizer_attribute(model, "run_crossover", "on")
-    else
-        set_optimizer_attribute(model, "solver", "simplex")
-        set_optimizer_attribute(model, "run_crossover", "off")
-    end
+    # Simplex for BOTH travel functions under SOFT coverage (2026-07-10). The old split
+    # (LOGISTIC→IPM) was a hard-coverage workaround for warm-start-simplex degeneracy; under
+    # soft coverage IPM fails outright on LOGISTIC (every ITG point returned OTHER_ERROR —
+    # the (c(t)−BIG)·pop objective spans too wide a coefficient range for IPM), while simplex
+    # is fast and robust for both (ITG LINEAR 4–8 s/point). Warm-started dual simplex steps
+    # cheaply along the λ-grid, and soft high-λ points are cheap (few open facilities ⇒ small
+    # basis), so the earlier high-λ blow-up that motivated IPM no longer applies.
+    set_optimizer_attribute(model, "solver", "simplex")
+    set_optimizer_attribute(model, "run_crossover", "off")
     set_optimizer_attribute(model, "time_limit", LP_TIME_LIMIT)
 
     optimize!(model)
@@ -472,7 +474,18 @@ function solve_at_w!(state::WarmStartState, w::Real)
     fractional     = [j for j in facilities if tol < x_relaxed[j] < 1 - tol]
     n_fractional_x = length(fractional)
     sum_x          = sum(x_relaxed[j] for j in facilities)
-    travel_relax   = sum(y_relaxed[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N)
+    # Coverage-honest LP lower bound (soft coverage): served travel + the unserved
+    # fraction priced at BIG = c(t_max), matching the objective and travel_of. Under
+    # Σy ≤ 1 a client may be only partly (or not) served in the relaxation; the dropped
+    # fraction must be charged BIG or the bound would understate the integer cost.
+    BIG_relax      = big_cost()
+    served_relax   = sum(y_relaxed[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N)
+    stranded_relax = 0.0
+    for (_, rows) in locations
+        served_i = sum(y_relaxed[k] for k in rows)
+        stranded_relax += BIG_relax * wpop[rows[1]] * (1.0 - served_i)
+    end
+    travel_relax   = served_relax + stranded_relax
 
     # Three roundings of the LP relaxation to the same count p_open = round(sum_x):
     #   topp       — the p_open facilities with the largest x_relaxed.
@@ -487,7 +500,7 @@ function solve_at_w!(state::WarmStartState, w::Real)
     multi_set   = multistart_round(x_relaxed, data, p_open, topp_set, greedy_set)
 
     # One coverage-honest metric for all three: stranded clients priced at c(t_max).
-    BIG = c(maximum(t_ij_col))
+    BIG = big_cost()
     travel_c_topp,   uncov_topp   = travel_of(topp_set,   data, BIG)
     travel_c_greedy, uncov_greedy = travel_of(greedy_set, data, BIG)
     travel_c_multi,  uncov_multi  = travel_of(multi_set,  data, BIG)

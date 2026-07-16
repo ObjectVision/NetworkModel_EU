@@ -137,8 +137,7 @@ function baseline_metrics(existing, new_data)
         push!(used, existing.facilities_col[best_k])
     end
     covered_pop = sum(existing.wpop[rows[1]] for (_, rows) in existing.locations)
-    t_max = maximum(new_data.t_ij_col)
-    BIG   = travel_func == FUNC_LOGISTIC ? 1.0 : c(t_max)
+    BIG   = big_cost()                    # fixed 120-min cutoff (LINEAR) / 1.0 (LOGISTIC)
     stranded_pop = 0.0
     n_stranded   = 0
     for (i, _) in new_data.locations
@@ -147,7 +146,7 @@ function baseline_metrics(existing, new_data)
         stranded_pop += p
         n_stranded   += 1
         total_c += BIG * p
-        total_t += t_max * p
+        total_t += MAX_TRAVELTIME_MIN * p   # stranded clients enter mean-time at the 120-min cutoff
     end
     total_pop = covered_pop + stranded_pop
     return (cost_c=total_c, time_total=total_t, mean_t=total_t/total_pop,
@@ -237,20 +236,19 @@ function analyze_country(country)
         return r
     end
 
-    # Fixed common grid PER TRAVEL FUNCTION (doc/todo.md B4 + 8-Jul). LINEAR and LOGISTIC
-    # live on ~100×-different λ scales — logistic c(t)∈[0,1] makes the travel objective
-    # tiny, so facilities dominate at far lower λ — hence a single grid is wrong (and the
-    # LOGISTIC high-λ tail is pathological). 1-2-5 per decade from 1e-4 up to w_max,
-    # identical for every region ⇒ the aggregate gets full common-λ support. w_max is set
-    # from the recalc data so sum_x drops below and travel rises above the baseline for
-    # MOST regions: LINEAR 0.5 (S1 crossings ≤0.5, S2 p90=0.49 — brackets ~90%; the last
-    # ~4 S2 outliers at ≤0.57 would need w=1.0, an hour-long timeout on the giants, not
-    # worth it), LOGISTIC 0.02 (S1 ≤0.007, S2 ≤0.01) which also skips the pathological
-    # w=0.05..5.0 LOGISTIC tail. The 3 structural coverage-floor regions (Portugal/ITG/PL8)
-    # never bracket S1 at any λ — soft-coverage MIP (todo #5), NOT a grid problem, so there
-    # is NO upward extension (it only ground for hours). Env override: SWEEP_WMAX.
+    # Fixed common grid PER TRAVEL FUNCTION. LINEAR and LOGISTIC live on ~100×-different λ
+    # scales — logistic c(t)∈[0,1] makes the travel objective tiny, so facilities dominate at
+    # far lower λ. 1-2-5 per decade from 1e-4 up to w_max, identical for every region ⇒ the
+    # aggregate gets full common-λ support. Under SOFT coverage (2026-07-10) the frontier no
+    # longer stops at a full-coverage floor — as λ rises the LP strands ever more remote
+    # clients, so sum_x keeps falling toward 0 and the curve runs down past the existing-
+    # facility count. w_max must therefore reach high enough λ that both S1 (baseline count)
+    # and S2 (baseline cost) bracket even for the ex-"structural" regions (ITG/PT/PL8):
+    # LINEAR 5.0 (ITG: sum_x 178 @ w5, cost 1.75e8 > baseline 1.4e8 ⇒ S2 brackets; S1 @ ~0.7),
+    # LOGISTIC 0.5. Soft high-λ solves are CHEAP (few open facilities ⇒ small basis), so the
+    # wide grid is affordable. Env override: SWEEP_WMAX.
     w_max = haskey(ENV, "SWEEP_WMAX") ? parse(Float64, ENV["SWEEP_WMAX"]) :
-            travel_func == FUNC_LOGISTIC ? 0.02 : 0.5
+            travel_func == FUNC_LOGISTIC ? 0.5 : 5.0
     ws_common = sort(unique(Float64[m * 10.0^d for d in -4:0 for m in (1.0, 2.0, 5.0)
                                     if m * 10.0^d <= w_max * (1.0 + 1e-9)]))
     pln()
@@ -272,12 +270,20 @@ function analyze_country(country)
         pln("  S1 (sum_x=$target_cells) not bracketed at w_max=$w_max: full-coverage floor above the baseline count → soft-coverage MIP (todo #5), not a grid issue.")
     end
 
-    if bracket_S1 === nothing && bracket_S2 === nothing
-        pln("\nNeither S1 (sum_x=$target_cells) nor S2 (cost=$(round(base.cost_c,digits=0))) found in coarse range.")
-        pln("Skipping fine sweep for $country.")
-        return
+    # Structural coverage-floor regions (ITG/Portugal/PL8): under the #3 coverage-consistent
+    # baseline the stranded-client BIG penalties dominate, so the baseline cost/count fall
+    # OUTSIDE the frontier's range and neither S1 nor S2 brackets. Do NOT return early — still
+    # emit the Combined-sweep table (the frontier that build_deck_data/build_charts plot; an
+    # early return left rows=[] → the region rendered empty). Skip only the fine sweep and the
+    # S1/S2 summary+arrows (a nearest-point S1/S2 here would be a misleading frontier-edge
+    # scenario); exact S1/S2 for these need the soft-coverage MIP (todo #5).
+    do_fine = bracket_S1 !== nothing || bracket_S2 !== nothing
+    if !do_fine
+        pln("\nNeither S1 (sum_x=$target_cells) nor S2 (cost=$(round(base.cost_c,digits=0))) bracketed in coarse range (structural coverage-floor region).")
+        pln("Emitting coarse frontier only; exact S1/S2 via soft-coverage MIP (todo #5).")
     end
 
+    if do_fine
     candidate_los = filter(!isnothing, [bracket_S1 === nothing ? nothing : bracket_S1[1],
                                          bracket_S2 === nothing ? nothing : bracket_S2[1]])
     candidate_his = filter(!isnothing, [bracket_S1 === nothing ? nothing : bracket_S1[2],
@@ -339,12 +345,17 @@ function analyze_country(country)
         end
         sort!(results, by=x->x.w)
     end
+    end  # if do_fine (fine sweep + S2 bisection)
 
     pln()
     pln("Combined sweep, sorted by w:")
     print_sweep_header(target_raw)
     for r in results
         print_sweep_row(r, target_cells, target_raw)
+    end
+
+    if !do_fine
+        return   # structural region: frontier emitted above, no bracketed S1/S2 to summarise
     end
 
     function closest(results, target, key)

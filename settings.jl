@@ -88,6 +88,14 @@ function c(t)
     end
 end
 
+# Stranded-client price (BIG). Fixed at the MAX_TRAVELTIME_MIN=120 OD cutoff EVERYWHERE for
+# linear-type costs (2026-07-12) — NOT each region's observed t_max, which ranged 42–120 min
+# across regions and priced stranding inconsistently (Paris 42 vs Norway 120), breaking the
+# cross-region aggregate. For LINEAR, c(120)=120 exactly. LOGISTIC saturates, so BIG=1.0.
+# Env override BIG_TRAVELTIME_MIN for experiments.
+const MAX_TRAVELTIME_MIN = parse(Float64, get(ENV, "BIG_TRAVELTIME_MIN", "120"))
+big_cost() = travel_func == FUNC_LOGISTIC ? 1.0 : c(MAX_TRAVELTIME_MIN)
+
 function facility_cost(q)
     if facility_func == FUNC_LINEAR
         return FACILITY_MIN_COSTS + q * FACILITY_CLIENT_COSTS
