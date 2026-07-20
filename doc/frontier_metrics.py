@@ -121,13 +121,20 @@ def metrics_for(base, rows):
     S2x, s2_br = interp_x_at_y(env, By)
     C = (S2x, S1y)
     rect_area = (Bx - S2x) * (By - S1y)
+    # Rectangle RELATIVE to the region's own baseline facility-cost × travel-cost.
+    # denominator = (Bx·FACILITY_MIN_COSTS)·By, numerator = ((Bx−S2x)·FACILITY_MIN_COSTS)·(By−S1y)
+    # ⇒ the €/facility constant cancels, leaving fractional-facility-saving ×
+    # fractional-travel-saving, dimensionless in [0,1] and size-independent (the raw
+    # area mostly ranks by region size; this ranks by improvement potential).
+    rect_rel = ((Bx - S2x) / Bx) * ((By - S1y) / By) if Bx and By else None
     cross = diagonal_cross(env, (Bx, By), C)
     lam = None
     if cross is not None:
         lam = interp_w_at_x(env, cross[0]) * FACILITY_MIN_COSTS
     return {
         "B": [Bx, By], "S1": [Bx, S1y], "S2": [S2x, By], "corner": list(C),
-        "rect_area": rect_area, "cross": list(cross) if cross else None,
+        "rect_area": rect_area, "rect_rel": rect_rel,
+        "cross": list(cross) if cross else None,
         "lambda_cross": lam, "s1_bracketed": s1_br, "s2_bracketed": s2_br,
         "frontier_count_range": [env[0][0], env[-1][0]],
         "n_frontier_pts": len(env),
@@ -160,11 +167,12 @@ def main():
     with open(csv_path, "w", newline="", encoding="utf-8") as fh:
         wtr = csv.writer(fh)
         wtr.writerow(["region", "func", "B_x", "B_y", "S1_y", "S2_x",
-                      "rect_area", "cross_x", "cross_y", "lambda_cross",
+                      "rect_area", "rect_rel", "cross_x", "cross_y", "lambda_cross",
                       "s1_bracketed", "s2_bracketed"])
         for reg, fn, m in table:
             wtr.writerow([reg, fn, m["B"][0], f'{m["B"][1]:.0f}', f'{m["S1"][1]:.0f}',
                           f'{m["S2"][0]:.1f}', f'{m["rect_area"]:.3e}',
+                          f'{m["rect_rel"]:.5f}' if m["rect_rel"] is not None else "",
                           f'{m["cross"][0]:.1f}' if m["cross"] else "",
                           f'{m["cross"][1]:.0f}' if m["cross"] else "",
                           f'{m["lambda_cross"]:.1f}' if m["lambda_cross"] else "",

@@ -117,5 +117,9 @@ for fn in FUNCS:
                          False, f"rank_lambda_{fn}.png"))
     made.append(rank_bar(fn, "rect_area", "potential rectangle area (raw: #F × travel-cost)",
                          True, f"rank_area_{fn}.png"))
+    # size-independent version: rectangle / (baseline facility-cost × travel-cost)
+    made.append(rank_bar(fn, "rect_rel",
+                         "potential rectangle relative to baseline facility × travel cost",
+                         False, f"rank_area_rel_{fn}.png"))
 for p in made:
     print("wrote", os.path.relpath(p, ROOT))
