@@ -62,9 +62,21 @@ function load_from(dir, country; apply_factor::Bool=true)::CountryData
     loc = Arrow.Table(joinpath(dir, "$(country)_i.arrow"))
     fac = Arrow.Table(joinpath(dir, "$(country)_j.arrow"))
 
+    # Keep every baseline location when subsampling (see lambda_sweep_simplex.jl load_from).
     factor         = apply_factor ? LOCATION_SELECTION_FACTOR : 1
     facilities_all = Int.(fac[:id])
-    facilities     = facilities_all[1:factor:length(facilities_all)]
+    expath         = joinpath(LOCAL_DATA_PROJ_DIR, "ExistingPharmacies", "$(country)_j.arrow")
+    if factor > 1 && get(ENV, "PROTECT_BASELINE", "1") == "1" &&
+       isfile(expath) && (:x in propertynames(fac))
+        exj  = Arrow.Table(expath)
+        base = Set(zip(Int.(round.(collect(exj.x))), Int.(round.(collect(exj.y)))))
+        fx   = Int.(round.(collect(fac[:x]))); fy = Int.(round.(collect(fac[:y])))
+        isb  = [(fx[i], fy[i]) in base for i in eachindex(facilities_all)]
+        rest = facilities_all[.!isb]
+        facilities = sort(unique(vcat(facilities_all[isb], rest[1:factor:end])))
+    else
+        facilities = facilities_all[1:factor:length(facilities_all)]
+    end
     fset           = Set(facilities)
     od_facrel_all  = Int.(od[:facility_rel])
     mask           = factor == 1 ? trues(length(od_facrel_all)) :
