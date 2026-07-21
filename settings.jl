@@ -146,9 +146,28 @@ function load_country(country; apply_factor::Bool=true)::CountryData
     fac = Arrow.Table(input_path(country, "j"))
 
     # Subsample facilities (every K-th row); filter OD to references that survive.
+    # ALWAYS keep candidate cells that coincide with an existing (baseline) pharmacy —
+    # a blind stride drops most baseline locations (FRI factor=3 kept only 35%), so the
+    # frontier can no longer reproduce the current network: it stops dominating the
+    # baseline and S1/S2 land on the wrong side (S2 ends up with MORE facilities than
+    # baseline). Only the NON-baseline extras are strided. Env PROTECT_BASELINE=0 to
+    # restore the old blind-stride behaviour.
     factor         = apply_factor ? LOCATION_SELECTION_FACTOR : 1
     facilities_all = Int.(fac[:id])
-    facilities     = facilities_all[1:factor:length(facilities_all)]
+    protect        = get(ENV, "PROTECT_BASELINE", "1") == "1"
+    expath         = joinpath(LOCAL_DATA_PROJ_DIR, "ExistingPharmacies", "$(country)_j.arrow")
+    if factor > 1 && protect && isfile(expath) && (:x in propertynames(fac))
+        exj  = Arrow.Table(expath)
+        base = Set(zip(Int.(round.(collect(exj.x))), Int.(round.(collect(exj.y)))))
+        fx   = Int.(round.(collect(fac[:x]))); fy = Int.(round.(collect(fac[:y])))
+        isb  = [(fx[i], fy[i]) in base for i in eachindex(facilities_all)]
+        rest = facilities_all[.!isb]
+        facilities = sort(unique(vcat(facilities_all[isb], rest[1:factor:end])))
+        @info "load_country($country): protected $(count(isb)) baseline candidates; " *
+              "kept $(length(facilities)) of $(length(facilities_all)) (factor=$factor)"
+    else
+        facilities = facilities_all[1:factor:length(facilities_all)]
+    end
     fset           = Set(facilities)
     od_facrel_all  = Int.(od[:facility_rel])
     mask           = factor == 1 ? trues(length(od_facrel_all)) :
