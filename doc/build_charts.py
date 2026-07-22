@@ -60,8 +60,16 @@ def interp_s1_s2(fd):
 
 
 def window(fd, s1, s2):
+    rows_all = sorted(fd["rows"], key=lambda r: r["sum_x"])
+    By = fd["baseline"].get("cost")
     anchors = [p[0] for p in (s1, s2) if p]
     anchors.append(fd["baseline"].get("cells"))
+    # Keep the frontier arm that rises ABOVE baseline travel visible, so S2 sits ON the
+    # drawn curve rather than floating past its clipped left end. Include the lowest-sum_x
+    # row whose travel >= baseline cost (the point just past S2 into higher-λ territory).
+    above = [r["sum_x"] for r in rows_all if By is not None and r["multi"] >= By]
+    if above:
+        anchors.append(min(above))
     anchors = [a for a in anchors if a]
     ref = anchors if anchors else [r["sum_x"] for r in fd["rows"]]
     lo, hi = 0.6 * min(ref), 1.7 * max(ref)
