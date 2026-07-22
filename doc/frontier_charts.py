@@ -62,22 +62,27 @@ def pointcloud(fn):
         forms.add(form)
         col = FORM_COLOR[form]
         Bx, By = d["B"]
-        # projection = diagonal crossing on the frontier (fallback: corner)
+        S1x, S1y = d["S1"]      # (baseline count, min travel there) — same-count scenario
+        S2x, S2y = d["S2"]      # (min count, baseline travel)       — same-travel scenario
         proj = d["cross"] or d["corner"]
         Px, Py = proj
-        ax.plot([Bx, Px], [By, Py], "-", color=col, lw=0.8, alpha=0.55, zorder=2)
-        ax.scatter([Bx], [By], marker="*", s=95, color=col, edgecolor="white",
-                   lw=0.6, zorder=4)
-        ax.scatter([Px], [Py], marker="o", s=26, color=col, edgecolor="white",
-                   lw=0.5, zorder=4)
+        # the improvement box: baseline (top-right) — S1 (drop straight down) —
+        # S2 (straight left) — with the diagonal to the frontier crossing.
+        ax.plot([Bx, S1x], [By, S1y], "-", color=col, lw=0.7, alpha=0.4, zorder=2)  # vertical -> S1
+        ax.plot([Bx, S2x], [By, S2y], "-", color=col, lw=0.7, alpha=0.4, zorder=2)  # horizontal -> S2
+        ax.plot([Bx, Px], [By, Py], "-", color=col, lw=0.9, alpha=0.6, zorder=2)     # diagonal -> crossing
+        ax.scatter([Bx], [By], marker="*", s=95, color=col, edgecolor="white", lw=0.6, zorder=5)
+        ax.scatter([S1x], [S1y], marker="D", s=20, color=col, edgecolor="white", lw=0.4, zorder=4)
+        ax.scatter([S2x], [S2y], marker="s", s=20, color=col, edgecolor="white", lw=0.4, zorder=4)
+        ax.scatter([Px], [Py], marker="o", s=22, color=col, edgecolor="white", lw=0.4, zorder=4)
         ax.annotate(label_of(reg), (Bx, By), fontsize=5.5, color="#444",
-                    xytext=(2, 2), textcoords="offset points", zorder=5)
+                    xytext=(2, 2), textcoords="offset points", zorder=6)
     ax.set_xscale("log"); ax.set_yscale("log")
-    ax.set_xlabel("# facilities  (baseline ★ → balanced-frontier projection ●)", fontsize=9)
+    ax.set_xlabel("# facilities   (★ baseline · ◆ S1 same-count · ■ S2 same-travel · ● frontier crossing)", fontsize=8.5)
     ax.set_ylabel(f"total travel cost c(t)   [{fn}]", fontsize=9)
-    ax.set_title(f"Baselines and their frontier projections — {fn}", fontsize=11)
+    ax.set_title(f"Baselines, S1/S2 and frontier projections — {fn}", fontsize=11)
     ax.grid(True, which="both", ls=":", lw=0.4, color="#CCC")
-    ax.legend(handles=legend_handles(forms), fontsize=8, loc="upper right",
+    ax.legend(handles=legend_handles(forms), fontsize=8, loc="lower left",
               title="policy typology · formalisation", title_fontsize=8)
     fig.tight_layout()
     p = os.path.join(CH, f"pointcloud_{fn}.png")

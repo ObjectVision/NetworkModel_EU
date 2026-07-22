@@ -28,9 +28,39 @@ plt.rcParams.update({
 })
 
 
-def window(fd):
-    sc = fd.get("scen", {})
-    anchors = [sc[k]["sum_x"] for k in ("S1", "S2") if sc.get(k) and sc[k].get("sum_x")]
+# Interpolated S1/S2 ON the drawn multistart curve (sum_x, multi), so the markers sit
+# exactly on the frontier and on the baseline reference line — unlike the crude nearest
+# sweep-row in the log's scenario summary (which can land visibly off the baseline, e.g.
+# SE2). S1 = min travel at the baseline facility count; S2 = min count at the baseline
+# travel. Returns None when the swept frontier does not span the target (cliff-capped
+# regions whose λ never rises enough for travel to reach baseline — then no marker, which
+# correctly signals "S2 beyond the swept λ range").
+def interp_s1_s2(fd):
+    rows = sorted(fd["rows"], key=lambda r: r["sum_x"])
+    if len(rows) < 2:
+        return None, None
+    Bx, By = fd["baseline"].get("cells"), fd["baseline"].get("cost")
+    xs = [r["sum_x"] for r in rows]
+    s1 = None
+    if Bx is not None and min(xs) <= Bx <= max(xs):
+        for a, b in zip(rows, rows[1:]):
+            if a["sum_x"] <= Bx <= b["sum_x"] and b["sum_x"] != a["sum_x"]:
+                f = (Bx - a["sum_x"]) / (b["sum_x"] - a["sum_x"])
+                s1 = (Bx, a["multi"] + f * (b["multi"] - a["multi"]))
+                break
+    s2 = None
+    if By is not None:
+        for a, b in zip(rows, rows[1:]):
+            ylo, yhi = sorted((a["multi"], b["multi"]))
+            if ylo <= By <= yhi and b["multi"] != a["multi"]:
+                f = (By - a["multi"]) / (b["multi"] - a["multi"])
+                s2 = (a["sum_x"] + f * (b["sum_x"] - a["sum_x"]), By)
+                break
+    return s1, s2
+
+
+def window(fd, s1, s2):
+    anchors = [p[0] for p in (s1, s2) if p]
     anchors.append(fd["baseline"].get("cells"))
     anchors = [a for a in anchors if a]
     ref = anchors if anchors else [r["sum_x"] for r in fd["rows"]]
@@ -47,7 +77,8 @@ def fmt_cost(ax):
 
 
 def render(region, fn, fd):
-    rows = window(fd)
+    s1_pt, s2_pt = interp_s1_s2(fd)
+    rows = window(fd, s1_pt, s2_pt)
     sx = [r["sum_x"] for r in rows]
     relax = [r["relax"] for r in rows]
     multi = [r["multi"] for r in rows]
@@ -79,15 +110,20 @@ def render(region, fn, fd):
     ax.scatter([base["cells"]], [base["cost"]], marker="*", s=170, color=BASE,
                edgecolor="white", linewidth=0.6, zorder=8, label="baseline (current)")
 
-    # S1 / S2 markers on the multistart curve
-    for key, col, mk in (("S1", S1C, "D"), ("S2", S2C, "s")):
-        d = sc.get(key)
-        if not d or not d.get("sum_x"):
+    # S1 / S2 markers — INTERPOLATED onto the multistart curve (interp_s1_s2), so S1 sits
+    # at the baseline facility count and S2 sits exactly where the frontier crosses the
+    # baseline-travel line. A vertical guide (S1) and the baseline-travel line (S2) make
+    # the "same count" / "same travel" reading explicit.
+    for key, pt, col, mk in (("S1", s1_pt, S1C, "D"), ("S2", s2_pt, S2C, "s")):
+        if pt is None:
             continue
-        ax.scatter([d["sum_x"]], [d["multi"]], marker=mk, s=70, color=col,
-                   edgecolor="white", linewidth=0.8, zorder=9)
-        ax.annotate(key, (d["sum_x"], d["multi"]), textcoords="offset points",
-                    xytext=(4, 7), fontsize=9, fontweight="bold", color=col)
+        px, py = pt
+        ax.scatter([px], [py], marker=mk, s=75, color=col,
+                   edgecolor="white", linewidth=0.8, zorder=10)
+        ax.annotate(key, (px, py), textcoords="offset points",
+                    xytext=(5, 7), fontsize=9, fontweight="bold", color=col)
+    if s1_pt is not None:   # vertical guide: S1 shares the baseline count
+        ax.axvline(s1_pt[0], color=S1C, ls=(0, (1, 2)), lw=0.8, alpha=0.5, zorder=3)
 
     ax.set_xlabel("sum_x  (LP-relaxed facility count)", fontsize=8)
     ax.set_ylabel("total travel cost  (person·c(t))", color=INK, fontsize=8)
@@ -106,14 +142,17 @@ def render(region, fn, fd):
     ax.set_title(f"{fn}  c(t)", fontsize=11, color=INK, fontweight="bold", pad=6)
     ax.set_zorder(ax_w.get_zorder() + 2); ax.patch.set_visible(False)
 
-    # unified legend (compact, top-left inside)
+    # unified legend — LOWER LEFT so it never overlaps the baseline ★ / S1 / S2, which
+    # sit toward the top-right (high travel, high count) of the frontier.
     handles = [
         Line2D([0], [0], color=RELAX, ls="--", marker="o", ms=3, label="cost lowerbound"),
         Line2D([0], [0], color=MULTI, lw=2.2, marker="o", ms=4, label="cost upperbound"),
         Line2D([0], [0], color=WCOL, ls=(0, (4, 2)), marker=".", label="log₁₀(fac. cost weight)"),
         Line2D([0], [0], color=BASE, marker="*", ls="none", ms=8, label="baseline"),
+        Line2D([0], [0], color=S1C, marker="D", ls="none", ms=6, label="S1 (interp: baseline count)"),
+        Line2D([0], [0], color=S2C, marker="s", ls="none", ms=6, label="S2 (interp: baseline travel)"),
     ]
-    ax.legend(handles=handles, loc="upper right", fontsize=6.8, framealpha=0.85,
+    ax.legend(handles=handles, loc="lower left", fontsize=6.6, framealpha=0.85,
               borderpad=0.4, handlelength=1.6, labelspacing=0.3)
 
     p = os.path.join(OUT, f"{region}_{fn}.png")
