@@ -213,23 +213,24 @@ function statusSlide() {
   };
 
   col(0.4, GREEN, "F0F6F2", "Implemented ✓", [
-    "Tabula-rasa LP allocation + λ-sweep → Pareto curve of #facilities vs travel cost (Option D)",
-    "Lewis's 3 cases live: S1 (same #, ↓travel) · S2 (same travel, ↓#) · S3 full frontier",
-    "All 6 of Lewis's 22-May descriptive indicators, per country (deck pages 5–8)",
-    "Catchments now by ROAD-network travel time (not Euclidean); #empty + smallest non-zero catchment reported",
-    "Cap-ladder rungs prototyped (cost-function-free, exploratory): S1-A/B · S2-A/B — run for NL",
-    "Recalculation done: candidates = ≥50-pop cells ∪ pharmacy cells · clients = FULL population · adapted logit (25/10) — all 42 areas re-swept, incl. Poland + its 7 NUTS-1",
-    "Aggregated frontier over all 41 disjoint areas (exact by separability) — new page after the region pages",
-    "LINEAR & LOGISTIC travel costs both run & compared",
-    "Soft coverage (Σy ≤ 1, unserved priced at BIG on BOTH sides): FRM, ITG, SE2, DK now bracket S1 & S2; baseline coverage-consistent",
+    "Tabula-rasa LP allocation + λ-sweep → Pareto curve of #facilities vs travel cost (Option D); canonical p-median notation (x = assignment, y = facility)",
+    "Lewis's 3 cases live: S1 (same #, ↓travel) · S2 (same travel, ↓#) · S3 full frontier — S1/S2 now INTERPOLATED onto the frontier (dense-grid + refine, tight to ≤0.1 λ-octave)",
+    "All 6 of Lewis's 22-May descriptive indicators, per country (deck pages 5–8); catchments by ROAD-network travel time",
+    "Recalc: candidates = ≥50-pop cells ∪ pharmacy cells · clients = FULL population · adapted logit (25/10) · Italy from ESPON shapefile — all 42 areas swept incl. Poland + 7 NUTS-1",
+    "Soft coverage (Σx ≤ 1, unserved priced at BIG on BOTH sides): every region brackets S1 & S2; baseline coverage-consistent",
+    "Aggregated frontier over 41 disjoint areas (exact by separability) — now brackets S1 AND S2 for LINEAR & LOGISTIC (Belgium/FRI extended to w = 0.5)",
+    "Status-quo↔frontier metric: improvement rectangle (raw + relative to baseline #F × travel), its diagonal crossing + λ, baseline point-cloud with frontier projections",
+    "Ordered region lists coloured by pharmacy policy typology (regulation archetype + formalisation, from the collaborators' framing)",
+    "Large-region candidate subsampling keeps EVERY baseline location, so the frontier still dominates the baseline (FRI/PL8 made tractable)",
   ]);
   col(4.62, AMBER, "FBF5EA", "In progress ◐", [
-    "Extend Belgium & FRI LINEAR sweeps past w = 0.2 (LP time limit) — the last gap: aggregate LINEAR S2",
-    "A single 2-D status-quo→frontier distance metric (coverage-honest; stranded priced at BIG)",
-    "Calculating better estimations for S1 and S2 (exact soft-coverage p-median MIP at p = baseline)",
-    "Exploring (not committed): max-cap + min-threshold rungs — but the descriptives suggest realistic bounds are hard to set, so this may not pay off",
+    "Exact soft-coverage p-median MIP to pin S1/S2 at p = baseline (the interpolation is already tight; the MIP would make it exact)",
+    "RSSV spatial-voting candidate reduction (Avignon CpLP paper, Figueiredo & Genre-Grandpierre) — a principled replacement for the stride subsample on the largest regions",
+    "Territorial coverage constraints (≥1 pharmacy per NUTS unit; multi-scale) as a STRUCTURED equity lever alongside the soft-coverage BIG penalty",
+    "Exploring (not committed): max-cap + min-threshold rungs — the descriptives suggest realistic bounds are hard to set, so this may not pay off",
   ]);
   col(8.84, SLATE, "F2F5F8", "Remaining ○", [
+    "Capacity / max-catchment cap constraint (CpMP; the Avignon strengthened ILP shows how to solve it)",
     "Urban/non-urban flag → model only non-urban, hold urban fixed (options B/C)",
     "Settlement candidate set: verify existing ⊂ settlements, then restrict locations",
     "Flat-then-linear travel-cost variant; sweep logit-parameter sensitivity",
@@ -238,13 +239,12 @@ function statusSlide() {
     "Cost-function-free S3: balance #/capita vs mean travel, widen beyond the A–B segment",
     "Counterfactuals: −10% pop · replace a known X% · choose which X to close (hard)",
     "Pharmacist-based cap (Ana); caps/thresholds pooled across countries, reported per-country",
-    "Border-cases",
-    "Corr catchment & travel costs",
+    "Corr catchment & travel costs · border-cases",
   ]);
 
   slide.addText([
     { text: "Open questions for the group:  ", options: { bold: true, color: NAVY } },
-    { text: "is the cap/threshold ladder worth pursuing given how widely catchments vary?  ·  logistic vs linear travel cost (the equity-weighting choice)?  ·  best way to communicate λ?", options: { color: MUTED } },
+    { text: "adopt territorial coverage constraints (≥1 per unit) for equity, or keep soft coverage?  ·  logistic vs linear travel cost (the equity-weighting choice)?  ·  best way to communicate λ?", options: { color: MUTED } },
   ], { x: 0.45, y: 6.5, w: 12.5, h: 0.7, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
