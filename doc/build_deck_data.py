@@ -97,7 +97,7 @@ def parse(path):
             if len(f) < 12:
                 continue
             try:
-                rows.append(dict(w=num(f[0]), sum_x=num(f[2]), relax=num(f[3]),
+                rows.append(dict(w=num(f[0]), sum_y=num(f[2]), relax=num(f[3]),
                                  topp=num(f[4]), greedy=num(f[5]), multi=num(f[6]),
                                  n_open=int(f[7]), mean_t=num(f[9]), frac=int(f[10])))
             except ValueError:
@@ -114,9 +114,9 @@ def parse(path):
             scen[cur] = {}
         elif cur:
             d = scen[cur]
-            m = re.search(r"sum_x\s*:\s*" + FLT, ln)
-            if m and "sum_x" not in d:
-                d["sum_x"] = num(m.group(1))
+            m = re.search(r"sum_[xy]\s*:\s*" + FLT, ln)
+            if m and "sum_y" not in d:
+                d["sum_y"] = num(m.group(1))
             m = re.search(r"n_open\s*:\s*(\d+)\s+frac_x:\s*(\d+)", ln)
             if m:
                 d["n_open"] = int(m.group(1)); d["frac"] = int(m.group(2))
@@ -134,9 +134,9 @@ def parse(path):
     # attach the w used by S1/S2 by matching sum_x to nearest sweep row, and pull
     # the relax/topp/greedy at that w from the combined table
     for k, d in scen.items():
-        if "sum_x" not in d or not rows:
+        if "sum_y" not in d or not rows:
             continue
-        r = min(rows, key=lambda r: abs(r["sum_x"] - d["sum_x"]))
+        r = min(rows, key=lambda r: abs(r["sum_y"] - d["sum_y"]))
         d["w"] = r["w"]
         for key in ("relax", "topp", "greedy"):
             d.setdefault(key, r[key])

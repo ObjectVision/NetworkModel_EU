@@ -9,7 +9,7 @@ here    = os.path.dirname(os.path.abspath(__file__))
 logdir  = sys.argv[2] if len(sys.argv) > 2 else os.path.join(here, "..", "logs")
 out     = sys.argv[3] if len(sys.argv) > 3 else os.path.join(here, f"cap_results_{country}.csv")
 
-cols = ["scen", "rung", "min_cap", "max_cap", "n_pharm", "n_cells", "base", "sum_x",
+cols = ["scen", "rung", "min_cap", "max_cap", "n_pharm", "n_cells", "base", "sum_y",
         "travel", "base_trav", "dtravel_pct", "mean_t", "strand_pct", "urban_fx",
         "below_min", "load_p50", "load_p90", "load_max"]
 order = ["S1_A", "S1_B", "S1_C", "S2_A", "S2_B"]

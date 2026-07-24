@@ -2,29 +2,29 @@ include("settings.jl")
 
 struct WarmStartState{TX, TY}
     model::Model
-    x::TX
-    y::TY
+    y::TX
+    x::TY
     data::CountryData
 end
 
 # --- LP-relaxation → integer open-set rounding ------------------------------
-# Greedy alternative to top-p. Top-p ranks facilities purely by x_relaxed, so it
-# starves regions the LP covered with many low-x substitutes (no single one
+# Greedy alternative to top-p. Top-p ranks facilities purely by y_relaxed, so it
+# starves regions the LP covered with many low-y substitutes (no single one
 # clears the cutoff, yet together they hold ~1 facility's worth of demand). This
-# instead seeds the open set with the x≈1 "must-open" facilities, then grabs the
+# instead seeds the open set with the y≈1 "must-open" facilities, then grabs the
 # fractional facility whose opening most reduces total weighted travel cost,
-# repeating until `p_open` are open — so a low-x facility that nonetheless slashes
+# repeating until `p_open` are open — so a low-y facility that nonetheless slashes
 # travel for an otherwise far-served cluster gets picked. Same count as top-p, so
 # it stays an apples-to-apples Pareto point; only *which* facilities differ.
 #
 # Lazy/CELF greedy: marginal gains are submodular (opening a facility can only
 # shrink another's gain), so after each pick we invalidate only the candidates
 # sharing a now-better-served client and recompute their gain on demand.
-function greedy_round(x_relaxed, data::CountryData, p_open; tol=1e-6)
+function greedy_round(y_relaxed, data::CountryData, p_open; tol=1e-6)
     (; facilities, wpop, t_ij_col, facilities_col, locations, facility_rows, clients_col) = data
 
-    must_open  = [j for j in facilities if x_relaxed[j] >= 1 - tol]
-    fractional = [j for j in facilities if tol < x_relaxed[j] < 1 - tol]
+    must_open  = [j for j in facilities if y_relaxed[j] >= 1 - tol]
+    fractional = [j for j in facilities if tol < y_relaxed[j] < 1 - tol]
     open_set   = Set(must_open)
 
     # best_cost[i] = cheapest c(t) from client i to any currently-open facility.
@@ -76,9 +76,9 @@ function greedy_round(x_relaxed, data::CountryData, p_open; tol=1e-6)
     end
 
     # Greedy can stall (all remaining gains ≤ 0) before reaching p_open; top up by
-    # x_relaxed descending so n_open matches top-p exactly.
+    # y_relaxed descending so n_open matches top-p exactly.
     if length(open_set) < p_open
-        for j in sort([j for j in facilities if !(j in open_set)], by=j -> x_relaxed[j], rev=true)
+        for j in sort([j for j in facilities if !(j in open_set)], by=j -> y_relaxed[j], rev=true)
             length(open_set) >= p_open && break
             push!(open_set, j)
         end
@@ -102,7 +102,7 @@ end
 # --- Multi-start randomized rounding + swap local search ---------------------
 # Far cheaper than the LP solve (the client/location count is small even when the
 # OD matrix is huge), so this adds seconds, not hours. Seeds with top-p AND greedy
-# (so the result can never be worse than the better of them) plus x-weighted random
+# (so the result can never be worse than the better of them) plus y-weighted random
 # draws for diversity; each seed is polished by best-improving open↔closed swaps
 # over the fractional set (must-opens stay open). Travel = Σ client_pop · nearest c(t),
 # with any client left uncovered charged BIG (= max c(t)) so polishing covers it.
@@ -143,10 +143,10 @@ function travel_of(open_set, data::CountryData, BIG)
     return t, uncov
 end
 
-# x-weighted random selection of exactly k fractionals (Efraimidis–Spirakis A-Res):
+# y-weighted random selection of exactly k fractionals (Efraimidis–Spirakis A-Res):
 # log-key = log(rand)/x_j; take the k largest → favours high x_j but stochastic.
-function randomized_seed(must_open, frac_js, xvals, k, rng)
-    keys  = [log(rand(rng)) / xvals[t] for t in 1:length(frac_js)]
+function randomized_seed(must_open, frac_js, yvals, k, rng)
+    keys  = [log(rand(rng)) / yvals[t] for t in 1:length(frac_js)]
     order = sortperm(keys, rev=true)
     chosen = Set{Int}()
     for t in 1:min(k, length(frac_js))
@@ -208,13 +208,13 @@ function swap_round!(chosen, frac_set, data::CountryData, d1, d2, phi1)
     return false
 end
 
-function multistart_round(x_relaxed, data::CountryData, p_open, topp_set, greedy_set;
+function multistart_round(y_relaxed, data::CountryData, p_open, topp_set, greedy_set;
                           restarts=MS_RESTARTS, rounds=MS_ROUNDS, seed=MS_SEED, tol=1e-6)
     (; facilities, t_ij_col) = data
-    must_open = [j for j in facilities if x_relaxed[j] >= 1 - tol]
-    frac_js   = [j for j in facilities if tol < x_relaxed[j] < 1 - tol]
+    must_open = [j for j in facilities if y_relaxed[j] >= 1 - tol]
+    frac_js   = [j for j in facilities if tol < y_relaxed[j] < 1 - tol]
     frac_set  = Set(frac_js)
-    xvals     = [x_relaxed[j] for j in frac_js]
+    yvals     = [y_relaxed[j] for j in frac_js]
     k         = clamp(p_open - length(must_open), 0, length(frac_js))
     fixed     = Set(must_open)
     BIG       = big_cost()   # fixed stranded-client price: c(120 min) linear / 1.0 logistic
@@ -224,7 +224,7 @@ function multistart_round(x_relaxed, data::CountryData, p_open, topp_set, greedy
     push!(seeds, Set(intersect(topp_set,   frac_set)))
     push!(seeds, Set(intersect(greedy_set, frac_set)))
     for _ in 3:restarts
-        push!(seeds, randomized_seed(must_open, frac_js, xvals, k, rng))
+        push!(seeds, randomized_seed(must_open, frac_js, yvals, k, rng))
     end
 
     # Select the lowest-travel polished set. Because stranded clients are priced at
@@ -256,33 +256,33 @@ function run_scenario(data::CountryData, min_clients, w, apply_threshold, neares
     set_optimizer_attribute(model, "solver", "ipm")
     set_optimizer_attribute(model, "run_crossover", "on")
 
-    @variable(model, 0 <= y[1:N] <= 1)
-    @variable(model, 0 <= x[j in facilities] <= 1)
+    @variable(model, 0 <= x[1:N] <= 1)
+    @variable(model, 0 <= y[j in facilities] <= 1)
 
     if !isinf(min_clients)
         @variable(model, deficit[j in facilities] >= 0)
         @expression(model, load[j in facilities],
-            sum(y[k] * wpop[k] for k in facility_rows[j])
+            sum(x[k] * wpop[k] for k in facility_rows[j])
         )
         @objective(model, Min,
-            sum(y[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N) +
+            sum(x[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N) +
             sum(deficit[j] * λ for j in facilities)
         )
         for j in facilities
-            @constraint(model, deficit[j] >= min_clients * x[j] - load[j])
+            @constraint(model, deficit[j] >= min_clients * y[j] - load[j])
         end
     else
         @objective(model, Min,
-            sum(y[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N) +
-            sum(x[j] * λ for j in facilities)
+            sum(x[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N) +
+            sum(y[j] * λ for j in facilities)
         )
     end
 
     for (_, rows) in locations
-        @constraint(model, sum(y[k] for k in rows) == 1)
+        @constraint(model, sum(x[k] for k in rows) == 1)
     end
     for k in 1:N
-        @constraint(model, y[k] <= x[facilities_col[k]])
+        @constraint(model, x[k] <= y[facilities_col[k]])
     end
 
     optimize!(model)
@@ -293,26 +293,26 @@ function run_scenario(data::CountryData, min_clients, w, apply_threshold, neares
               "Likely IPM numerical issue at extreme λ. Skipping this point.")
     end
 
-    # Capture LP-relaxed solution BEFORE fixing x and re-solving (if nearest=false).
-    x_relaxed      = value.(x)
+    # Capture LP-relaxed solution BEFORE fixing y and re-solving (if nearest=false).
     y_relaxed      = value.(y)
+    x_relaxed      = value.(x)
     tol            = 1e-6
-    fixed_open_set = Set([j for j in facilities if x_relaxed[j] >= 1 - tol])
-    fractional     = [j for j in facilities if tol < x_relaxed[j] < 1 - tol]
-    n_fractional_x = length(fractional)
-    sum_x          = sum(x_relaxed[j] for j in facilities)
-    travel_relax   = sum(y_relaxed[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N)
+    fixed_open_set = Set([j for j in facilities if y_relaxed[j] >= 1 - tol])
+    fractional     = [j for j in facilities if tol < y_relaxed[j] < 1 - tol]
+    n_fractional_y = length(fractional)
+    sum_y          = sum(y_relaxed[j] for j in facilities)
+    travel_relax   = sum(x_relaxed[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N)
 
-    # open_set = top round(sum_x) facilities ranked by x_relaxed descending.
+    # open_set = top round(sum_y) facilities ranked by y_relaxed descending.
     # Avoids phantom-fractional facilities inflating routing choices when IPM/crossover
-    # produces many tiny x[j] values at high w (LP-relaxation degeneracy).
-    p_open      = clamp(round(Int, sum_x), 1, length(facilities))
-    sorted_by_x = sort(collect(facilities), by=j -> x_relaxed[j], rev=true)
-    open_set    = Set(sorted_by_x[1:p_open])
+    # produces many tiny y[j] values at high w (LP-relaxation degeneracy).
+    p_open      = clamp(round(Int, sum_y), 1, length(facilities))
+    sorted_by_y = sort(collect(facilities), by=j -> y_relaxed[j], rev=true)
+    open_set    = Set(sorted_by_y[1:p_open])
 
-    # fix x based on first LP
+    # fix y based on first LP
     for j in facilities
-        fix(x[j], j in open_set ? 1.0 : 0.0; force=true)
+        fix(y[j], j in open_set ? 1.0 : 0.0; force=true)
     end
 
     # assign clients to facilities
@@ -339,7 +339,7 @@ function run_scenario(data::CountryData, min_clients, w, apply_threshold, neares
                 if !isempty(open_rows_within_60)
                     for k in rows
                         if t_ij_col[k] > 60.0
-                            fix(y[k], 0.0; force=true)
+                            fix(x[k], 0.0; force=true)
                         end
                     end
                 end
@@ -349,9 +349,9 @@ function run_scenario(data::CountryData, min_clients, w, apply_threshold, neares
         optimize!(model)
 
         for (i, rows) in locations
-            best_k, best_val = rows[1], value(y[rows[1]])
+            best_k, best_val = rows[1], value(x[rows[1]])
             for k in rows[2:end]
-                v = value(y[k])
+                v = value(x[k])
                 if v > best_val
                     best_val = v; best_k = k
                 end
@@ -384,7 +384,7 @@ function run_scenario(data::CountryData, min_clients, w, apply_threshold, neares
     n_open_full  = isinf(min_clients) ? length(open_set) : sum(1 for j in open_set if fload[j] >= min_clients; init=0)
     n_open_small = isinf(min_clients) ? 0                : sum(1 for j in open_set if fload[j] < min_clients;  init=0)
 
-    return open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4, n_fractional_x, sum_x, travel_relax
+    return open_set, fload, assigned_k, n_open_full, n_open_small, mean_travel_min, travel_lp, penalty_lp, raw_penalty_lp, b1, b2, b3, b4, n_fractional_y, sum_y, travel_relax
 end
 
 
@@ -402,36 +402,36 @@ function build_lp_warmstart(data::CountryData)
     set_optimizer_attribute(model, "output_flag", true)  # show simplex progress live
     set_optimizer_attribute(model, "solver", "simplex")
 
-    @variable(model, 0 <= y[1:N] <= 1)
-    @variable(model, 0 <= x[j in facilities] <= 1)
+    @variable(model, 0 <= x[1:N] <= 1)
+    @variable(model, 0 <= y[j in facilities] <= 1)
 
     # SOFT coverage (agreed 2026-07-10): a client need NOT be assigned to a facility;
     # leaving it unserved costs BIG = big_cost() (the same price stranding gets in the
-    # baseline and in travel_of). So Σy ≤ 1 (was ==1), and the objective adds the
+    # baseline and in travel_of). So Σx ≤ 1 (was ==1), and the objective adds the
     # unserved fraction × BIG. Writing the per-client cost as
-    #   Σ_k y_k·c(t_k)·p_k + Σ_i p_i·(1 − Σ_k y_k)·BIG
-    #   = Σ_k y_k·(c(t_k) − BIG)·p_k  +  BIG·Σ_i p_i        (constant dropped from argmin),
-    # the y-coefficient is (c(t_k) − BIG)·p_k (≤ 0, constant across w); x-coeffs = λ are
+    #   Σ_k x_k·c(t_k)·p_k + Σ_i p_i·(1 − Σ_k x_k)·BIG
+    #   = Σ_k x_k·(c(t_k) − BIG)·p_k  +  BIG·Σ_i p_i        (constant dropped from argmin),
+    # the x-coefficient is (c(t_k) − BIG)·p_k (≤ 0, constant across w); y-coeffs = λ are
     # set per w in solve_at_w!. This lets the LP CHOOSE to strand a remote client when a
     # facility that would serve it costs more than the BIG it saves — so the frontier
     # extends below the full-coverage floor, down to (and past) the existing-facility
     # count, and the baseline becomes a feasible point on/above it (never below).
     BIG = big_cost()
-    @objective(model, Min, sum(y[k] * (c(t_ij_col[k]) - BIG) * wpop[k] for k in 1:N))
+    @objective(model, Min, sum(x[k] * (c(t_ij_col[k]) - BIG) * wpop[k] for k in 1:N))
 
     for (_, rows) in locations
-        @constraint(model, sum(y[k] for k in rows) <= 1)
+        @constraint(model, sum(x[k] for k in rows) <= 1)
     end
     for k in 1:N
-        @constraint(model, y[k] <= x[facilities_col[k]])
+        @constraint(model, x[k] <= y[facilities_col[k]])
     end
 
-    return WarmStartState(model, x, y, data)
+    return WarmStartState(model, y, x, data)
 end
 
 # Solver history: on 8-Jul the sweep moved to IPM + crossover because warm-started dual
 # simplex degraded catastrophically on the big full-population HARD-coverage LPs (each λ
-# step moves every x-coefficient by λ·Δ ~ 10^5-10^6, so the previous basis is far away and
+# step moves every y-coefficient by λ·Δ ~ 10^5-10^6, so the previous basis is far away and
 # the massively degenerate re-solve cost hours — Netherlands w=5.0 took 16.7h). Under SOFT
 # coverage (10-Jul) this reversed: solve_at_w! below uses simplex for BOTH travel functions
 # — see the comment there. LP_TIME_LIMIT (1h default) makes any pathological point a
@@ -439,14 +439,14 @@ end
 const LP_TIME_LIMIT = parse(Float64, get(ENV, "LP_TIME_LIMIT", "3600"))
 
 function solve_at_w!(state::WarmStartState, w::Real)
-    (; model, x, y, data) = state
+    (; model, y, x, data) = state
     (; N, facilities, wpop, t_ij_col, facilities_col, locations) = data
 
     λ = w * FACILITY_MIN_COSTS
 
-    # Update only the x[j] objective coefficients (constraints + y-coeffs unchanged).
+    # Update only the y[j] objective coefficients (constraints + x-coeffs unchanged).
     for j in facilities
-        set_objective_coefficient(model, x[j], λ)
+        set_objective_coefficient(model, y[j], λ)
     end
 
     # Simplex for BOTH travel functions under SOFT coverage (2026-07-10). The old split
@@ -461,7 +461,7 @@ function solve_at_w!(state::WarmStartState, w::Real)
     # simplex cliff on the big LINEAR regions (used for the Belgium/FRI aggregate-
     # S2 extension). Keep the default simplex for LOGISTIC — soft-coverage IPM
     # fails there (OTHER_ERROR: the tiny (c(t)−BIG) travel coefficients give too
-    # wide a range). Crossover on for IPM so sum_x/frac_x and the rounding get a vertex.
+    # wide a range). Crossover on for IPM so sum_y/frac_y and the rounding get a vertex.
     solver = get(ENV, "SOLVER", "simplex")
     set_optimizer_attribute(model, "solver", solver)
     set_optimizer_attribute(model, "run_crossover", solver == "ipm" ? "on" : "off")
@@ -474,36 +474,36 @@ function solve_at_w!(state::WarmStartState, w::Real)
         error("LP at w=$w did not solve (termination_status=$ts).")
     end
 
-    x_relaxed      = value.(x)
     y_relaxed      = value.(y)
+    x_relaxed      = value.(x)
     tol            = 1e-6
-    fractional     = [j for j in facilities if tol < x_relaxed[j] < 1 - tol]
-    n_fractional_x = length(fractional)
-    sum_x          = sum(x_relaxed[j] for j in facilities)
+    fractional     = [j for j in facilities if tol < y_relaxed[j] < 1 - tol]
+    n_fractional_y = length(fractional)
+    sum_y          = sum(y_relaxed[j] for j in facilities)
     # Coverage-honest LP lower bound (soft coverage): served travel + the unserved
     # fraction priced at BIG = big_cost(), matching the objective and travel_of. Under
-    # Σy ≤ 1 a client may be only partly (or not) served in the relaxation; the dropped
+    # Σx ≤ 1 a client may be only partly (or not) served in the relaxation; the dropped
     # fraction must be charged BIG or the bound would understate the integer cost.
     BIG_relax      = big_cost()
-    served_relax   = sum(y_relaxed[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N)
+    served_relax   = sum(x_relaxed[k] * c(t_ij_col[k]) * wpop[k] for k in 1:N)
     stranded_relax = 0.0
     for (_, rows) in locations
-        served_i = sum(y_relaxed[k] for k in rows)
+        served_i = sum(x_relaxed[k] for k in rows)
         stranded_relax += BIG_relax * wpop[rows[1]] * (1.0 - served_i)
     end
     travel_relax   = served_relax + stranded_relax
 
-    # Three roundings of the LP relaxation to the same count p_open = round(sum_x):
-    #   topp       — the p_open facilities with the largest x_relaxed.
-    #   greedy     — x≈1 seed + greedy marginal-travel grab from fractionals.
+    # Three roundings of the LP relaxation to the same count p_open = round(sum_y):
+    #   topp       — the p_open facilities with the largest y_relaxed.
+    #   greedy     — y≈1 seed + greedy marginal-travel grab from fractionals.
     #   multistart — randomized seeds + swap local search (≤ min(topp, greedy)).
     # The LP2 re-solve that used to run here (a second full optimize per w) is gone:
     # it cost as much as LP1 at extreme λ and the next w warm-starts cleaner without it.
-    p_open      = clamp(round(Int, sum_x), 1, length(facilities))
-    sorted_by_x = sort(collect(facilities), by=j -> x_relaxed[j], rev=true)
-    topp_set    = Set(sorted_by_x[1:p_open])
-    greedy_set  = greedy_round(x_relaxed, data, p_open)
-    multi_set   = multistart_round(x_relaxed, data, p_open, topp_set, greedy_set)
+    p_open      = clamp(round(Int, sum_y), 1, length(facilities))
+    sorted_by_y = sort(collect(facilities), by=j -> y_relaxed[j], rev=true)
+    topp_set    = Set(sorted_by_y[1:p_open])
+    greedy_set  = greedy_round(y_relaxed, data, p_open)
+    multi_set   = multistart_round(y_relaxed, data, p_open, topp_set, greedy_set)
 
     # One coverage-honest metric for all three: stranded clients priced at BIG = big_cost().
     BIG = big_cost()
@@ -523,7 +523,7 @@ function solve_at_w!(state::WarmStartState, w::Real)
 
     return (
         w=w, λ=λ, n_open=length(open_set), cost_c=travel_c, mean_t=mean_t,
-        n_frac=n_fractional_x, sum_x=sum_x, travel_relax=travel_relax,
+        n_frac=n_fractional_y, sum_y=sum_y, travel_relax=travel_relax,
         travel_c_topp=travel_c_topp, travel_c_greedy=travel_c_greedy, travel_c_multi=travel_c_multi,
         uncov_topp=uncov_topp, uncov_greedy=uncov_greedy, uncov_multi=uncov_multi,
         rounding=ROUNDING, open_set=open_set, assigned_k=assigned_k,

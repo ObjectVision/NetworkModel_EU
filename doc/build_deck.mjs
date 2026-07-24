@@ -83,7 +83,7 @@ function regionSlide(e) {
     x: 0.5, y: 5.5, w: 12.33, colW: [1.5, 1.1, 1.5, 1.6, 1.4, 2.6, 2.63],
     rowH: 0.3, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle",
   });
-  slide.addText("Charts: cost lowerbound (LP relaxation, dashed grey — drawn on top) & cost upperbound (multistart integer solution, solid blue) on the left; log₁₀(facility cost weight €) on the right, vs sum_x; ★ baseline, ◆ S1, ■ S2.  Lower ≤ integer optimum ≤ upper; stranded clients priced at BIG (120 min linear / 1.0 logistic) — in the baseline too (coverage-consistent).",
+  slide.addText("Charts: cost lowerbound (LP relaxation, dashed grey — drawn on top) & cost upperbound (multistart integer solution, solid blue) on the left; log₁₀(facility cost weight €) on the right, vs sum_y; ★ baseline, ◆ S1, ■ S2.  Lower ≤ integer optimum ≤ upper; stranded clients priced at BIG (120 min linear / 1.0 logistic) — in the baseline too (coverage-consistent).",
     { x: 0.5, y: 7.12, w: 12.33, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 
@@ -490,8 +490,8 @@ function lambdaTableSlide(opts) {
     const L = e.func.LINEAR, G = e.func.LOGISTIC;
     const cells = L.baseline.cells;
     const c = [opts.label(e), cells != null ? cells.toLocaleString("en-US") : "—",
-      fL(interp(L.rows, "sum_x", cells)), fL(interp(L.rows, "multi", L.baseline.cost)),
-      fL(G ? interp(G.rows, "sum_x", G.baseline.cells) : null), fL(G ? interp(G.rows, "multi", G.baseline.cost) : null)];
+      fL(interp(L.rows, "sum_y", cells)), fL(interp(L.rows, "multi", L.baseline.cost)),
+      fL(G ? interp(G.rows, "sum_y", G.baseline.cells) : null), fL(G ? interp(G.rows, "multi", G.baseline.cost) : null)];
     const fill = i % 2 ? PANEL : "FFFFFF";
     body.push(c.map((v, ci) => ({ text: v, options: { fontSize: fs, align: ci === 0 ? "left" : "center", color: INK, fill, fontFace: "Calibri", valign: "middle", margin: [2, 2, 2, 4] } })));
   });
@@ -523,14 +523,14 @@ function optProblemSlide() {
   // priced at BIG. Factoring popᵢ keeps the objective on one line.
   slide.addText([
     M("min", { bold: true, color: "8FD4F0" }), M("x,y", { fontSize: 10, subscript: true, color: "8FD4F0" }),
-    M("   Σᵢ popᵢ · [ Σⱼ c(tᵢⱼ)·yᵢⱼ  +  BIG·(1 − Σⱼ yᵢⱼ) ]   +   λ · Σⱼ xⱼ", {}),
+    M("   Σᵢ popᵢ · [ Σⱼ c(tᵢⱼ)·xᵢⱼ  +  BIG·(1 − Σⱼ xᵢⱼ) ]   +   λ · Σⱼ yⱼ", {}),
   ], { x: 0.8, y: 1.5, w: 6.1, h: 0.4, fontSize: 14 });
   slide.addText("travel of the served share   +   the unserved share, priced at BIG   +   facility cost",
     { x: 0.8, y: 1.9, w: 6.1, h: 0.25, fontSize: 9, italic: true, fontFace: "Calibri", color: "9FB0C2" });
   slide.addText([
-    [M("s.t.", { bold: true, color: "8FD4F0" }), M("  Σⱼ yᵢⱼ  ≤  1"), M("          a client MAY be left unserved", { fontFace: "Calibri", fontSize: 10.5, color: "FFD9A0" })],
-    [M("      yᵢⱼ  ≤  xⱼ"), M("            only to open pharmacies", { fontFace: "Calibri", fontSize: 10.5, color: "9FB0C2" })],
-    [M("      xⱼ ∈ {0,1}"), M("  →  relaxed to  0 ≤ xⱼ ≤ 1,   yᵢⱼ ≥ 0", { color: "FFD9A0" })],
+    [M("s.t.", { bold: true, color: "8FD4F0" }), M("  Σⱼ xᵢⱼ  ≤  1"), M("          a client MAY be left unserved", { fontFace: "Calibri", fontSize: 10.5, color: "FFD9A0" })],
+    [M("      xᵢⱼ  ≤  yⱼ"), M("            only to open pharmacies", { fontFace: "Calibri", fontSize: 10.5, color: "9FB0C2" })],
+    [M("      yⱼ ∈ {0,1}"), M("  →  relaxed to  0 ≤ yⱼ ≤ 1,   xᵢⱼ ≥ 0", { color: "FFD9A0" })],
   ].map((line) => line.map((seg, si) => ({ ...seg, options: { ...seg.options, breakLine: si === line.length - 1 } }))).flat(),
     { x: 0.8, y: 2.25, w: 6.1, h: 1.4, fontSize: 15, lineSpacingMultiple: 1.35 });
   slide.addText([
@@ -547,7 +547,7 @@ function optProblemSlide() {
   };
   ing(1.4, "c(t) — travel cost, t in minutes", "LINEAR c(t)=t; LOGISTIC (adapted logit) c(t)=1/(1+e^−(t−25)/10). The swept LPs run once per function.");
   ing(2.32, "λ = w · €100,000 — the price of a pharmacy", "Linear facility cost a+b·q reduces to λ·#open: the b·q part is ~constant while (nearly) all demand is served, so only the fixed cost a matters. Under soft coverage it cancels only approximately — the unserved share carries no b·q.");
-  ing(3.24, "One LP per λ, exact", "JuMP + HiGHS dual simplex; the model is built once and re-solved along the w-grid from the previous optimal basis (lp_run.jl solve_at_w!) — millions of yᵢⱼ, minutes per point.");
+  ing(3.24, "One LP per λ, exact", "JuMP + HiGHS dual simplex; the model is built once and re-solved along the w-grid from the previous optimal basis (lp_run.jl solve_at_w!) — millions of xᵢⱼ, minutes per point.");
   // review flags — modelling details the group should challenge
   slide.addShape(pptx.ShapeType.roundRect, { x: 7.45, y: 4.22, w: 5.4, h: 0.78, rectRadius: 0.05, fill: { color: "FBF5EA" }, line: { color: "B9791C", width: 1 } });
   slide.addText([
@@ -559,13 +559,13 @@ function optProblemSlide() {
   slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 5.05, w: 12.33, h: 1.85, rectRadius: 0.06, fill: { color: PANEL }, line: { color: "D9E0E7", width: 1 } });
   slide.addText([
     { text: "Why the relaxation, and what it buys.  ", options: { bold: true, color: INK } },
-    { text: "With xⱼ ∈ {0,1} this is the (NP-hard) uncapacitated facility-location problem, in its strong disaggregated formulation — one yᵢⱼ ≤ xⱼ per OD pair — whose LP relaxation is known to be nearly integral, which the sweeps confirm (frac_x stays small). The LP optimum is a certified ", options: { color: MUTED } },
+    { text: "With yⱼ ∈ {0,1} this is the (NP-hard) uncapacitated facility-location problem, in its strong disaggregated formulation — one xᵢⱼ ≤ yⱼ per OD pair — whose LP relaxation is known to be nearly integral, which the sweeps confirm (frac_y stays small). The LP optimum is a certified ", options: { color: MUTED } },
     { text: "lower bound", options: { bold: true, color: BASE } },
     { text: " (the grey dashed line); rounding x* to a real set of pharmacies (multistart, p. 6) gives a feasible ", options: { color: MUTED } },
     { text: "upper bound", options: { bold: true, color: MULTI } },
     { text: " — the integer optimum is pinched between the two (+0–18% LINEAR, +0–4.7% LOGISTIC).", options: { color: MUTED, breakLine: true } },
     { text: "Relation to the p-median problem.  ", options: { bold: true, color: INK } },
-    { text: "Imposing the count (Σⱼ xⱼ = p) instead of pricing it gives the p-median problem with costs c(tᵢⱼ) (ReVelle & Swain 1970) — S1 at the baseline count is a p-median instance, in its soft-coverage form: a client may go unserved at BIG rather than be forced onto a far facility (an outside option / p-median with an upper bound on assignment cost). The λ-sweep is its Lagrangian relaxation w.r.t. that constraint (Cornuéjols, Fisher & Nemhauser 1977): it recovers only the p’s on the lower convex envelope of the p-median value function, so p-values in non-convex gaps are unreachable by any λ — there S1/S2 are interpolated between sweep points, or pinned exactly with the cardinality constraint (roadmap: better S1/S2 estimations). The swap polish of p. 6 is the classic p-median vertex-substitution search.", options: { color: MUTED } },
+    { text: "Imposing the count (Σⱼ yⱼ = p) instead of pricing it gives the p-median problem with costs c(tᵢⱼ) (ReVelle & Swain 1970) — S1 at the baseline count is a p-median instance, in its soft-coverage form: a client may go unserved at BIG rather than be forced onto a far facility (an outside option / p-median with an upper bound on assignment cost). The λ-sweep is its Lagrangian relaxation w.r.t. that constraint (Cornuéjols, Fisher & Nemhauser 1977): it recovers only the p’s on the lower convex envelope of the p-median value function, so p-values in non-convex gaps are unreachable by any λ — there S1/S2 are interpolated between sweep points, or pinned exactly with the cardinality constraint (roadmap: better S1/S2 estimations). The swap polish of p. 6 is the classic p-median vertex-substitution search.", options: { color: MUTED } },
   ], { x: 0.75, y: 5.2, w: 11.85, h: 1.62, fontSize: 10, fontFace: "Calibri", valign: "top" });
 
   slide.addText("Implementation: lp_run.jl (build_lp_warmstart / solve_at_w!) · weights popᵢ = total residents of cell i (CLIENT_WEIGHT=total_pop) · OD from GeoDMS impedance_matrix_od64, t = seconds/60.",
@@ -586,7 +586,7 @@ function multistartSlide() {
   ], { x: 0.45, y: 0.56, w: 12.5, h: 0.5, fontSize: 22, fontFace: "Georgia" });
 
   const steps = [
-    ["Fix the count", "p = round(Σ xⱼ*) — the integer pharmacy count nearest the LP's fractional total, so every rounded point stays on the same axis as the relaxation."],
+    ["Fix the count", "p = round(Σ yⱼ*) — the integer pharmacy count nearest the LP's fractional total, so every rounded point stays on the same axis as the relaxation."],
     ["Seed 10 candidate sets", "top-p by x* and the lazy-greedy set (CELF, Leskovec et al. 2007 — marginal travel gains are submodular), so the result can never be worse than either; plus 8 x*-weighted random draws (Efraimidis–Spirakis 2006 A-Res); must-open pharmacies (x*≈1) are always kept."],
     ["Polish by swaps", "best-improving open↔closed swaps over the fractional pool — the classic p-median vertex-substitution search, in its fast-interchange form (Resende & Werneck 2007). Each swap is accepted only if the exact travel delta improves — cost strictly decreases, ≤ 12 rounds per seed."],
     ["Score coverage-honestly, keep the best", "every client priced at its nearest open pharmacy, c(t); a client left with no open pharmacy in the OD (stranded) is priced at BIG — 120 min (linear) / 1.0 (logistic), the same price as in the LP and the baseline, so abandoning remote clusters is never free. Lowest total wins."],

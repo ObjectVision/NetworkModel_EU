@@ -1,5 +1,5 @@
 # Render per-region Pareto charts to doc/charts/<region>_<FUNC>.png for the deck.
-# Per spec: vs sum_x (x), show travel_relax + travel_multi (left, cost) and frac_x
+# Per spec: vs sum_y (x), show travel_relax + travel_multi (left, cost) and frac_y
 # (second left axis), plus log10(w) on the right axis; mark the baseline (current
 # network), S1 and S2. LOGISTIC left axis is stretched to the data (non-zero origin).
 import os, json, math
@@ -15,7 +15,7 @@ os.makedirs(OUT, exist_ok=True)
 # palette (matches the deck)
 RELAX = "#9AA7B4"   # LP relaxation bound
 MULTI = "#0B6E99"   # multistart (hero)
-FRAC = "#2E8B57"    # frac_x (integrality)
+FRAC = "#2E8B57"    # frac_y (integrality)
 WCOL = "#E8A33D"    # log10(w)
 BASE = "#34495E"    # baseline / current network
 S1C = "#0B6E99"
@@ -28,7 +28,7 @@ plt.rcParams.update({
 })
 
 
-# Interpolated S1/S2 ON the drawn multistart curve (sum_x, multi), so the markers sit
+# Interpolated S1/S2 ON the drawn multistart curve (sum_y, multi), so the markers sit
 # exactly on the frontier and on the baseline reference line — unlike the crude nearest
 # sweep-row in the log's scenario summary (which can land visibly off the baseline, e.g.
 # SE2). S1 = min travel at the baseline facility count; S2 = min count at the baseline
@@ -36,16 +36,16 @@ plt.rcParams.update({
 # regions whose λ never rises enough for travel to reach baseline — then no marker, which
 # correctly signals "S2 beyond the swept λ range").
 def interp_s1_s2(fd):
-    rows = sorted(fd["rows"], key=lambda r: r["sum_x"])
+    rows = sorted(fd["rows"], key=lambda r: r["sum_y"])
     if len(rows) < 2:
         return None, None
     Bx, By = fd["baseline"].get("cells"), fd["baseline"].get("cost")
-    xs = [r["sum_x"] for r in rows]
+    xs = [r["sum_y"] for r in rows]
     s1 = None
     if Bx is not None and min(xs) <= Bx <= max(xs):
         for a, b in zip(rows, rows[1:]):
-            if a["sum_x"] <= Bx <= b["sum_x"] and b["sum_x"] != a["sum_x"]:
-                f = (Bx - a["sum_x"]) / (b["sum_x"] - a["sum_x"])
+            if a["sum_y"] <= Bx <= b["sum_y"] and b["sum_y"] != a["sum_y"]:
+                f = (Bx - a["sum_y"]) / (b["sum_y"] - a["sum_y"])
                 s1 = (Bx, a["multi"] + f * (b["multi"] - a["multi"]))
                 break
     s2 = None
@@ -54,28 +54,28 @@ def interp_s1_s2(fd):
             ylo, yhi = sorted((a["multi"], b["multi"]))
             if ylo <= By <= yhi and b["multi"] != a["multi"]:
                 f = (By - a["multi"]) / (b["multi"] - a["multi"])
-                s2 = (a["sum_x"] + f * (b["sum_x"] - a["sum_x"]), By)
+                s2 = (a["sum_y"] + f * (b["sum_y"] - a["sum_y"]), By)
                 break
     return s1, s2
 
 
 def window(fd, s1, s2):
-    rows_all = sorted(fd["rows"], key=lambda r: r["sum_x"])
+    rows_all = sorted(fd["rows"], key=lambda r: r["sum_y"])
     By = fd["baseline"].get("cost")
     anchors = [p[0] for p in (s1, s2) if p]
     anchors.append(fd["baseline"].get("cells"))
     # Keep the frontier arm that rises ABOVE baseline travel visible, so S2 sits ON the
-    # drawn curve rather than floating past its clipped left end. Include the lowest-sum_x
+    # drawn curve rather than floating past its clipped left end. Include the lowest-sum_y
     # row whose travel >= baseline cost (the point just past S2 into higher-λ territory).
-    above = [r["sum_x"] for r in rows_all if By is not None and r["multi"] >= By]
+    above = [r["sum_y"] for r in rows_all if By is not None and r["multi"] >= By]
     if above:
         anchors.append(min(above))
     anchors = [a for a in anchors if a]
-    ref = anchors if anchors else [r["sum_x"] for r in fd["rows"]]
+    ref = anchors if anchors else [r["sum_y"] for r in fd["rows"]]
     lo, hi = 0.6 * min(ref), 1.7 * max(ref)
-    rows = sorted([r for r in fd["rows"] if lo <= r["sum_x"] <= hi], key=lambda r: r["sum_x"])
+    rows = sorted([r for r in fd["rows"] if lo <= r["sum_y"] <= hi], key=lambda r: r["sum_y"])
     if len(rows) < 2:
-        rows = sorted(fd["rows"], key=lambda r: r["sum_x"])
+        rows = sorted(fd["rows"], key=lambda r: r["sum_y"])
     return rows
 
 
@@ -87,10 +87,10 @@ def fmt_cost(ax):
 def render(region, fn, fd):
     s1_pt, s2_pt = interp_s1_s2(fd)
     rows = window(fd, s1_pt, s2_pt)
-    sx = [r["sum_x"] for r in rows]
+    sx = [r["sum_y"] for r in rows]
     relax = [r["relax"] for r in rows]
     multi = [r["multi"] for r in rows]
-    sxw = [r["sum_x"] for r in rows if r["w"] > 0]
+    sxw = [r["sum_y"] for r in rows if r["w"] > 0]
     base = fd["baseline"]
     sc = fd.get("scen", {})
 
@@ -99,7 +99,7 @@ def render(region, fn, fd):
 
     # RIGHT axis: log₁₀ of the facility cost weight λ = w·FACILITY_MIN_COSTS (Maarten 8-Jul,
     # renamed from the opaque "log₁₀(w)"; the offset is constant, +5, so the curve shape is
-    # unchanged). (frac_x dropped 6-Jul — integrality is still in the S1/S2 table.)
+    # unchanged). (frac_y dropped 6-Jul — integrality is still in the S1/S2 table.)
     FMIN = 100000  # FACILITY_MIN_COSTS (settings.jl); λ = w · FMIN
     logλ = [math.log10(r["w"] * FMIN) for r in rows if r["w"] > 0]
     ax_w = ax.twinx()
@@ -133,7 +133,7 @@ def render(region, fn, fd):
     if s1_pt is not None:   # vertical guide: S1 shares the baseline count
         ax.axvline(s1_pt[0], color=S1C, ls=(0, (1, 2)), lw=0.8, alpha=0.5, zorder=3)
 
-    ax.set_xlabel("sum_x  (LP-relaxed facility count)", fontsize=8)
+    ax.set_xlabel("sum_y  (LP-relaxed facility count)", fontsize=8)
     ax.set_ylabel("total travel cost  (person·c(t))", color=INK, fontsize=8)
     ax.tick_params(axis="both", labelsize=7.5)
     fmt_cost(ax)
@@ -201,13 +201,13 @@ def render_logistic():
 
 # --- Aggregate frontier over all (disjoint) areas -----------------------------
 # The objective separates by area, so for a COMMON lambda the sum of the regional
-# optima IS the optimum of the combined problem: summing (sum_x, travel) per w gives
+# optima IS the optimum of the combined problem: summing (sum_y, travel) per w gives
 # the exact aggregate lower-bound curve (and summing the multistart points a valid
 # aggregate upper bound). Only w values present in EVERY area are aggregated (the
 # coarse grid; region-specific fine-sweep w's drop out of the intersection).
 # Poland-country is EXCLUDED whenever its NUTS-1 regions are present (disjointness).
 def _interp_at(rows, w):
-    """Log-w interpolate sum_x/relax/multi/frac at w from a region's sorted rows.
+    """Log-w interpolate sum_y/relax/multi/frac at w from a region's sorted rows.
     Exact at the region's own grid points; assumes w within [rows0.w, rows-1.w]."""
     lo, hi = None, None
     for r in rows:
@@ -221,7 +221,7 @@ def _interp_at(rows, w):
         return lo
     f = (math.log(w) - math.log(lo["w"])) / (math.log(hi["w"]) - math.log(lo["w"]))
     mix = lambda k: lo[k] + f * (hi[k] - lo[k])
-    return dict(w=w, sum_x=mix("sum_x"), relax=mix("relax"), multi=mix("multi"),
+    return dict(w=w, sum_y=mix("sum_y"), relax=mix("relax"), multi=mix("multi"),
                 n_open=mix("n_open"), frac=mix("frac"))
 
 
@@ -244,14 +244,14 @@ def render_aggregate(data):
         union = sorted(set(round(r["w"], 12) for rows in per.values() for r in rows if w_lo <= r["w"] <= w_hi))
         rows = []
         for w in union:
-            agg = dict(w=w, sum_x=0.0, relax=0.0, multi=0.0, n_open=0.0, frac=0.0, mean_t=0.0)
+            agg = dict(w=w, sum_y=0.0, relax=0.0, multi=0.0, n_open=0.0, frac=0.0, mean_t=0.0)
             ok = True
             for reg, rr in per.items():
                 v = _interp_at(rr, w)
                 if v is None:
                     ok = False
                     break
-                agg["sum_x"] += v["sum_x"]; agg["relax"] += v["relax"]; agg["multi"] += v["multi"]
+                agg["sum_y"] += v["sum_y"]; agg["relax"] += v["relax"]; agg["multi"] += v["multi"]
                 agg["n_open"] += v["n_open"]; agg["frac"] += v["frac"]
             if ok:
                 agg["n_open"] = round(agg["n_open"]); agg["frac"] = round(agg["frac"])
@@ -260,13 +260,13 @@ def render_aggregate(data):
                     cost=sum(e["func"][fn]["baseline"]["cost"] for e in regs),
                     mean_t=0.0)
         # S1/S2 only when genuinely bracketed by the aggregate curve
-        sxs = [r["sum_x"] for r in rows]; mts = [r["multi"] for r in rows]
-        s1 = min(rows, key=lambda r: abs(r["sum_x"] - base["cells"])) if min(sxs) <= base["cells"] <= max(sxs) else None
+        sxs = [r["sum_y"] for r in rows]; mts = [r["multi"] for r in rows]
+        s1 = min(rows, key=lambda r: abs(r["sum_y"] - base["cells"])) if min(sxs) <= base["cells"] <= max(sxs) else None
         s2 = min(rows, key=lambda r: abs(r["multi"] - base["cost"])) if min(mts) <= base["cost"] <= max(mts) else None
         scen = {k: dict(v) for k, v in (("S1", s1), ("S2", s2)) if v}
         fd = {"rows": rows, "baseline": base, "scen": scen}
         render("AGGREGATE", fn, fd)
-        by_sx = sorted(rows, key=lambda r: r["sum_x"])
+        by_sx = sorted(rows, key=lambda r: r["sum_y"])
         agg_out[fn] = {"n_regions": len(regs), "n_w": len(rows), "baseline": base,
                        "S1": s1, "S2": s2, "few": by_sx[0], "many": by_sx[-1]}
         print(f"  [aggregate {fn}] {len(regs)} areas, {len(rows)} union w-points in "

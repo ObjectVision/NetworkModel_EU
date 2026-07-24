@@ -72,15 +72,15 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
    at (0.1,0.2). Effective at the next full rerun — then the aggregate has full common-λ
    support.)*
    **Extend the w-grid upward** (currently tops out at w = 0.5, λ = €50k). In all three
-   regions sum_x was still falling at the top of the grid, so S1 was never bracketed
+   regions sum_y was still falling at the top of the grid, so S1 was never bracketed
    ("—" in the interpolated-λ tables; DK floor 459 vs target 444 — nearly there).
-   Cheap: append w ∈ {1, 2, 5, …} until sum_x floors or brackets the baseline count.
+   Cheap: append w ∈ {1, 2, 5, …} until sum_y floors or brackets the baseline count.
 
 5. **Exact S1/S2 instead of interpolation** (roadmap: "better estimations for S1 and S2").
-   The LP relaxation is nearly integral (frac_x small), so branch-and-bound is cheap:
-   - S1: solve the p-median MIP (binary x + Σx = p, p = baseline count) per region.
+   The LP relaxation is nearly integral (frac_y small), so branch-and-bound is cheap:
+   - S1: solve the p-median MIP (binary y + Σy = p, p = baseline count) per region.
    - Make coverage **soft** in the MIP too — a stranding variable per client priced at
-     BIG — matching the λ-sweep LP, which is already soft (10-Jul: Σy ≤ 1, unserved
+     BIG — matching the λ-sweep LP, which is already soft (10-Jul: Σx ≤ 1, unserved
      priced at BIG; the ex-"structural" ITG/SE2 now bracket, so the MIP is only needed
      to pin S1/S2 exactly at p, not to make them reachable).
    - Optionally an ε-constraint window over p around the baseline for the local frontier.
@@ -129,9 +129,9 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
     travel costs") — now cheap post-processing on the per-region arrows.
 
 12. ✅ *(done 10-Jul — the draft now matches the implementation end-to-end: §2.2.2 rewritten
-    to the multistart rounding (top-p + CELF-greedy + Efraimidis–Spirakis A-Res x*-weighted
-    seeds + Resende–Werneck swap search, incl. the ∝x_j proof; References section added);
-    assumptions switched to SOFT coverage (Σy ≤ 1, unserved demand priced at f(t_max) —
+    to the multistart rounding (top-p + CELF-greedy + Efraimidis–Spirakis A-Res y*-weighted
+    seeds + Resende–Werneck swap search, incl. the ∝y_j proof; References section added);
+    assumptions switched to SOFT coverage (Σx ≤ 1, unserved demand priced at f(t_max) —
     matching the 10-Jul solver change); objective corrected to
     C = Σ f(t)·Q·y + f(t_max)·Q·(1−Σy) + λ·β0·Σx, with the β1·S_j load term explicitly
     noted as omitted (≈constant under (near-)full assignment); "log-logistic" → logistic
@@ -142,8 +142,8 @@ of physical access to services_LD.docx`), the deck roadmap page (`lambda_sweep5.
     S1/S2 section.)*
     **Align the methodology draft with the implemented solver**: §2.2.2 still describes the
     older randomized-threshold rounding; the implemented method is multistart (top-p +
-    CELF-greedy + x*-weighted seeds, swap local search, coverage-honest scoring at
-    BIG) with p = round(Σx*). Also note there that the facility-cost load term
+    CELF-greedy + y*-weighted seeds, swap local search, coverage-honest scoring at
+    BIG) with p = round(Σy*). Also note there that the facility-cost load term
     β₁·Sⱼ only cancels under full assignment — with soft coverage it no longer
     does exactly. Draft needs a re-touch: solver is now warm-start dual simplex for
     BOTH travel functions (10-Jul, soft coverage), no longer IPM for LOGISTIC.

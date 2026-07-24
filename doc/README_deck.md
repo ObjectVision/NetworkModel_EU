@@ -23,7 +23,7 @@ powershell -ExecutionPolicy Bypass -File merge_deck.ps1
 
 ## What each region chart shows  (per `build_charts.py`)
 
-x = `sum_x` (LP-relaxed facility count). Two charts per region: LINEAR | LOGISTIC.
+x = `sum_y` (LP-relaxed facility count). Two charts per region: LINEAR | LOGISTIC.
 
 - **left axis** — total travel cost: `travel_relax` (LP lower bound, dashed grey) and
   `travel_multi` (multistart, solid blue). `travel_topp` / `travel_greedy` are intentionally omitted.

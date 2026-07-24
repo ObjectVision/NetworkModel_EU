@@ -146,18 +146,18 @@ function find_bracket(results, target, getter, descending)
 end
 
 function print_sweep_header(target_raw)
-    pln(rpad("w", 12), rpad("λ (€)", 14), rpad("sum_x", 12),
+    pln(rpad("w", 12), rpad("λ (€)", 14), rpad("sum_y", 12),
         rpad("travel_relax", 16), rpad("travel_c_ph2", 16),
         rpad("n_open", 10), rpad("fac_€", 14),
-        rpad("mean_t", 10), rpad("frac_x", 10),
+        rpad("mean_t", 10), rpad("frac_y", 10),
         rpad("n-cells", 10),
         target_raw === nothing ? "" : "n-raw")
 end
 
 function print_sweep_row(r, target_cells, target_raw)
-    fac_eur = r.sum_x * FACILITY_MIN_COSTS
+    fac_eur = r.sum_y * FACILITY_MIN_COSTS
     n_raw_delta = target_raw === nothing ? "" : string(r.n_open - target_raw)
-    pln(rpad(r.w, 12), rpad(r.λ, 14), rpad(round(r.sum_x, digits=2), 12),
+    pln(rpad(r.w, 12), rpad(r.λ, 14), rpad(round(r.sum_y, digits=2), 12),
         rpad(round(r.travel_relax, digits=0), 16), rpad(round(r.cost_c, digits=0), 16),
         rpad(r.n_open, 10), rpad(round(fac_eur, digits=0), 14),
         rpad(round(r.mean_t, digits=4), 10), rpad(r.n_frac, 10),
@@ -195,9 +195,9 @@ function analyze_country(country)
 
     function run_lp(w)
         out = run_scenario(new_data, Inf, w, false, true)
-        _, _, _, n_open_full, n_open_small, mean_t, travel_c, _, _, _, _, _, _, n_frac, sum_x, travel_relax = out
+        _, _, _, n_open_full, n_open_small, mean_t, travel_c, _, _, _, _, _, _, n_frac, sum_y, travel_relax = out
         return (w=w, λ=w*FACILITY_MIN_COSTS, n_open=n_open_full+n_open_small,
-                cost_c=travel_c, mean_t=mean_t, n_frac=n_frac, sum_x=sum_x, travel_relax=travel_relax)
+                cost_c=travel_c, mean_t=mean_t, n_frac=n_frac, sum_y=sum_y, travel_relax=travel_relax)
     end
 
     on_complete = r -> print_sweep_row(r, target_cells, target_raw)
@@ -213,15 +213,15 @@ function analyze_country(country)
     results = parallel_map(run_lp, ws_coarse, MAX_PARALLEL, on_complete)
     sort!(results, by=x->x.w)
 
-    # Determine combined bracket covering S1 (sum_x = target_cells) and S2 (cost = baseline cost).
-    # Use sum_x rather than n_open because n_open includes fractional facilities and is non-monotonic
-    # in w under IPM+crossover degeneracy. sum_x is the LP-relaxed continuous facility count and
+    # Determine combined bracket covering S1 (sum_y = target_cells) and S2 (cost = baseline cost).
+    # Use sum_y rather than n_open because n_open includes fractional facilities and is non-monotonic
+    # in w under IPM+crossover degeneracy. sum_y is the LP-relaxed continuous facility count and
     # decreases monotonically with w, so it's the correct bracketing criterion.
-    bracket_S1 = find_bracket(results, target_cells, r -> r.sum_x, true)
+    bracket_S1 = find_bracket(results, target_cells, r -> r.sum_y, true)
     bracket_S2 = find_bracket(results, base.cost_c,  r -> r.cost_c, false)
 
     if bracket_S1 === nothing && bracket_S2 === nothing
-        pln("\nNeither S1 (sum_x=$target_cells) nor S2 (cost=$(round(base.cost_c,digits=0))) found in coarse sweep range.")
+        pln("\nNeither S1 (sum_y=$target_cells) nor S2 (cost=$(round(base.cost_c,digits=0))) found in coarse sweep range.")
         pln("Skipping fine sweep for $country.")
         return
     end
@@ -236,7 +236,7 @@ function analyze_country(country)
 
     pln()
     pln("Fine λ sweep (10 points) over w in [$w_lo, $w_hi]")
-    pln("  bracket S1 (sum_x=$target_cells): $(bracket_S1)")
+    pln("  bracket S1 (sum_y=$target_cells): $(bracket_S1)")
     pln("  bracket S2 (cost=$(round(base.cost_c, digits=0))): $(bracket_S2)")
     print_sweep_header(target_raw)
 
@@ -264,29 +264,29 @@ function analyze_country(country)
     pln("$country — scenario summary")
     pln("=" ^ 90)
 
-    s1 = closest(results, target_cells, :sum_x)
-    pln("\nS1 — closest to sum_x = $target_cells (baseline cells):")
+    s1 = closest(results, target_cells, :sum_y)
+    pln("\nS1 — closest to sum_y = $target_cells (baseline cells):")
     pln("  w = $(round(s1.w, sigdigits=5))   λ = $(round(s1.λ, digits=2)) €")
-    pln("  sum_x         : $(round(s1.sum_x, digits=2))      (target $target_cells)")
-    pln("  n_open        : $(s1.n_open)         frac_x: $(s1.n_frac)")
+    pln("  sum_y         : $(round(s1.sum_y, digits=2))      (target $target_cells)")
+    pln("  n_open        : $(s1.n_open)         frac_y: $(s1.n_frac)")
     pln("  travel_relax  : $(round(s1.travel_relax, digits=0))     (LP-relaxed; baseline $(round(base.cost_c, digits=0)))")
     pln("  travel_c (ph2): $(round(s1.cost_c, digits=0))     (post-rounding; baseline $(round(base.cost_c, digits=0)))")
     pln("  travel change (ph2): $(round((s1.cost_c - base.cost_c)/base.cost_c * 100, digits=2))%")
-    pln("  facility €    : $(round(s1.sum_x * FACILITY_MIN_COSTS, digits=0))     (baseline $(round(target_cells * FACILITY_MIN_COSTS, digits=0)))")
+    pln("  facility €    : $(round(s1.sum_y * FACILITY_MIN_COSTS, digits=0))     (baseline $(round(target_cells * FACILITY_MIN_COSTS, digits=0)))")
     pln("  mean t (min)  : $(round(s1.mean_t, digits=4))    (baseline $(round(base.mean_t, digits=4)))")
 
     s2 = closest(results, base.cost_c, :cost_c)
     pln("\nS2 — closest to travel_c (ph2) = $(round(base.cost_c, digits=0)) (baseline):")
     pln("  w = $(round(s2.w, sigdigits=5))   λ = $(round(s2.λ, digits=2)) €")
-    pln("  sum_x         : $(round(s2.sum_x, digits=2))      (baseline cells $target_cells)")
-    pln("  n_open        : $(s2.n_open)         frac_x: $(s2.n_frac)")
+    pln("  sum_y         : $(round(s2.sum_y, digits=2))      (baseline cells $target_cells)")
+    pln("  n_open        : $(s2.n_open)         frac_y: $(s2.n_frac)")
     pln("  travel_relax  : $(round(s2.travel_relax, digits=0))     (LP-relaxed; baseline $(round(base.cost_c, digits=0)))")
     pln("  travel_c (ph2): $(round(s2.cost_c, digits=0))     (post-rounding; baseline $(round(base.cost_c, digits=0)))")
     pln("  travel change (ph2): $(round((s2.cost_c - base.cost_c)/base.cost_c * 100, digits=2))%")
-    pln("  facility €    : $(round(s2.sum_x * FACILITY_MIN_COSTS, digits=0))     (baseline $(round(target_cells * FACILITY_MIN_COSTS, digits=0)))")
-    pln("  fewer than cells (by sum_x): $(round(target_cells - s2.sum_x, digits=2))  ($(round((target_cells - s2.sum_x)/target_cells * 100, digits=2))%)")
+    pln("  facility €    : $(round(s2.sum_y * FACILITY_MIN_COSTS, digits=0))     (baseline $(round(target_cells * FACILITY_MIN_COSTS, digits=0)))")
+    pln("  fewer than cells (by sum_y): $(round(target_cells - s2.sum_y, digits=2))  ($(round((target_cells - s2.sum_y)/target_cells * 100, digits=2))%)")
     if target_raw !== nothing
-        pln("  fewer than raw   (by sum_x): $(round(target_raw - s2.sum_x, digits=2))  ($(round((target_raw - s2.sum_x)/target_raw * 100, digits=2))%)")
+        pln("  fewer than raw   (by sum_y): $(round(target_raw - s2.sum_y, digits=2))  ($(round((target_raw - s2.sum_y)/target_raw * 100, digits=2))%)")
     end
     pln("  mean t (min)  : $(round(s2.mean_t, digits=4))    (baseline $(round(base.mean_t, digits=4)))")
 end

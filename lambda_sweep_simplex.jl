@@ -185,18 +185,18 @@ function find_bracket(results, target, getter, descending)
 end
 
 function print_sweep_header(target_raw)
-    pln(rpad("w", 12), rpad("λ (€)", 14), rpad("sum_x", 12),
+    pln(rpad("w", 12), rpad("λ (€)", 14), rpad("sum_y", 12),
         rpad("travel_relax", 16), rpad("travel_topp", 16), rpad("travel_greedy", 16), rpad("travel_multi", 16),
         rpad("n_open", 10), rpad("fac_€", 14),
-        rpad("mean_t", 10), rpad("frac_x", 10),
+        rpad("mean_t", 10), rpad("frac_y", 10),
         rpad("n-cells", 10),
         target_raw === nothing ? "" : "n-raw")
 end
 
 function print_sweep_row(r, target_cells, target_raw)
-    fac_eur = r.sum_x * FACILITY_MIN_COSTS
+    fac_eur = r.sum_y * FACILITY_MIN_COSTS
     n_raw_delta = target_raw === nothing ? "" : string(r.n_open - target_raw)
-    pln(rpad(round(r.w, sigdigits=5), 12), rpad(round(r.λ, digits=2), 14), rpad(round(r.sum_x, digits=2), 12),
+    pln(rpad(round(r.w, sigdigits=5), 12), rpad(round(r.λ, digits=2), 14), rpad(round(r.sum_y, digits=2), 12),
         rpad(round(r.travel_relax, digits=0), 16),
         rpad(round(r.travel_c_topp, digits=0), 16),
         rpad(round(r.travel_c_greedy, digits=0), 16),
@@ -260,10 +260,10 @@ function analyze_country(country)
     # far lower λ. 1-2-5 per decade from 1e-4 up to w_max, identical for every region ⇒ the
     # aggregate gets full common-λ support. Under SOFT coverage (2026-07-10) the frontier no
     # longer stops at a full-coverage floor — as λ rises the LP strands ever more remote
-    # clients, so sum_x keeps falling toward 0 and the curve runs down past the existing-
+    # clients, so sum_y keeps falling toward 0 and the curve runs down past the existing-
     # facility count. w_max must therefore reach high enough λ that both S1 (baseline count)
     # and S2 (baseline cost) bracket even for the ex-"structural" regions (ITG/PT/PL8):
-    # LINEAR 5.0 (ITG: sum_x 178 @ w5, cost 1.75e8 > baseline 1.4e8 ⇒ S2 brackets; S1 @ ~0.7),
+    # LINEAR 5.0 (ITG: sum_y 178 @ w5, cost 1.75e8 > baseline 1.4e8 ⇒ S2 brackets; S1 @ ~0.7),
     # LOGISTIC 0.5. Soft high-λ solves are CHEAP (few open facilities ⇒ small basis), so the
     # wide grid is affordable. Env override: SWEEP_WMAX.
     w_max = haskey(ENV, "SWEEP_WMAX") ? parse(Float64, ENV["SWEEP_WMAX"]) :
@@ -288,10 +288,10 @@ function analyze_country(country)
     end
     sort!(results, by=x->x.w)
 
-    bracket_S1 = find_bracket(results, target_cells, r -> r.sum_x, true)
+    bracket_S1 = find_bracket(results, target_cells, r -> r.sum_y, true)
     bracket_S2 = find_bracket(results, base.cost_c,  r -> r.cost_c, false)
     if bracket_S1 === nothing
-        pln("  S1 (sum_x=$target_cells) not bracketed at w_max=$w_max: under soft coverage the frontier should pass the baseline count — check for skipped/timed-out points or extend SWEEP_WMAX; exact pin via soft-coverage MIP (todo #5).")
+        pln("  S1 (sum_y=$target_cells) not bracketed at w_max=$w_max: under soft coverage the frontier should pass the baseline count — check for skipped/timed-out points or extend SWEEP_WMAX; exact pin via soft-coverage MIP (todo #5).")
     end
 
     # Structural coverage-floor regions (ITG/Portugal/PL8): under the #3 coverage-consistent
@@ -303,7 +303,7 @@ function analyze_country(country)
     # scenario); exact S1/S2 for these need the soft-coverage MIP (todo #5).
     do_fine = bracket_S1 !== nothing || bracket_S2 !== nothing
     if !do_fine
-        pln("\nNeither S1 (sum_x=$target_cells) nor S2 (cost=$(round(base.cost_c,digits=0))) bracketed in coarse range (structural coverage-floor region).")
+        pln("\nNeither S1 (sum_y=$target_cells) nor S2 (cost=$(round(base.cost_c,digits=0))) bracketed in coarse range (structural coverage-floor region).")
         pln("Emitting coarse frontier only; exact S1/S2 via soft-coverage MIP (todo #5).")
     end
 
@@ -317,7 +317,7 @@ function analyze_country(country)
 
     pln()
     pln("Fine λ sweep over w in [$w_lo, $w_hi]")
-    pln("  bracket S1 (sum_x=$target_cells): $(bracket_S1)")
+    pln("  bracket S1 (sum_y=$target_cells): $(bracket_S1)")
     pln("  bracket S2 (cost=$(round(base.cost_c, digits=0))): $(bracket_S2)")
     print_sweep_header(target_raw)
 
@@ -391,33 +391,33 @@ function analyze_country(country)
     pln("$country — scenario summary")
     pln("=" ^ 90)
 
-    s1 = closest(results, target_cells, :sum_x)
-    pln("\nS1 — closest to sum_x = $target_cells (baseline cells):")
+    s1 = closest(results, target_cells, :sum_y)
+    pln("\nS1 — closest to sum_y = $target_cells (baseline cells):")
     pln("  w = $(round(s1.w, sigdigits=5))   λ = $(round(s1.λ, digits=2)) €")
-    pln("  sum_x         : $(round(s1.sum_x, digits=2))      (target $target_cells)")
-    pln("  n_open        : $(s1.n_open)         frac_x: $(s1.n_frac)")
+    pln("  sum_y         : $(round(s1.sum_y, digits=2))      (target $target_cells)")
+    pln("  n_open        : $(s1.n_open)         frac_y: $(s1.n_frac)")
     pln("  travel_relax  : $(round(s1.travel_relax, digits=0))     (LP1 with all fractional x)")
     pln("  travel_topp   : $(round(s1.travel_c_topp, digits=0))   greedy: $(round(s1.travel_c_greedy, digits=0))   multi: $(round(s1.travel_c_multi, digits=0))")
     pln("  stranded      : topp $(s1.uncov_topp)   greedy $(s1.uncov_greedy)   multi $(s1.uncov_multi)")
     pln("  travel_c ($(s1.rounding)): $(round(s1.cost_c, digits=0))     (selected; baseline $(round(base.cost_c, digits=0)))")
     pln("  travel change (ph2): $(round((s1.cost_c - base.cost_c)/base.cost_c * 100, digits=2))%")
-    pln("  facility €    : $(round(s1.sum_x * FACILITY_MIN_COSTS, digits=0))     (baseline $(round(target_cells * FACILITY_MIN_COSTS, digits=0)))")
+    pln("  facility €    : $(round(s1.sum_y * FACILITY_MIN_COSTS, digits=0))     (baseline $(round(target_cells * FACILITY_MIN_COSTS, digits=0)))")
     pln("  mean t (min)  : $(round(s1.mean_t, digits=4))    (baseline $(round(base.mean_t, digits=4)))")
 
     s2 = closest(results, base.cost_c, :cost_c)
     pln("\nS2 — closest to travel_c (ph2) = $(round(base.cost_c, digits=0)) (baseline):")
     pln("  w = $(round(s2.w, sigdigits=5))   λ = $(round(s2.λ, digits=2)) €")
-    pln("  sum_x         : $(round(s2.sum_x, digits=2))      (baseline cells $target_cells)")
-    pln("  n_open        : $(s2.n_open)         frac_x: $(s2.n_frac)")
+    pln("  sum_y         : $(round(s2.sum_y, digits=2))      (baseline cells $target_cells)")
+    pln("  n_open        : $(s2.n_open)         frac_y: $(s2.n_frac)")
     pln("  travel_relax  : $(round(s2.travel_relax, digits=0))     (LP1 with all fractional x)")
     pln("  travel_topp   : $(round(s2.travel_c_topp, digits=0))   greedy: $(round(s2.travel_c_greedy, digits=0))   multi: $(round(s2.travel_c_multi, digits=0))")
     pln("  stranded      : topp $(s2.uncov_topp)   greedy $(s2.uncov_greedy)   multi $(s2.uncov_multi)")
     pln("  travel_c ($(s2.rounding)): $(round(s2.cost_c, digits=0))     (selected; baseline $(round(base.cost_c, digits=0)))")
     pln("  travel change (ph2): $(round((s2.cost_c - base.cost_c)/base.cost_c * 100, digits=2))%")
-    pln("  facility €    : $(round(s2.sum_x * FACILITY_MIN_COSTS, digits=0))     (baseline $(round(target_cells * FACILITY_MIN_COSTS, digits=0)))")
-    pln("  fewer than cells (by sum_x): $(round(target_cells - s2.sum_x, digits=2))  ($(round((target_cells - s2.sum_x)/target_cells * 100, digits=2))%)")
+    pln("  facility €    : $(round(s2.sum_y * FACILITY_MIN_COSTS, digits=0))     (baseline $(round(target_cells * FACILITY_MIN_COSTS, digits=0)))")
+    pln("  fewer than cells (by sum_y): $(round(target_cells - s2.sum_y, digits=2))  ($(round((target_cells - s2.sum_y)/target_cells * 100, digits=2))%)")
     if target_raw !== nothing
-        pln("  fewer than raw   (by sum_x): $(round(target_raw - s2.sum_x, digits=2))  ($(round((target_raw - s2.sum_x)/target_raw * 100, digits=2))%)")
+        pln("  fewer than raw   (by sum_y): $(round(target_raw - s2.sum_y, digits=2))  ($(round((target_raw - s2.sum_y)/target_raw * 100, digits=2))%)")
     end
     pln("  mean t (min)  : $(round(s2.mean_t, digits=4))    (baseline $(round(base.mean_t, digits=4)))")
 
