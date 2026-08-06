@@ -13,7 +13,7 @@ container POIs {
 	}
 	
 	unit<uint32> POI_list
-	: nrofrows = 11
+	: nrofrows = 13
 	, descr = "Full list of the various POI sets to be loaded"
 	{
 		attribute<string> path:= matrix/values[((id(.)*nfields)+0)[matrix]];
@@ -27,6 +27,8 @@ container POIs {
 				[ 'grid_urban_points_2021'
 				, 'all_urban_points_2021'
 				, 'urban_lau_centroids_2021'
+				, 'grid_points_faux_city_centroids'
+				, 'single_centroid_cities'
 				, 'ESPON_DESIRE_POI_Hospitals_NUTS2024'
 				, 'ESPON_DESIRE_POI_Childcare'
 				, 'ESPON_DESIRE_POI_Doctors_NUTS2024'

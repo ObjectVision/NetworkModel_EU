@@ -1,10 +1,10 @@
 Container POI_accessibility: using = "units", descr = "Automated computation of access to POI layers" 
 {
-	unit<uint32> Access_definition_list: nrofrows = 12
+	unit<uint32> Access_definition_list: nrofrows = 14
 	{
 		attribute<string> 	POI_set:= 	 matrix/Values[(0+(id(.)*nfields))[matrix]];
 		attribute<string> 	method:=	 matrix/Values[(1+(id(.)*nfields))[matrix]];
-		attribute<uint32>	max_search:= (matrix/Values[(2+(id(.)*nfields))[matrix]]), descr = "cut for closest, farthest facility for farther";
+		attribute<uint32>	max_search:= uint32(matrix/Values[(2+(id(.)*nfields))[matrix]]), descr = "cut for closest, farthest facility for farther";
 		
 		parameter<uint32> nfields:= 3;
 		
@@ -13,7 +13,9 @@ Container POI_accessibility: using = "units", descr = "Automated computation of 
 			attribute<string> Values:
 			[ 'grid_urban_points_2021', 'closest', '99999999'
 			, 'all_urban_points_2021', 'closest', '99999999'
+			, 'grid_points_faux_city_centroids', 'closest', '99999999'
 			, 'urban_lau_centroids_2021', 'closest', '99999999'
+			, 'single_centroid_cities', 'closest', '99999999'
 			, 'ESPON_DESIRE_POI_Hospitals_NUTS2024', 'closest', '99999999'
 			, 'ESPON_DESIRE_POI_Childcare', 'closest', '99999999'
 			, 'ESPON_DESIRE_POI_Doctors_NUTS2024', 'closest', '99999999'
