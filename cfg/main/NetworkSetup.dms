@@ -34,7 +34,18 @@ container NetworkSetup : using = "units;Geography;SourceData;Classifications"
 			,Analyses/AllocateClientsToNewPharmacies/Dest  //Dest
 			,'NewPharmacies'
 		);
-
+	container s1Pharmacy_Analysis:= 
+		Call_CreateNetwork_T(
+			Analyses/AllocateClientsTos1Pharmacies/Org   //Org
+			,Analyses/AllocateClientsTos1Pharmacies/Dest  //Dest
+			,'s1Pharmacies'
+		);
+	container s2Pharmacy_Analysis:= 
+		Call_CreateNetwork_T(
+			Analyses/AllocateClientsTos2Pharmacies/Org   //Org
+			,Analyses/AllocateClientsTos2Pharmacies/Dest  //Dest
+			,'s2Pharmacies'
+		);
 	Template Call_CreateNetwork_T
 	{
 		unit<uint32>      Org;
