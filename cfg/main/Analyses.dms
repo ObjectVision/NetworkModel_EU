@@ -2,8 +2,20 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 {  
 	unit<uint32> Client       := ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/'+ModelParameters/Client+' > 0)';
 	
+	// Client      : the demand UNIVERSE -- every inhabited cell in the study area.
+	// ModelClient : the demand we can legitimately MODEL -- inhabited cells in
+	//               countries for which pharmacy supply data exists. covered_country
+	//               states DATA AVAILABILITY, not accessibility: residents of a
+	//               country without pharmacy records are not badly served, we simply
+	//               do not know how they are served, and pricing them at BIG would
+	//               let a data gap masquerade as a policy finding (issue #49).
+	//               BASELINE and LP must BOTH use ModelClient -- S1/S2, the frontier,
+	//               its rectangle and the diagonal crossing are all defined relative
+	//               to the baseline point, so the two sides must carry the SAME
+	//               population (doc/todo.md B3). Schools keep plain Client: this
+	//               filter is pharmacy-specific.
 	attribute<bool> covered_country (/SourceData/RegionalUnits/Country/subset):= pcount(/SourceData/Locations/Pharmacies/within_StudyArea/Country_rel) > 0;
-	unit<uint32> Client_pharmacy_coverage:= ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/'+ModelParameters/Client+' > 0 && covered_country[/Geography/Base_grid_'+ModelParameters/DestGridsize+'/points/Country_rel])';
+	unit<uint32> ModelClient:= ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/'+ModelParameters/Client+' > 0 && covered_country[/Geography/Base_grid_'+ModelParameters/DestGridsize+'/points/Country_rel])';
 	
 	container Pharmacies
 	{
@@ -39,9 +51,9 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			// (use the full Allocation path, not a unit alias — a `unit := other` alias
 			//  does not expose the other's named sub-items like /facility_rel)
 			attribute<AllocateClientsToExistingPharmacies/Allocation>
-			                  best_od                     (Client) := min_index(AllocateClientsToExistingPharmacies/Allocation/impedance, AllocateClientsToExistingPharmacies/Allocation/client_rel);
-			attribute<cells>  nearest_cell_by_road_client (Client) := AllocateClientsToExistingPharmacies/Allocation/facility_rel[best_od];
-			attribute<Client> grid_client_rel             (grid)   := rlookup(Base_grid_1km/points/grid_domain_rel, Client/grid_domain_rel);
+			                  best_od                     (ModelClient) := min_index(AllocateClientsToExistingPharmacies/Allocation/impedance, AllocateClientsToExistingPharmacies/Allocation/client_rel);
+			attribute<cells>  nearest_cell_by_road_client (ModelClient) := AllocateClientsToExistingPharmacies/Allocation/facility_rel[best_od];
+			attribute<ModelClient> grid_client_rel        (grid)   := rlookup(Base_grid_1km/points/grid_domain_rel, ModelClient/grid_domain_rel);
 			attribute<cells>  nearest_cell_by_road        (grid)   := nearest_cell_by_road_client[grid_client_rel];
 
 			// Catchment is ROAD-based: each 1km cell's residents go to its road-nearest pharmacy
@@ -112,7 +124,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 	}
 	container AllocateClientsToExistingPharmacies:= 
 		Allocate_T(
-			  Client_pharmacy_coverage
+			  ModelClient
 			, SourceData/Locations/Pharmacies/within_StudyArea/uq_cells
 			, NetworkSetup/ExistingPharmacy_Analysis/NetwerkSpec
 			, NetworkSetup/ExistingPharmacy_Analysis/ProjName
@@ -120,7 +132,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		
 	container AllocateClientsToNewPharmacies:= 
 		Allocate_T(
-			  Client
+			  ModelClient
 			, SourceData/Locations/NewPharmacyLocations/within_StudyArea
 			, NetworkSetup/NewPharmacy_Analysis/NetwerkSpec
 			, NetworkSetup/NewPharmacy_Analysis/ProjName
@@ -143,14 +155,14 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 		);
 	container AllocateClientsTos1Pharmacies:= 
 		Allocate_T(
-			  Client
+			  ModelClient
 			, /SourceData/Locations/services_allocated/resultfiles_s1_logistic/unique/within_StudyArea
 			, NetworkSetup/s1Pharmacy_Analysis/NetwerkSpec
 			, NetworkSetup/s1Pharmacy_Analysis/ProjName
 		);
 	container AllocateClientsTos2Pharmacies:= 
 		Allocate_T(
-			  Client
+			  ModelClient
 			, /SourceData/Locations/services_allocated/resultfiles_s2_logistic/unique/within_StudyArea
 			, NetworkSetup/s2Pharmacy_Analysis/NetwerkSpec
 			, NetworkSetup/s2Pharmacy_Analysis/ProjName
@@ -171,8 +183,8 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<min_f> t_ij;
 		}
 
-		attribute<min_f>             ClientTravelTime            (Client) := rjoin(ID(Client), convert(ResultingClientAssignment/id, Client), ResultingClientAssignment/t_ij);
-		attribute<ClientTravelTimeK> ClientTravelTime_Classified (Client) := classify(ClientTravelTime, ClientTravelTimeK/ClassBreaks);
+		attribute<min_f>             ClientTravelTime            (Org) := rjoin(ID(Org), convert(ResultingClientAssignment/id, Org), ResultingClientAssignment/t_ij);
+		attribute<ClientTravelTimeK> ClientTravelTime_Classified (Org) := classify(ClientTravelTime, ClientTravelTimeK/ClassBreaks);
 
 		unit<uint8> OpenEnum := range(0b, 3b)
 		{
@@ -220,8 +232,8 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<min_f> t_ij;
 		}
 
-		attribute<min_f>             ClientTravelTime            (Client) := rjoin(ID(Client), convert(ResultingClientAssignment/id, Client), ResultingClientAssignment/t_ij);
-		attribute<ClientTravelTimeK> ClientTravelTime_Classified (Client) := classify(ClientTravelTime, ClientTravelTimeK/ClassBreaks);
+		attribute<min_f>             ClientTravelTime            (Org) := rjoin(ID(Org), convert(ResultingClientAssignment/id, Org), ResultingClientAssignment/t_ij);
+		attribute<ClientTravelTimeK> ClientTravelTime_Classified (Org) := classify(ClientTravelTime, ClientTravelTimeK/ClassBreaks);
 
 		unit<uint8> OpenEnum := range(0b, 3b)
 		{
@@ -334,7 +346,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 				,	StorageType = "gdalwrite.vect"
 				,	StorageReadOnly = "False"
 			{
-				attribute<Client>    Client_rel   (OD) := ../client_rel;
+				attribute<Org>       Client_rel   (OD) := ../client_rel;
 				attribute<Facility>  facility_rel (OD) := ../facility_rel;
 				attribute<float32>   t_ij         (OD) := ../t_ij;
 				attribute<float32>   d_ij         (OD) := ../d_ij;
@@ -376,27 +388,27 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 				container log_S2    := ReadSweepResults_T(ProjName, 'LOGISTIC',  'S2');
 
 				// Travel-time impact vs baseline (negative = faster than existing situation).
-				attribute<min_f> dT_lin_S1  (Client) := lin_S1/ClientTravelTime  - baseline/ClientTravelTime;
-				attribute<min_f> dT_lin_S2  (Client) := lin_S2/ClientTravelTime  - baseline/ClientTravelTime;
-				attribute<min_f> dT_quad_S1 (Client) := quad_S1/ClientTravelTime - baseline/ClientTravelTime;
-				attribute<min_f> dT_quad_S2 (Client) := quad_S2/ClientTravelTime - baseline/ClientTravelTime;
-				attribute<min_f> dT_log_S1  (Client) := log_S1/ClientTravelTime  - baseline/ClientTravelTime;
-				attribute<min_f> dT_log_S2  (Client) := log_S2/ClientTravelTime  - baseline/ClientTravelTime;
+				attribute<min_f> dT_lin_S1  (Org) := lin_S1/ClientTravelTime  - baseline/ClientTravelTime;
+				attribute<min_f> dT_lin_S2  (Org) := lin_S2/ClientTravelTime  - baseline/ClientTravelTime;
+				attribute<min_f> dT_quad_S1 (Org) := quad_S1/ClientTravelTime - baseline/ClientTravelTime;
+				attribute<min_f> dT_quad_S2 (Org) := quad_S2/ClientTravelTime - baseline/ClientTravelTime;
+				attribute<min_f> dT_log_S1  (Org) := log_S1/ClientTravelTime  - baseline/ClientTravelTime;
+				attribute<min_f> dT_log_S2  (Org) := log_S2/ClientTravelTime  - baseline/ClientTravelTime;
 			}
 
 			container Summary
 			{
-				attribute<min_f>             ClientTravelTime_lp_central                (Client)        := SolverResults/lp_central/ClientTravelTime;
-				attribute<ClientTravelTimeK> ClientTravelTime_Classified_lp_central     (Client)        := SolverResults/lp_central/ClientTravelTime_Classified;
+				attribute<min_f>             ClientTravelTime_lp_central                (Org)           := SolverResults/lp_central/ClientTravelTime;
+				attribute<ClientTravelTimeK> ClientTravelTime_Classified_lp_central     (Org)           := SolverResults/lp_central/ClientTravelTime_Classified;
 				attribute<Float64>           Openness_lp_central                        (Base_grid_1km) := SolverResults/lp_central/Openness;
-				attribute<min_f>             ClientTravelTime_lp_nearest                (Client)        := SolverResults/lp_nearest/ClientTravelTime;
-				attribute<ClientTravelTimeK> ClientTravelTime_Classified_lp_nearest     (Client)        := SolverResults/lp_nearest/ClientTravelTime_Classified;
+				attribute<min_f>             ClientTravelTime_lp_nearest                (Org)           := SolverResults/lp_nearest/ClientTravelTime;
+				attribute<ClientTravelTimeK> ClientTravelTime_Classified_lp_nearest     (Org)           := SolverResults/lp_nearest/ClientTravelTime_Classified;
 				attribute<Float64>           Openness_lp_nearest                        (Base_grid_1km) := SolverResults/lp_nearest/Openness;
-				attribute<min_f>             ClientTravelTime_greedy_central            (Client)        := SolverResults/greedy_central/ClientTravelTime;
-				attribute<ClientTravelTimeK> ClientTravelTime_Classified_greedy_central (Client)        := SolverResults/greedy_central/ClientTravelTime_Classified;
+				attribute<min_f>             ClientTravelTime_greedy_central            (Org)           := SolverResults/greedy_central/ClientTravelTime;
+				attribute<ClientTravelTimeK> ClientTravelTime_Classified_greedy_central (Org)           := SolverResults/greedy_central/ClientTravelTime_Classified;
 				attribute<Float64>           Openness_greedy_central                    (Base_grid_1km) := SolverResults/greedy_central/Openness;
-				attribute<min_f>             ClientTravelTime_greedy_nearest            (Client)        := SolverResults/greedy_nearest/ClientTravelTime;
-				attribute<ClientTravelTimeK> ClientTravelTime_Classified_greedy_nearest (Client)        := SolverResults/greedy_nearest/ClientTravelTime_Classified;
+				attribute<min_f>             ClientTravelTime_greedy_nearest            (Org)           := SolverResults/greedy_nearest/ClientTravelTime;
+				attribute<ClientTravelTimeK> ClientTravelTime_Classified_greedy_nearest (Org)           := SolverResults/greedy_nearest/ClientTravelTime_Classified;
 				attribute<Float64>           Openness_greedy_nearest                    (Base_grid_1km) := SolverResults/greedy_nearest/Openness;
 			}
 			
