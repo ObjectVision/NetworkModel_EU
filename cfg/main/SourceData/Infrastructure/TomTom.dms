@@ -44,14 +44,15 @@ Container TomTom : Using = "Units;geography;classifications/tomtom"
 			// attribute<uint64>             JNCTID    := GPKG/Junctions/id[uint64];
 		// }
 	
+		// #1154/#1179 (GeoDms 20.19+): bare read holder; JNCTID and geometry come from
+		// the .mmd dictionary. The derived IsWithinStudyArea lives next to it.
 		unit<uint32> Junctions
 		: StorageName = "=JunctionFileName"
-		, StorageReadOnly = "True"
-		{
-			attribute<bool>               IsWithinStudyArea := =/ModelParameters/Use_NUTS1_selection
-				? 'IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/NUTS1/Subset/geometry))'
-				: 'IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry_BB))';
-		}
+		, StorageReadOnly = "True";
+		
+		attribute<bool> IsWithinStudyArea (Junctions) := =/ModelParameters/Use_NUTS1_selection
+			? 'IsDefined(point_in_polygon(Junctions/geometry, /SourceData/RegionalUnits/NUTS1/Subset/geometry))'
+			: 'IsDefined(point_in_polygon(Junctions/geometry, /SourceData/RegionalUnits/Country/subset/geometry_BB))';
 	
 		parameter<string> StreetFileName := '%NetworkModelDataDir%/Infrastructure/TomTom/EU/NW2021_SP_streets.mmd';
 		// unit<uint32> Make_Streets := GPKG/Streets
@@ -68,18 +69,22 @@ Container TomTom : Using = "Units;geography;classifications/tomtom"
 			// attribute<uint8>              Lanes           := GPKG/Streets/Lanes[uint8];
 		// }
 		
+		// #1154/#1179 (GeoDms 20.19+): a read-only MMD holder declares ONLY StorageName
+		// and StorageReadOnly -- every sub-item comes from the .mmd's own dictionary,
+		// which the engine merges in. The derived selection helpers therefore live
+		// NEXT TO the holder, over its domain, instead of inside it. No alias layer, so
+		// the dictionary attributes (F_JNCTID, FRC_rel, Direction, ...) keep resolving
+		// directly on Read_Streets.
 		unit<uint32> Read_Streets
 		: StorageName = "=StreetFileName"
-		, StorageReadOnly = "True"
-		{
-			attribute<Junctions>          F_JNCT_rel                          := rlookup(F_JNCTID, Junctions/JNCTID);
-			attribute<bool>               Streets_IsJunctionWithinStudyArea   := Junctions/IsWithinStudyArea[F_JNCT_rel];
-			attribute<bool>               Streets_IsStreetTypeSubsetSelectie  := ='FRC_rel <= '+ModelParameters/StreetTypeSubsetSelectie;
-			
-			attribute<bool>               Streets_Selection_Condition         := =ModelParameters/UseStreetTypeSubset ? 'Streets_IsStreetTypeSubsetSelectie && Streets_IsJunctionWithinStudyArea' : 'Streets_IsJunctionWithinStudyArea';
-		}
+		, StorageReadOnly = "True";
 		
-		unit<uint32> Streets_Selectie   := select_with_attr_by_cond(Read_Streets, Read_Streets/Streets_Selection_Condition)
+		attribute<Junctions> F_JNCT_rel                         (Read_Streets) := rlookup(Read_Streets/F_JNCTID, Junctions/JNCTID);
+		attribute<bool>      Streets_IsJunctionWithinStudyArea  (Read_Streets) := IsWithinStudyArea[F_JNCT_rel];
+		attribute<bool>      Streets_IsStreetTypeSubsetSelectie (Read_Streets) := ='Read_Streets/FRC_rel <= '+ModelParameters/StreetTypeSubsetSelectie;
+		attribute<bool>      Streets_Selection_Condition        (Read_Streets) := =ModelParameters/UseStreetTypeSubset ? 'Streets_IsStreetTypeSubsetSelectie && Streets_IsJunctionWithinStudyArea' : 'Streets_IsJunctionWithinStudyArea';
+		
+		unit<uint32> Streets_Selectie   := select_with_attr_by_cond(Read_Streets, Streets_Selection_Condition)
 		{
 			attribute<BaseProjection>     geometry_clean    (arc) := Impl/geometry_clean;
 			attribute<uint64>             F_JNCTID_directed       := Direction == Directions/v/backwards ? T_JNCTID : F_JNCTID; // relevant voor latere routen (bij direction = 3 moet je f_ en t_ swappen, bij 3 & 4 geldt eenrichtingsverkeer) --> Comment van Chris

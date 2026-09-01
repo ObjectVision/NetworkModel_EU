@@ -327,11 +327,21 @@ container Templates: Using = "Units;Classifications;geography;Classifications/To
 				}
 			}
 			
-			container FinalSet
+			// #1154/#1179 (GeoDms 20.19+): a read-only MMD holder must declare ONLY
+			// StorageName + StorageReadOnly. Every sub-item comes from the .mmd's own
+			// dictionary (0Dictionary.dms), which the engine merges in; a reader-declared
+			// sub-item would collide with its dictionary namesake and is now refused.
+			// So the holder is bare, and the DERIVED items live in the sibling container.
+			container FinalSet_stored
 			: StorageName = "= propvalue(Write_FinalSet, 'StorageName')"
 			, StorageReadOnly = "True"
 			{
-				unit<uint32> FinalNodeSet 
+			}
+
+			// Keeps the OUTER name FinalSet, so every external reference stays valid.
+			container FinalSet
+			{
+				unit<uint32> FinalNodeSet := FinalSet_stored/FinalNodeSet
 				{
 					attribute<.> OrgNode_rel   (OrgDomain) := OD_nodes/org_rel[rlookup(OrgDomain/geometry,  OD_nodes/geometry)];
 					attribute<.> DestNode_rel (DestDomain) := OD_nodes/org_rel[rlookup(DestDomain/geometry, OD_nodes/geometry)];
@@ -342,7 +352,7 @@ container Templates: Using = "Units;Classifications;geography;Classifications/To
 					}
 				}
 				
-				unit<uint32> FinalLinkSet
+				unit<uint32> FinalLinkSet := FinalSet_stored/FinalLinkSet
 				{
 					attribute<km>                              Length_Direct  := convert(dist(FirstPoint, LastPoint)[m], km);
 					

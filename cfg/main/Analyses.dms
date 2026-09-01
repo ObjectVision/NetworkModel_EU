@@ -417,11 +417,13 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			,	StorageType = "gdalwrite.vect"
 			,	StorageReadOnly = "False"
 			{
-				attribute<client>  id        (client) := id(client);
-				attribute<float32> pop       (client) := Pop_i;
-				attribute<float32> total_pop (client) := float32(client/population);
-				attribute<float64> x         (client) := client/x;
-				attribute<float64> y         (client) := client/y;
+				// 'client' (lower case) resolved to /Analyses/Client -- DMS ids are
+				// case-INsensitive -- while the OD is over the template's Org. Use Org.
+				attribute<Org>     id        (Org) := id(Org);
+				attribute<float32> pop       (Org) := Pop_i;
+				attribute<float32> total_pop (Org) := float32(Org/population);
+				attribute<float64> x         (Org) := Org/x;
+				attribute<float64> y         (Org) := Org/y;
 			}
 			
 			container FacilityExport

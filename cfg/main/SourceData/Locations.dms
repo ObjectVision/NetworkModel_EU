@@ -461,9 +461,17 @@ container Locations : using = "geography;units"
 	// <50-pop cells and must stay selectable). No longer an alias of NewSchoolLocations:
 	// that alias also joined CountCurrentObjects against SCHOOLS, so the OD's
 	// nearest-5-current-facilities limit counted school cells in pharmacy runs.
+	// Issue #49: the candidate set carries the SAME coverage filter as ModelClient --
+	// only countries for which pharmacy supply data exists. With lambda > 0 the LP would
+	// never open a facility that serves nobody, so the optimum is unchanged; this keeps
+	// the candidate universe consistent with the client universe and stops the reported
+	// candidate count M from including cells that can never be selected.
 	unit<uint32> NewPharmacyLocations := select_with_org_rel(
-			   /Geography/Base_grid_1km/points/population >= ModelParameters/MinPopSizeForPharmacyLocation
-			|| IsDefined(rlookup(/Geography/Base_grid_1km/points/geometry[Base_grid], Pharmacies/within_StudyArea/uq_cells/values))
+			   (
+			      /Geography/Base_grid_1km/points/population >= ModelParameters/MinPopSizeForPharmacyLocation
+			   || IsDefined(rlookup(/Geography/Base_grid_1km/points/geometry[Base_grid], Pharmacies/within_StudyArea/uq_cells/values))
+			   )
+			&& /Analyses/covered_country[/Geography/Base_grid_1km/points/Country_rel]
 		)
 	{
 		attribute<BaseProjection> geometry            := org_rel -> geometry;
