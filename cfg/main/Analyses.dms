@@ -1,7 +1,10 @@
 container Analyses: Using = "Units;Classifications;geography;sourcedata" 
 {  
 	unit<uint32> Client       := ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/'+ModelParameters/Client+' > 0)';
-
+	
+	attribute<bool> covered_country (/SourceData/RegionalUnits/Country/subset):= pcount(/SourceData/Locations/Pharmacies/within_StudyArea/Country_rel) > 0;
+	unit<uint32> Client_pharmacy_coverage:= ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/'+ModelParameters/Client+' > 0 && covered_country[/Geography/Base_grid_'+ModelParameters/DestGridsize+'/points/Country_rel])';
+	
 	container Pharmacies
 	{
 		unit<uint32> locations := SourceData/Locations/Pharmacies/within_StudyArea;
@@ -109,7 +112,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 	}
 	container AllocateClientsToExistingPharmacies:= 
 		Allocate_T(
-			  Client
+			  Client_pharmacy_coverage
 			, SourceData/Locations/Pharmacies/within_StudyArea/uq_cells
 			, NetworkSetup/ExistingPharmacy_Analysis/NetwerkSpec
 			, NetworkSetup/ExistingPharmacy_Analysis/ProjName
@@ -138,7 +141,20 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			, NetworkSetup/NewSchool_Analysis/NetwerkSpec
 			, NetworkSetup/NewSchool_Analysis/ProjName
 		);
-
+	container AllocateClientsTos1Pharmacies:= 
+		Allocate_T(
+			  Client
+			, /SourceData/Locations/services_allocated/resultfiles_s1_logistic/unique/within_StudyArea
+			, NetworkSetup/s1Pharmacy_Analysis/NetwerkSpec
+			, NetworkSetup/s1Pharmacy_Analysis/ProjName
+		);
+	container AllocateClientsTos2Pharmacies:= 
+		Allocate_T(
+			  Client
+			, /SourceData/Locations/services_allocated/resultfiles_s2_logistic/unique/within_StudyArea
+			, NetworkSetup/s2Pharmacy_Analysis/NetwerkSpec
+			, NetworkSetup/s2Pharmacy_Analysis/ProjName
+		);	
 	parameter<string> GDAL_DRIVER := 'Arrow';
 	Template ReadResults_T
 	{
@@ -262,7 +278,7 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			)
 		{
 			unit<uint64> OD := .;
-			attribute<Client>   client_rel   := OrgZone_rel;
+			attribute<Org>   client_rel   := OrgZone_rel;
 			attribute<Facility> facility_rel := DstZone_rel;
 			
 			parameter<km>      MinDist                  := 0.001[km],    Descr = "Minimum distance to be used between i and j, to avoid zero distances.";
@@ -285,12 +301,34 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			attribute<float32> d_ij                     := value(max_elem(alt_imp, MinDist),float32)                          , Descr = "Distance between i and j"; 
 			attribute<float32> t_ij                     := value(max_elem(impedance, MinTime),float32)                        , Descr = "Traveltime between i and j based on shortest travel path";
 			attribute<float32> ClosestDist_i      (Org) := min(d_ij, client_rel)                                              , Descr = "Distance from origin i to its nearest school (min over j)";
+			attribute<float32> AoN_ClientFlow			:= float32(id(.) = min_index(d_ij, OrgZone_rel)[OrgZone_rel]);
 			attribute<float32> c_ij                     := max_elem(d_ij - ClosestDist_i[client_rel], value(MinDist, float32)), Descr = "'Extra' distance beyond the nearest option"; 
 			attribute<float32> Deterrence_ij            := α * c_ij^β                                                         , Descr = "Distance-decay weight based on surplus distance.";
 			attribute<euro>    travelcost_ij            := float32(d_ij[km] * ModelParameters/cost_per_km);
+			attribute<float32> AoN_Clients		 (Dest)	:= sum(Pop_i[OrgZone_rel] * AoN_ClientFlow, DstZone_rel);
 
-			parameter<string> GDAL_DRIVER := 'Arrow';
+			//parameter<string> GDAL_DRIVER := 'Arrow';
 			
+			unit<ipoint> storedistgrid:= ='Base_grid_'+ModelParameters/DestGridsize {
+				attribute<float32> dist_to_closest:= ClosestDist_i[invert(Org/Base_grid_rel)]
+				,	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'/dist_closest_dest.tiff'"
+				,	StorageType = "gdalwrite.grid"
+				,	StorageReadOnly = "False";
+			}
+			unit<ipoint> dist_to_closest_readonly: storagename = "= propvalue(storedistgrid/dist_to_closest, 'StorageName')", storagetype = "gdal.grid", StorageReadOnly = "true", dialogdata = "LambertEA" {
+				attribute<float32> GridData;
+				attribute<float32> ReadData (storedistgrid);
+			}
+			
+			unit<uint32> country_averages:= /SourceData/RegionalUnits/Country/subset {
+				attribute<string> label:= ISO3_CODE;
+				attribute<float32> pw_average:= sum(storedistgrid/dist_to_closest * float32(storedistgrid/Population), storedistgrid/Country_rel) / sum(float32(storedistgrid/Population), storedistgrid/Country_rel);
+				container degurba_avg:= for_each_nedv(asitemname(/SourceData/Locations/Degurba_2021/Degrees_of_urbanization/LabelText), 
+					'sum(storedistgrid/dist_to_closest * float32(storedistgrid/Population) * float32(/SourceData/Locations/Degurba_2021/degurba = '+string(id(SourceData/Locations/Degurba_2021/Degrees_of_urbanization))+'), storedistgrid/Country_rel) 
+					/ sum(float32(storedistgrid/Population) * float32(/SourceData/Locations/Degurba_2021/degurba = '+string(id(SourceData/Locations/Degurba_2021/Degrees_of_urbanization))+'), storedistgrid/Country_rel)'
+					, /SourceData/RegionalUnits/Country/subset, float32);
+				
+			}
 			container DistanceTableExport
 				:	StorageName = "='%localDataProjDir%/'+ProjName+'/'+ModelParameters/StudyArea+'_od.arrow'"
 				,	StorageType = "gdalwrite.vect"

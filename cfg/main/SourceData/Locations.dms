@@ -78,7 +78,35 @@ container Locations : using = "geography;units"
 		attribute<uint32>  ReadData       (Base_Grid_1km);
 		// attribute<float64> LocalPotential (Base_Grid_1km)  := ='potential(ReadData[float64], Geography/Distmatrices/Impl/pot5000m/potRange/rev_dist_scaled)';
 	}
-
+	unit<ipoint> Degurba_2021
+	: StorageName = "%NetworkModelDataDir%/Population/DGUR_LEVEL2_GRD_1KM_2021.tif"
+	, StorageType = "gdal.grid"
+	, StorageReadOnly = "True"
+	, DialogData = "BaseProjection"
+	, DialogType = "map"
+	, Descr = "Eurostat degurba grid based on 2021 population grid"
+	{
+		attribute<uint32>  GridData;
+		attribute<uint32>  ReadData       (Base_Grid_1km);
+		//attribute<uint8> 	Values (LambertEA/m1000): expr = "ReadData > 99i ? uint8(0 / 0) : uint8(ReadData)";
+		
+		attribute<Degrees_Of_Urbanization> degurba 								(Base_Grid_1km): 	expr = "Degrees_of_urbanization_lvl2/degurba_lv1[degurba_lvl2]";
+		attribute<Degrees_of_urbanization_lvl2>		degurba_lvl2 				(Base_Grid_1km): expr = "rlookup(ReadData, Degrees_of_urbanization_lvl2/class_start)";
+		//attribute<Degrees_of_urbanization_plus_citysize> degurba_city 			(Base_Grid_1km): expr = "(degurba < 3 ? degurba : degurba + settclass)[Degrees_of_urbanization_plus_citysize]";
+		//attribute<Degrees_of_urbanization_lvl2_plus_citysize> degurba_lv2_city	(Base_Grid_1km): expr = "(degurba_lvl2 < 5 ? degurba_lvl2 : degurba_lvl2 + settclass)[Degrees_of_urbanization_lvl2_plus_citysize]";
+		
+		unit<uint32> Degrees_of_urbanization_lvl2: NrOfRows = 8 {
+			attribute<uint32>  class_start: 	[310, 311, 312, 313, 221, 222, 223, 130];
+			attribute<string> LabelText: 	['Water', 'Mostly uninhabited', 'Dispersed rural', 'Villages', 'Suburbs', 'Semi-dense urban clusters', 'Dense urban clusters', 'Cities'];
+			attribute<string> Single_Name:	['Water', 'mostly uninhabited', 'dispersed rural', 'village', 'suburb', 'Semi-dense urban clusters', 'Dense urban clusters', 'city'];
+			attribute<bool>	  Settlement:= class_start = 313 || class_start > 221;
+			attribute<Degrees_Of_Urbanization> degurba_lv1: [0,0,0,1,2,2,2,3];
+		}
+		unit<uint32> Degrees_of_urbanization: NrOfRows = 4 {
+			attribute<string>  LabelText: ['Sparse rural', 'Village', 'Towns and suburbs', 'Cities'];
+		}
+		// attribute<float64> LocalPotential (Base_Grid_1km)  := ='potential(ReadData[float64], Geography/Distmatrices/Impl/pot5000m/potRange/rev_dist_scaled)';
+	}
 	unit<ipoint> Population := = 'Population_'+string(ModelParameters/PopVersie); 
 	
 	// unit<uint64> wPopulation := select_with_org_rel(Population/ReadData > 0[uint32])
@@ -334,7 +362,7 @@ container Locations : using = "geography;units"
 			attribute<string> Name : ['Austria', 'Belgium', 'Czechia', 'Denmark', 'Estonia', 'France', 'Ireland', 'Iceland', 'Italy', 'Lithuania', 'Luxembourg', 'Latvia', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Slovenia', 'Sweden']; // 'Finland',
 			attribute<string> Label := Name;
 			attribute<string> Code : ['aut', 'bel', 'cze', 'dnk', 'est', 'fra', 'irl', 'isl', 'ita', 'ltu', 'lux', 'lva', 'nld', 'nor', 'pol', 'prt', 'svn', 'swe']; //'fin',
-
+			attribute</SourceData/RegionalUnits/Country/subset> Country_rel:= rlookup(Name, /SourceData/RegionalUnits/Country/subset/NAME_ENGL);
 			// Italy is delivered as an ESPON 2021 point shapefile (native WGS84 geometry,
 			// no lat/lon columns) rather than a parquet; read it via CountryDataShpT below.
 			// All other countries keep the parquet path read via CountryDataT.
@@ -353,6 +381,7 @@ container Locations : using = "geography;units"
 		unit<uint32> AvailableCountry : nrofrows = 18
 		{
 			attribute<string> Name : ['Austria', 'Belgium', 'Czechia', 'Denmark', 'Estonia', 'France', 'Ireland', 'Iceland', 'Italy', 'Lithuania', 'Luxembourg', 'Latvia', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Slovenia', 'Sweden']; // all enum countries now have a parquet (Finland still excluded, issue #44)
+
 		}
 		template CountryDataT
 		{
@@ -396,6 +425,8 @@ container Locations : using = "geography;units"
 			attribute<BaseProjection> geometry      := org_rel -> geometry;
 			attribute<Base_grid>      Base_grid_rel := geometry[Base_grid];
 			attribute<uq_cells>       uq_cells_rel  := rlookup(Base_grid_rel, uq_cells/values);
+			attribute<Country> 		  File_Country_rel:= EU/Country_rel[org_rel];
+			attribute</SourceData/RegionalUnits/Country/subset> Country_rel:= Country/Country_rel[File_Country_rel];
 			
 			unit<uint32> uq_cells := unique(./Base_grid_rel)
 			{
@@ -403,7 +434,8 @@ container Locations : using = "geography;units"
 				attribute<BaseProjection> geometry               := values[BaseProjection] + Base_grid/center_delta;
 				attribute<float32>        Count_Objects_Per_Cell := float32(pcount(uq_cells_rel));
 				attribute<float32>        CountCurrentObjects    := float32(pcount(uq_cells_rel));
-				
+				attribute</SourceData/RegionalUnits/Country/subset> Country_rel:= modus(within_StudyArea/Country_rel, uq_cells_rel);
+				attribute<string> 		  Country_Code			 := SourceData/RegionalUnits/Country/subset/ISO3_Code[Country_rel];
 				attribute<uint32>         Count_grid (Base_grid) := MakeDefined(sum(CountCurrentObjects, Base_grid_rel)[uint32], 0);
 			}
 		}
@@ -447,4 +479,70 @@ container Locations : using = "geography;units"
 			attribute<float32>              CountCurrentObjects          := MakeDefined(rjoin(Base_grid_rel, Pharmacies/within_StudyArea/uq_cells/Base_grid_rel, Pharmacies/within_StudyArea/uq_cells/CountCurrentObjects), 0f);
 		}
 	}
+	
+	unit<uint32> services_allocated:= range(uint32, 0, 21) {
+		attribute<string> country: ['Austria','Czechia','Denmark','Estonia','FR1','FRB','FRD','FRG','FRI','FRJ','FRK','FRM','ITF','ITG','Norway','PL2','PL5','PL6','PL7','PL9','SE1'];
+		attribute<string> s1_logistic:= country+'_s1_logistic_open.arrow';
+		attribute<string> s2_logistic:= country+'_s2_logistic_open.arrow';
+		attribute<string> s1_linear:= country+'_s1_linear_open.arrow';
+		attribute<string> s2_linear:= country+'_s2_linear_open.arrow';
+	
+		container resultfiles_s1_logistic:= for_each_ne(country, 'readresultfiles('+quote('D:/sourcedata/NetworkModel_EU/Locations/service_access_202608/'+s1_logistic)+', '+quote('s1_logistic')+')') {
+			unit<uint32> all:= ='union_unit('+asitemlist(country+'/infile')+')' {
+				attribute<LambertEA> geometry:= ='union_data(.,'+asitemlist(country+'/infile/geometry')+')';
+				attribute<string> alloctype:= ='union_data(.,'+asitemlist(country+'/infile/alloctype')+')';
+				attribute<string> runregion:= ='union_data(.,'+asitemlist(country+'/infile/runregion')+')';
+				attribute<unique> uq_rel:= rlookup(geometry, unique/geometry);
+			}
+			unit<uint32> unique:= unique(all/geometry) {
+				attribute<LambertEA> geometry:= values;
+				attribute<bool>           IsStudyArea         := IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry));
+				
+				unit<uint32> within_StudyArea := select_with_org_rel(IsStudyArea)
+				{
+					attribute<BaseProjection>       geometry                     := org_rel -> geometry;
+					attribute<Base_grid>            Base_grid_rel                := geometry[Base_grid];
+					attribute<float32>              Count_Objects_Per_Cell       := const(1f, .);
+					attribute<float32>              CountCurrentObjects          := rjoin(Base_grid_rel, Schools/within_StudyArea/uq_school_cells/Base_grid_rel, Schools/within_StudyArea/uq_school_cells/CountCurrentObjects);
+				}
+			}
+		}
+		container resultfiles_s2_logistic:= for_each_ne(country, 'readresultfiles('+quote('D:/sourcedata/NetworkModel_EU/Locations/service_access_202608/'+s2_logistic)+', '+quote('s2_logistic')+')') {
+			unit<uint32> all:= ='union_unit('+asitemlist(country+'/infile')+')' {
+				attribute<LambertEA> geometry:= ='union_data(.,'+asitemlist(country+'/infile/geometry')+')';
+				attribute<string> alloctype:= ='union_data(.,'+asitemlist(country+'/infile/alloctype')+')';
+				attribute<string> runregion:= ='union_data(.,'+asitemlist(country+'/infile/runregion')+')';
+				attribute<unique> uq_rel:= rlookup(geometry, unique/geometry);
+			}
+			unit<uint32> unique:= unique(all/geometry) {
+				attribute<LambertEA> geometry:= values;
+				attribute<bool>           IsStudyArea         := IsDefined(point_in_polygon(geometry, /SourceData/RegionalUnits/Country/subset/geometry));
+				
+				unit<uint32> within_StudyArea := select_with_org_rel(IsStudyArea)
+				{
+					attribute<BaseProjection>       geometry                     := org_rel -> geometry;
+					attribute<Base_grid>            Base_grid_rel                := geometry[Base_grid];
+					attribute<float32>              Count_Objects_Per_Cell       := const(1f, .);
+					attribute<float32>              CountCurrentObjects          := rjoin(Base_grid_rel, Schools/within_StudyArea/uq_school_cells/Base_grid_rel, Schools/within_StudyArea/uq_school_cells/CountCurrentObjects);
+				}
+			}
+		}
+
+		
+	
+	}
+	Template readresultfiles {
+		parameter<string> filepath;
+		parameter<string> type;
+		parameter<string> region:= propvalue(., 'name');
+		
+		unit<uint32> infile: StorageName = "= filepath", storagetype = "gdal.vect" {
+			attribute<LambertEA> geometry:= point_xy(x, y, LambertEA);
+			attribute<string>    alloctype:= const(type,.,string);
+			attribute<string> 	 runregion:= const(region, ., string);
+		}
+	
+	}
+	
+	
 }
