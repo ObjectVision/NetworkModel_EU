@@ -18,7 +18,10 @@ REM   catchment-population distribution (min/p10/25/50/75/90/max/avg) both per
 REM   pharmacy (metric 5) and with pharmacies combined per cell (metric 6).
 REM ============================================================================
 
-if "%GEODMS_EXE%"=="" set "GEODMS_EXE=C:\dev\GeoDMS_2026\bin\Release\x64\GeoDmsRun.exe"
+REM Use the INSTALLED GeoDms, NOT the engine build tree at C:\dev\GeoDMS_2026:
+REM a run from there loads binaries that may be mid-relink, and holds a handle on
+REM Dm*.dll which makes the next engine link silently skip.
+if "%GEODMS_EXE%"=="" set "GEODMS_EXE=C:\Program Files\ObjectVision\GeoDms20.19.1.m\GeoDmsRun.exe"
 if "%CFG%"==""        set "CFG=%~dp0cfg\main.dms"
 if "%LOG_DIR%"==""    set "LOG_DIR=%~dp0logs"
 if "%OUT_DIR%"==""    set "OUT_DIR=C:\LocalData\networkmodel_eu\Pharmacies_Descriptives"

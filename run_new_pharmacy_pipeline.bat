@@ -70,7 +70,10 @@ REM ============================================================================
 
 REM -------- 1. Configuration --------------------------------------------------
 REM if "%GEODMS_EXE%"=="" set "GEODMS_EXE=C:\Program Files\ObjectVision\GeoDms20.0.3.m\GeoDmsRun.exe"
-if "%GEODMS_EXE%"=="" set "GEODMS_EXE=C:\dev\GeoDMS_2026\bin\Release\x64\GeoDmsRun.exe"
+REM Use the INSTALLED GeoDms, NOT the engine build tree at C:\dev\GeoDMS_2026:
+REM a run from there loads binaries that may be mid-relink, and holds a handle on
+REM Dm*.dll which makes the next engine link silently skip.
+if "%GEODMS_EXE%"=="" set "GEODMS_EXE=C:\Program Files\ObjectVision\GeoDms20.19.1.m\GeoDmsRun.exe"
 if "%CFG%"=="" set "CFG=%~dp0cfg\main.dms"
 if "%LOG_DIR%"=="" set "LOG_DIR=%~dp0logs"
 if "%STEPS%"=="" set "STEPS=network1 network2 alloc"
@@ -103,7 +106,7 @@ set ITEMS_ALLOC="/Analyses/%ITEM_ANALYSIS%/Allocation/DistanceTableExport" "/Ana
 REM -------- 2. Pre-flight checks ----------------------------------------------
 if not exist "%GEODMS_EXE%" (
     echo [ERROR] GeoDmsRun not found at "%GEODMS_EXE%".
-    echo         Install GeoDms 20.0.3.m or set GEODMS_EXE to the correct path.
+    echo         Install GeoDms 20.19.1.m or set GEODMS_EXE to the correct path.
     exit /b 2
 )
 if not exist "%CFG%" (
