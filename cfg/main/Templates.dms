@@ -508,8 +508,20 @@ container Templates: Using = "Units;Classifications;geography;Classifications/To
 				{
 					attribute<ConnectorLink>                   First_ConnectorLink_rel        := min(id(ConnectorLink), ConnectorLink/JunctionFreeSection_rel); //todo sneller
 					attribute<ConnectorLink>                   Last_ConnectorLink_rel         := max(id(ConnectorLink), ConnectorLink/JunctionFreeSection_rel); //todo sneller
-					attribute<bool>                            IsDisconnected                 := First_ConnectorLink_rel > Last_ConnectorLink_rel;
-					
+
+					// A junction-free section with NO connector link at all is a closed loop that
+					// touches nothing else: every one of its nodes has exactly 2 links, all of them
+					// inside the section, so no link borders it. That happens as soon as the retained
+					// network is no longer a single connected component -- e.g. an island ring road
+					// with no OD point on it, kept by the per-landbody connectivity criterion.
+					// For such a section min() and max() run over an EMPTY group, so
+					// First_ConnectorLink_rel is undefined and Last_ConnectorLink_rel is 0, and the
+					// Fa/Fb/F1/F2 below silently produce one link with an undefined endpoint and a
+					// borrowed node from an unrelated section. Count the connector links explicitly
+					// rather than inferring emptiness from first > last, and drop the section below.
+					attribute<uint32>                          NrConnectorLinks               := pcount(ConnectorLink/JunctionFreeSection_rel);
+					attribute<bool>                            IsDisconnected                 := NrConnectorLinks == 0;
+
 					attribute<s_f>                             Aggregated_Impedence           := sum(LinksInsideJunctionFreeSection/impedance, LinksInsideJunctionFreeSection/JunctionFreeSection_rel);
 					attribute<s_f>                             First_ConnectorLink_Impedance  := ConnectorLink/Impedance[First_ConnectorLink_rel];
 					attribute<s_f>                             Last_ConnectorLink_Impedance   := ConnectorLink/Impedance[Last_ConnectorLink_rel];
@@ -584,7 +596,16 @@ container Templates: Using = "Units;Classifications;geography;Classifications/To
 					attribute<bool>                            IsLinkConnectedWithItself      := F1 == F2;
 					attribute<bool>                            IsDuplicateLink                := Find_DuplicateLinks/IsDuplicateLink[Find_DuplicateLinks_rel] && id(.) != Find_DuplicateLinks/FirstLink[Find_DuplicateLinks_rel];
 					
-					attribute<bool>                            ToBeOmitted                    := (IsLinkWithDeadEnd || IsLinkConnectedWithItself || IsDuplicateLink) && !IsOneDirection;
+					// A connector-less junction-free section (see JunctionFreeSection/IsDisconnected)
+					// collapses into a link with an undefined endpoint, which the OD builder later
+					// rejects with "Link_Node2_rel: out of range or undefined". It carries no OD
+					// point -- every node in a junction-free section is by definition not an
+					// OD-connection node -- so nothing is lost by dropping it. HasUndefinedNode is
+					// the general invariant behind that: a link without two defined endpoints must
+					// never reach the final link set. Both terms hold regardless of IsOneDirection.
+					attribute<bool>                            IsDisconnectedJFS              := union_data(., const(FALSE, UnchangedLinkSet, bool), JunctionFreeSection/IsDisconnected);
+					attribute<bool>                            HasUndefinedNode               := isnull(F1) || isnull(F2);
+					attribute<bool>                            ToBeOmitted                    := IsDisconnectedJFS || HasUndefinedNode || ((IsLinkWithDeadEnd || IsLinkConnectedWithItself || IsDuplicateLink) && !IsOneDirection);
 					attribute<bool>                            IsOD_connection_road           := union_data(., UnchangedLinkSet/IsOD_connection_road, JunctionFreeSection/IsOD_connection_road);
 					
 					attribute<Nodeset_x_NodeSet>               Nodeset_x_NodeSet_rel          := combine_data(Nodeset_x_NodeSet, min_elem(F1, F2), max_elem(F1,F2));
