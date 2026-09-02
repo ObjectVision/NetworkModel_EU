@@ -109,6 +109,81 @@ end
 input_path(country, suffix) =
     joinpath(ANALYSIS_DIR, "$(country)_$(suffix).arrow")
 
+# ---------------------------------------------------------------------------
+# Region exclusion (issue #49): a NUTS region whose inhabitants cannot reach any
+# pharmacy AT ALL is a DATA/coverage gap, not a policy finding. Pricing it at BIG
+# inflated Portugal's baseline by ~63% (the Azores and Madeira hold population but
+# no pharmacy in the source data). Rule: if > EXCLUDE_SHARE of a region's inhabitant
+# locations are absent from the OD matrix, drop the whole region -- population AND
+# candidate locations -- from both the baseline and the sweep.
+#
+# Level: NUTS3 if populated, else NUTS2, else NUTS1 (the table carries one NUTS3 code;
+# the coarser levels are its 4- and 3-character prefixes).
+# Verdict is taken on the EXISTING OD so it is identical for baseline and sweep.
+const EXCLUDE_SHARE = parse(Float64, get(ENV, "NUTS_EXCLUDE_SHARE", "0.5"))
+
+nuts_prefix(code::AbstractString, k::Int) = length(code) >= k ? code[1:k] : ""
+
+"""Return (excluded::Set{String}, level::Int, report::Vector) for `country`.
+`excluded` holds codes at the chosen level; `level` is 3, 2 or 1."""
+function excluded_nuts_regions(country::AbstractString)
+    get(ENV, "NUTS_EXCLUSION", "1") == "1" || return (Set{String}(), 0, [])
+    ipath  = joinpath(EXISTING_PATH, "$(country)_i.arrow")
+    odpath = joinpath(EXISTING_PATH, "$(country)_od.arrow")
+    (isfile(ipath) && isfile(odpath)) || return (Set{String}(), 0, [])
+    loc = Arrow.Table(ipath)
+    if !(:NUTS in propertynames(loc))
+        @warn "$(country): client table has no NUTS column; region exclusion skipped. " *
+              "Regenerate the exports with the updated GeoDMS pipeline."
+        return (Set{String}(), 0, [])
+    end
+    od  = Arrow.Table(odpath)
+    n   = length(loc[:id])
+    inod = falses(n)
+    for r in od[:client_rel]; inod[r + 1] = true; end
+    pop = client_weight_col(loc)
+    codes = loc[:NUTS]
+
+    for k in (5, 4, 3)                       # NUTS3, NUTS2, NUTS1
+        groups = Dict{String, Vector{Int}}()
+        for r in 1:n
+            g = nuts_prefix(String(codes[r]), k)
+            isempty(g) && continue
+            push!(get!(groups, g, Int[]), r)
+        end
+        isempty(groups) && continue          # this level is not available: fall back
+        report = Tuple{String, Float64, Float64, Int}[]
+        for (g, rs) in groups
+            share = count(!, inod[rs]) / length(rs)
+            share > EXCLUDE_SHARE && push!(report, (g, share, sum(pop[rs]), length(rs)))
+        end
+        sort!(report, by = t -> -t[3])
+        lvl = k == 5 ? 3 : k == 4 ? 2 : 1
+        if !isempty(report)
+            open(joinpath(@__DIR__, "scratch", "excluded_regions_$(country).csv"), "w") do fh
+                println(fh, "country,nuts_level,nuts_code,share_not_in_od,population,cells")
+                for (g, s, p, c) in report
+                    println(fh, "$country,$lvl,$g,$(round(s, digits=4)),$(round(Int, p)),$c")
+                end
+            end
+            @info "$(country): excluding $(length(report)) NUTS$(lvl) region(s) with " *
+                  ">$(round(100*EXCLUDE_SHARE))% of inhabitant locations absent from the OD: " *
+                  join(["$(g) ($(round(100*s, digits=1))%, $(round(Int, p)) residents)"
+                        for (g, s, p, c) in report], ", ")
+        end
+        return (Set(t[1] for t in report), lvl, report)
+    end
+    return (Set{String}(), 0, [])
+end
+
+"""Boolean mask over the rows of `tbl` marking rows inside an excluded region."""
+function in_excluded_region(tbl, excluded::Set{String}, level::Int)
+    (isempty(excluded) || level == 0) && return falses(length(tbl[:id]))
+    k = level == 3 ? 5 : level == 2 ? 4 : 3
+    (:NUTS in propertynames(tbl)) || return falses(length(tbl[:id]))
+    return [nuts_prefix(String(c), k) in excluded for c in tbl[:NUTS]]
+end
+
 function client_weight_col(loc)
     sym = Symbol(CLIENT_WEIGHT)
     if sym in propertynames(loc)

@@ -80,7 +80,14 @@ function load_from(dir, country; apply_factor::Bool=true)::CountryData
     # are strided. Env PROTECT_BASELINE=0 restores the blind stride. (This is the loader
     # the sweep actually uses — the settings.jl load_country has the same guard.)
     factor         = apply_factor ? LOCATION_SELECTION_FACTOR : 1
+    # Region exclusion (issue #49): drop candidate locations in NUTS regions that the
+    # rule below excludes, so an uncoverable region contributes neither demand nor supply.
+    excl, excl_level, _ = excluded_nuts_regions(country)
     facilities_all = Int.(fac[:id])
+    if !isempty(excl)
+        facmask = in_excluded_region(fac, excl, excl_level)
+        facilities_all = facilities_all[.!facmask]
+    end
     expath         = joinpath(LOCAL_DATA_PROJ_DIR, "ExistingPharmacies", "$(country)_j.arrow")
     if factor > 1 && get(ENV, "PROTECT_BASELINE", "1") == "1" &&
        isfile(expath) && (:x in propertynames(fac))
@@ -103,7 +110,14 @@ function load_from(dir, country; apply_factor::Bool=true)::CountryData
     clients_col    = Int.(od[:client_rel])[mask]
     facilities_col = od_facrel_all[mask]
     t_ij_col       = (od[:t_ij] ./ 60)[mask]
-    population     = client_weight_col(loc)
+    population     = collect(client_weight_col(loc))
+    if !isempty(excl)
+        # zero the weight of every client in an excluded region: it then contributes
+        # nothing to travel cost, nothing to the BIG penalty, and nothing to the
+        # reported client population -- in the baseline and in the sweep alike.
+        cmask = in_excluded_region(loc, excl, excl_level)
+        population[cmask] .= 0
+    end
 
     N = length(clients_col)
     M = length(facilities)

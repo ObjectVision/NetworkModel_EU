@@ -424,6 +424,13 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 				attribute<float32> total_pop (Org) := float32(Org/population);
 				attribute<float64> x         (Org) := Org/x;
 				attribute<float64> y         (Org) := Org/y;
+				// NUTS3 code of the cell. NUTS_CODE carries all three levels by prefix
+				// (5 = NUTS3, 4 = NUTS2, 3 = NUTS1), so the region-exclusion rule can pick
+				// the finest level that is actually populated. Empty where the cell falls
+				// outside every NUTS3 polygon.
+				attribute<string>  nuts      (Org) := MakeDefined(
+					/SourceData/RegionalUnits/NUTS3/NUTS_CODE[
+					   point_in_polygon(Org/geometry, /SourceData/RegionalUnits/NUTS3/geometry)], '');
 			}
 			
 			container FacilityExport
@@ -434,6 +441,10 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 				attribute<Facility> id(Facility) := id(Facility);
 				attribute<float64> x   (Facility) := Get_X( Facility/geometry );
 				attribute<float64> y   (Facility) := Get_Y( Facility/geometry );
+				// same NUTS code, so an excluded region drops its CANDIDATE locations too
+				attribute<string>  nuts(Facility) := MakeDefined(
+					/SourceData/RegionalUnits/NUTS3/NUTS_CODE[
+					   point_in_polygon(Facility/geometry, /SourceData/RegionalUnits/NUTS3/geometry)], '');
 			}
 			
 			//Inital round 
