@@ -170,3 +170,55 @@ Arrow files, **using the naming/coverage Chris's `services_allocated` expects** 
 - **The road source data** — unchanged; no TomTom re-import needed.
 - **The candidate-set rule** (≥50 inhabitants ∪ pharmacy cells) and the client definition —
   unchanged by this commit (modulo decision **A**).
+
+---
+
+## 6. Actual outcome (2026-09-02) — steps 0-2 executed
+
+| step | status |
+|---|---|
+| 0 | **done** — GEODMS_EXE repointed to the installed 20.19.1.m (`c368a01`); ModelClient landed (`f0acbc9`); MMD read-holders adapted (`d80622d`) |
+| 1 | **done** — 42/42 rebuilt (`32aca59`). 39 clean, 3 fail |
+| 2 | **done for the movers** — ITG, PL8, Portugal re-swept |
+| P | Poland: unchanged (+0.0%), so **no re-sweep needed** — the drop-or-run question is moot |
+| F1/F2/F3 | **blocked** on Norway/SE2/SE3 |
+
+### Which areas moved
+
+Only **3 of 42**, exactly the ones whose baseline was dominated by the BIG penalty:
+
+| area | candidate-OD growth | unreachable before -> after | mean_t before -> after |
+|---|--:|--:|--:|
+| ITG | +60% (OD rows) | 983,169 -> **591** | 22.30 -> **4.878** |
+| PL8 | +27.9% | 153,669 -> **0** | 8.89 -> **4.534** |
+| Portugal | +10.7% | 459,683 -> 467,704 | 8.56 -> 8.644 |
+
+The other 39 sit between +0.1% and -0.5% and had zero unreachable residents to begin
+with. SE1's -2.9% is the new candidate coverage filter, not connectivity.
+
+**Mechanism, confirmed by the Netherlands:** Wadden islands, ferries, and 0.0% growth. A
+ferry link *joins* the island to the mainland component, so those islands were never
+pruned. The pruning only bit where a populated landbody reached the main component by no
+modelled link at all -- hence ITG, whose study area is only two separate landbodies.
+
+### Two open blockers
+
+1. **Norway, SE2, SE3 fail at `alloc`** -- `FinalLinkSet/F2: Link_Node2_rel out of range
+   or undefined`. Attributed by experiment to the connectivity criterion itself (reverting
+   only that criterion makes Norway succeed, exit 0/51s); not the MMD split. Chris's
+   algorithm, reported on #49 with a hypothesis about `rlookup` on `JnctIds` across
+   multiple retained components. **The aggregate cannot be rebuilt while these fail** --
+   it sums over 41 disjoint areas.
+2. **Portugal is a pharmacy DATA GAP, not connectivity.** All 1,893 Portuguese pharmacies
+   lie at x >= 2640 km (EPSG:3035, mainland); every unreachable client lies at x <= 1884 km
+   (Azores/Madeira). The sets do not overlap, so no network fix can help. Proposed on #49:
+   evaluate coverage per `Country_Split` (per landbody) instead of per country. **Not
+   applied** -- it is a modelling-semantics decision that removes 467k residents from
+   Portugal's denominator.
+
+### Measurement caveat
+
+Client populations rose in all three (ITG +25,895; PL8 +382,273; Portugal +8,021).
+`total client population` counts clients present in the OD, and a larger retained network
+admits more cells as OD clients, so before/after unreachable counts are not exactly
+like-for-like. The direction is unambiguous; the precise deltas are not.
