@@ -104,8 +104,13 @@ function load_from(dir, country; apply_factor::Bool=true)::CountryData
     end
     fset           = Set(facilities)
     od_facrel_all  = Int.(od[:facility_rel])
-    mask           = factor == 1 ? trues(length(od_facrel_all)) :
-                                   [f ∈ fset for f in od_facrel_all]
+    # The factor==1 shortcut assumed `facilities` is the FULL candidate set. Region
+    # exclusion (issue #49) also removes candidates, so OD rows may reference a
+    # facility that is no longer in the LP's index set -- which surfaced as
+    # KeyError(0) when building y[j]. Filter whenever the set was reduced at all.
+    reduced        = factor != 1 || length(facilities) != length(Int.(fac[:id]))
+    mask           = reduced ? [f ∈ fset for f in od_facrel_all] :
+                               trues(length(od_facrel_all))
 
     clients_col    = Int.(od[:client_rel])[mask]
     facilities_col = od_facrel_all[mask]
@@ -176,6 +181,12 @@ function baseline_metrics(existing, new_data)
     for (i, _) in new_data.locations
         haskey(existing.locations, i) && continue
         p = new_data.client_pop[i]
+        # A cell with zero modelled demand is OUT OF SCOPE, not stranded: it is
+        # either in a region the exclusion rule dropped (issue #49) or carries no
+        # population. Counting it inflated the reported unreachable CELL count while
+        # contributing nothing to cost, time or population -- so the cell figure
+        # disagreed with the resident figure next to it.
+        p == 0 && continue
         stranded_pop += p
         n_stranded   += 1
         total_c += BIG * p
