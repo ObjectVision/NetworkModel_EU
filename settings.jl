@@ -128,8 +128,12 @@ nuts_prefix(code::AbstractString, k::Int) = length(code) >= k ? code[1:k] : ""
 `excluded` holds codes at the chosen level; `level` is 3, 2 or 1."""
 function excluded_nuts_regions(country::AbstractString)
     get(ENV, "NUTS_EXCLUSION", "1") == "1" || return (Set{String}(), 0, [])
-    ipath  = joinpath(EXISTING_PATH, "$(country)_i.arrow")
-    odpath = joinpath(EXISTING_PATH, "$(country)_od.arrow")
+    # derive the existing-side path here rather than relying on EXISTING_PATH, which is
+    # defined in lambda_sweep_simplex.jl -- that coupling made this helper unusable
+    # standalone (and silently so, since the caller would just see UndefVarError).
+    expath = joinpath(LOCAL_DATA_PROJ_DIR, "ExistingPharmacies")
+    ipath  = joinpath(expath, "$(country)_i.arrow")
+    odpath = joinpath(expath, "$(country)_od.arrow")
     (isfile(ipath) && isfile(odpath)) || return (Set{String}(), 0, [])
     loc = Arrow.Table(ipath)
     if !(:NUTS in propertynames(loc))
