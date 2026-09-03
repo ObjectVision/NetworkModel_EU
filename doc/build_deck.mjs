@@ -201,7 +201,7 @@ function statusSlide() {
   ], { x: 0.45, y: 0.54, w: 12.5, h: 0.42, fontSize: 21, fontFace: "Georgia" });
   slide.addText([
     { text: "The λ-sweep is the working general method. ", options: { bold: true, color: INK } },
-    { text: "A proposed A→D ladder would cap catchments + set a min threshold to sidestep it — but the descriptives show catchments vary so widely (p10–p90 several-fold; many pharmacies at zero) that realistic bounds are hard to set, and the ladder may not actually simplify the problem.", options: { color: MUTED } },
+    { text: "Two method changes since the previous deck — landbody-complete networks and NUTS region exclusion — make these figures NOT comparable with earlier ones. A proposed A→D ladder would cap catchments + set a min threshold to sidestep it — but the descriptives show catchments vary so widely (p10–p90 several-fold; many pharmacies at zero) that realistic bounds are hard to set, and the ladder may not actually simplify the problem.", options: { color: MUTED } },
   ], { x: 0.45, y: 0.97, w: 12.5, h: 0.4, fontSize: 9.5, fontFace: "Calibri", valign: "top" });
 
   const GREEN = "1E7A52", AMBER = "B9791C", SLATE = "5B6B7B";
@@ -213,6 +213,8 @@ function statusSlide() {
   };
 
   col(0.4, GREEN, "F0F6F2", "Implemented ✓", [
+    "NETWORK per landbody: the largest strongly-connected road network is now kept for EVERY separate landbody, not just the single largest one EU-wide — island networks (Sicilia/Sardegna, and their ferry links) were being pruned. ITG baseline mean travel 22.3 → 4.9 min; unreachable residents 983k → 591",
+    "REGION EXCLUSION: a NUTS region where >50% of inhabitant locations cannot reach any pharmacy is dropped entirely — population AND candidates. Excludes the Azores (PT200) and Madeira (PT300), which hold population but no pharmacy in the source data; Portugal baseline travel −62%. Prevents a DATA gap from ranking as policy headroom",
     "Tabula-rasa LP allocation + λ-sweep → Pareto curve of #facilities vs travel cost (Option D); canonical p-median notation (x = assignment, y = facility)",
     "Lewis's 3 cases live: S1 (same #, ↓travel) · S2 (same travel, ↓#) · S3 full frontier — S1/S2 now INTERPOLATED onto the frontier (dense-grid + refine, tight to ≤0.1 λ-octave)",
     "All 6 of Lewis's 22-May descriptive indicators, per country (deck pages 5–8); catchments by ROAD-network travel time",
@@ -220,7 +222,7 @@ function statusSlide() {
     "Soft coverage (Σx ≤ 1, unserved priced at BIG on BOTH sides): every region brackets S1 & S2; baseline coverage-consistent",
     "Aggregated frontier over 41 disjoint areas (exact by separability) — now brackets S1 AND S2 for LINEAR & LOGISTIC (Belgium/FRI extended to w = 0.5)",
     "Status-quo↔frontier metric: improvement rectangle (raw + relative to baseline #F × travel), its diagonal crossing + λ, baseline point-cloud with frontier projections",
-    "Ordered region lists coloured by pharmacy policy typology (regulation archetype + formalisation, from the collaborators' framing)",
+    "Ordered region lists coloured by pharmacy policy typology (regulation archetype + formalisation, from the collaborators' framing) — now free of coverage artefacts: ITG drops from #1 to #2 and Portugal and PL8 leave the top 8, while ITF takes #1 on an UNCHANGED value",
     "Large-region candidate subsampling keeps EVERY baseline location, so the frontier still dominates the baseline (FRI/PL8 made tractable)",
   ]);
   col(4.62, AMBER, "FBF5EA", "In progress ◐", [
