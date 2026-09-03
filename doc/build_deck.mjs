@@ -575,6 +575,53 @@ function optProblemSlide() {
 }
 
 // How the fractional LP solution is rounded to real pharmacies — the multistart
+// SCOPE slide: the two decisions that determine WHICH demand and WHICH network the
+// model sees. Both changed after the previous deck, so its figures are not comparable.
+// merge_deck.ps1 moves this to position 4 via the marker "What the model covers".
+function scopeSlide() {
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+  slide.addText("SCOPE", { x: 0.45, y: 0.3, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText([
+    { text: "What the model covers  ", options: { bold: true, color: INK } },
+    { text: "— and what it deliberately excludes", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.56, w: 12.5, h: 0.5, fontSize: 22, fontFace: "Georgia" });
+  slide.addText("Under soft coverage every resident the model cannot route to a pharmacy is priced at BIG (120 min). That is right for someone who is genuinely remote — and wrong when the network or the supply data is simply missing, because it turns a DATA gap into apparent policy headroom. Two rules separate the cases.",
+    { x: 0.45, y: 1.0, w: 12.5, h: 0.42, fontSize: 10, color: MUTED, fontFace: "Calibri", valign: "top" });
+
+  const panel = (x, tint, fill, head, sub, rows, foot) => {
+    slide.addShape(pptx.ShapeType.roundRect, { x, y: 1.55, w: 6.25, h: 4.35, rectRadius: 0.05, fill: { color: fill }, line: { color: tint, width: 1 } });
+    slide.addText(head, { x: x + 0.22, y: 1.64, w: 5.85, h: 0.3, fontSize: 13.5, bold: true, color: tint, fontFace: "Calibri" });
+    slide.addText(sub, { x: x + 0.22, y: 1.95, w: 5.85, h: 0.62, fontSize: 10, color: INK, fontFace: "Calibri", valign: "top" });
+    slide.addText(rows.map((t) => ({ text: t, options: { bullet: { indent: 12 }, breakLine: true } })),
+      { x: x + 0.24, y: 2.6, w: 5.8, h: 2.5, fontSize: 9.5, color: INK, fontFace: "Calibri", lineSpacingMultiple: 1.0, paraSpaceAfter: 5, valign: "top" });
+    slide.addText(foot, { x: x + 0.24, y: 5.28, w: 5.8, h: 0.55, fontSize: 9.5, bold: true, color: tint, fontFace: "Calibri", valign: "top" });
+  };
+
+  panel(0.4, "1E7A52", "F0F6F2",
+    "1 · Road network — per landbody",
+    "The largest strongly-connected network is kept for EVERY separate landbody, not just the single largest one in the study area.",
+    ["Before, one component survived per study area, so island networks — and the ferry links inside them — were discarded entirely.",
+     "Sicilia and Sardegna are two separate landbodies, so at most one of them could ever be kept.",
+     "No source data changed: the links were always in the TomTom extract, they were being pruned."],
+    "ITG: mean travel 22.3 → 4.9 min · unreachable residents 983,169 → 591");
+
+  panel(6.9, "B9791C", "FBF5EA",
+    "2 · Regions the model cannot serve at all",
+    "If more than 50% of a NUTS region's inhabitant locations are absent from the OD matrix, the WHOLE region is excluded — its population AND its candidate locations.",
+    ["Level: NUTS3 where populated, otherwise NUTS2, otherwise NUTS1.",
+     "Judged on the EXISTING network, so the baseline and the λ-sweep always agree on who is in scope.",
+     "Excluded today: PT200 Azores (919 cells, 212,855 residents) and PT300 Madeira (419 cells, 244,867 residents) — both 100% absent. They hold population but no pharmacy anywhere in the source data, so no network fix could reach them.",
+     "No other area comes near the threshold: it is 100% or far below."],
+    "Portugal: baseline travel −62% · mean 8.64 → 3.47 min · figures now cover the MAINLAND ONLY");
+
+  slide.addShape(pptx.ShapeType.roundRect, { x: 0.4, y: 6.05, w: 12.75, h: 0.62, rectRadius: 0.05, fill: { color: "F2F5F8" }, line: { color: "5B6B7B", width: 1 } });
+  slide.addText([
+    { text: "⚠ Not comparable with the previous deck.  ", options: { bold: true, color: "B9791C" } },
+    { text: "Both rules change which residents are counted, so baselines, frontiers and the ranked improvement lists all shift. Absence of a pharmacy record is not evidence of absence of a pharmacy — excluding those regions states what we do not know, rather than asserting the strong version of it.", options: { color: INK } },
+  ], { x: 0.6, y: 6.13, w: 12.4, h: 0.5, fontSize: 9.3, fontFace: "Calibri", valign: "top" });
+}
+
 // method in lp_run.jl (multistart_round / swap_round! / travel_of), and why the
 // result is an upper bound. merge_deck.ps1 moves this to position 6 via the
 // marker "How multistart rounds".
@@ -630,6 +677,7 @@ if (only) regions = data.filter((e) => e.region === only);
 if (!only && !args.includes("--no-summary")) {
   agendaSlide();
   optProblemSlide();
+  scopeSlide();
   multistartSlide();
   descriptivesSlide("pharmacy_descriptives.csv",       "pharm", "BASELINE · RESIDENTS PER PHARMACY",       "— per country");
   descriptivesSlide("pharmacy_descriptives_nuts1.csv", "pharm", "BASELINE · RESIDENTS PER PHARMACY",       "— key NUTS1 regions (FR / IT / SE)");

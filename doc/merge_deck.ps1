@@ -48,7 +48,7 @@ if ($MapsSlide -gt 0) {
 }
 
 # Move the generated concept slides into their positions among the kept slides:
-#   agenda -> 2, optimization-problem -> 3, multistart summary -> 6.
+#   agenda -> 2, optimization-problem -> 3, scope -> 4, multistart summary -> 6.
 # Each is generated at the head of $Insert and located by a marker phrase. Done
 # last (after all index-based inserts) and in ascending target order; re-scan
 # after every move because MoveTo shifts the indices.
@@ -63,6 +63,7 @@ function Move-ByMarker([string]$pattern, [int]$target) {
 }
 Move-ByMarker "Proposed agenda" 2
 Move-ByMarker "The optimization problem" 3
+Move-ByMarker "What the model covers" 4
 Move-ByMarker "How multistart rounds" 6
 
 # ppSaveAsOpenXMLPresentation = 24
