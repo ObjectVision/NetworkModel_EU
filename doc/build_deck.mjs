@@ -554,7 +554,7 @@ function optProblemSlide() {
   slide.addShape(pptx.ShapeType.roundRect, { x: 7.45, y: 4.22, w: 5.4, h: 0.78, rectRadius: 0.05, fill: { color: "FBF5EA" }, line: { color: "B9791C", width: 1 } });
   slide.addText([
     { text: "⚠ For review:  ", options: { bold: true, color: "B9791C" } },
-    { text: "each client's OD holds every candidate out to its 5 nearest EXISTING pharmacies (max_nr_facilities_per_client) — it shrinks the LP but limits reassignment choice. Clients unreachable within t_max (islands / sparse interior, e.g. ITG) are now priced at BIG on BOTH sides — stranded in the baseline, optionally stranded in the LP — so ★ and frontier are directly comparable. Feedback welcome.", options: { color: INK } },
+    { text: "each client's OD holds every candidate out to its 5 nearest EXISTING pharmacies (max_nr_facilities_per_client) — it shrinks the LP but limits reassignment choice, and it can bind at S2-level facility counts. Clients still unreachable within t_max are priced at BIG on BOTH sides — stranded in the baseline, optionally stranded in the LP — so ★ and frontier stay directly comparable. After the scope rules on p4 that is only 0.012% of residents: 34 of 41 areas have none at all, the largest remainder is SE2 with 165 cells / 14,210 residents (0.32%), and these are genuinely remote cells rather than a coverage artefact. Feedback welcome.", options: { color: INK } },
   ], { x: 7.58, y: 4.28, w: 5.16, h: 0.68, fontSize: 8.3, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 0.98 });
 
   // bottom: bounds story
