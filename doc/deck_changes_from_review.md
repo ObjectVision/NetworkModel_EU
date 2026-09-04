@@ -3,7 +3,10 @@
 Source: `doc/modelling_service_networks_REGIO_commentsBN.docx` — 26 comments by
 **Ana Moreno Monroy** (CFE/EDS, July), **Martijn Brons** (REGIO, 6 Aug) and
 **Bernhard Nöbauer** (CFE/EDS, 30 Aug, replying to both). Comment numbers below are the
-docx comment ids. Deck page numbers refer to the current 71-slide `lambda_sweep5.pptx`.
+docx comment ids. Deck page numbers in the tables refer to the 71-slide `lambda_sweep5.pptx`
+the review was made against. **Since §2 and §9 landed the deck has 72 slides and the numbers
+shifted**: descriptives p3–6, model p7, scope p8, choice set p9, tangent diagram p10,
+Scenarios p11, multistart p12, NL p16, λ tables p60–61, roadmap p63, logistic p64, analysis p65–72.
 
 Status legend: **DONE** = already in the deck · **PROPOSE** = a concrete edit · **DECIDE** = needs
 the group · **ANSWER** = a question we can answer from the results.
@@ -35,7 +38,7 @@ countries as a first item?"
 
 | | page | change |
 |---|---|---|
-| PROPOSE | p6–9 → before p3 | The descriptives (residents per pharmacy, catchments, multi-pharmacy cells) currently follow the model slides. Move them **ahead** of the model: *what exists* → *what we optimise*. One-line change in `merge_deck.ps1` (a `Move-ByMarker` per descriptives slide). Cheap, and it answers BN's question structurally. |
+| **DONE** | p10–13 → p3–6 | The descriptives (residents per pharmacy, catchments, multi-pharmacy cells) currently follow the model slides. Move them **ahead** of the model: *what exists* → *what we optimise*. One-line change in `merge_deck.ps1` (a `Move-ByMarker` per descriptives slide). Cheap, and it answers BN's question structurally. Landed as four `Move-ByMarker` lines (matched case-sensitively — the agenda names the descriptives in lower case and would otherwise be moved instead). |
 
 ## 3. Demand weighting by age
 
@@ -115,7 +118,7 @@ values** showing the trade-off and its optimum, so the reader sees how the front
 
 | | page | change |
 |---|---|---|
-| PROPOSE | new slide before p6 | "How one λ picks one point": the objective as a straight line of slope −λ in the (#facilities, travel) plane, tangent to the feasible set; then two λ values → two tangent points → the curve is the envelope. Cheap to draw from any region's `deck_data.json` rows. |
+| **DONE** | new p10, before Scenarios | "How one λ picks one point": the objective as a straight line of slope −λ in the (#facilities, travel) plane, tangent to the feasible set; then two λ values → two tangent points → the curve is the envelope. Drawn by `doc/tangent_chart.py` from the Netherlands LINEAR rows of `deck_data.json`: λ₁ = €10,000 → 3,220 open, λ₂ = €50,000 → 831 open; a fourth box says what a tangency cannot reach (concave dents, an exact count) and points at the S1/S2 refinement step. |
 
 ---
 
@@ -133,8 +136,8 @@ needed instead of a snap. Flagged on p5; deserves its own issue.
 ## Suggested order of work
 
 1. ~~**Answers** first (§6, §8)~~ — DONE (commit below); BN's rescaling is tabled on p63 as the open decision it is.
-2. **Reorder** descriptives ahead of the model (§2) — one script edit.
+2. ~~**Reorder** descriptives ahead of the model (§2)~~ — DONE.
 3. **Framing** rewrites (§1, §5) — text on p2, p3, p57–58, p58.
-4. **New diagram** (§9).
+4. ~~**New diagram** (§9)~~ — DONE.
 5. **Roadmap additions** (§3, §7) on p60.
 6. **Decision** items (§6 rescaling) to the group.

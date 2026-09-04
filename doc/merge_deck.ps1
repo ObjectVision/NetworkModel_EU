@@ -48,7 +48,8 @@ if ($MapsSlide -gt 0) {
 }
 
 # Move the generated concept slides into their positions among the kept slides:
-#   agenda -> 2, optimization-problem -> 3, scope -> 4, choice set -> 5, multistart summary -> 7.
+#   agenda -> 2, descriptives -> 3..6, optimization-problem -> 7, scope -> 8, choice set -> 9,
+#   tangent diagram -> 10, multistart summary -> 12.
 # Each is generated at the head of $Insert and located by a marker phrase. Done
 # last (after all index-based inserts) and in ascending target order; re-scan
 # after every move because MoveTo shifts the indices.
@@ -57,15 +58,24 @@ function Move-ByMarker([string]$pattern, [int]$target) {
   foreach ($sl in $deck.Slides) {
     $txt = ""
     foreach ($sh in $sl.Shapes) { if ($sh.HasTextFrame) { $txt += $sh.TextFrame.TextRange.Text } }
-    if ($txt -match $pattern) { $pos = $sl.SlideIndex; break }
+    if ($txt -cmatch $pattern) { $pos = $sl.SlideIndex; break }   # case-sensitive: the agenda names the descriptives in lower case
   }
   if ($pos -gt 0 -and $pos -ne $target) { $deck.Slides.Item($pos).MoveTo($target); Write-Host "moved '$pattern' slide $pos -> $target" }
 }
+# Order (REGIO review, BN comment 4): what EXISTS before what we OPTIMISE, so the four
+# descriptives slides go straight after the agenda. The two slides sharing a title are
+# told apart by their subtitle. Then the model block, then (BN 41/42) the tangent
+# diagram right before the kept "Scenarios" slide, and multistart after it.
 Move-ByMarker "Proposed agenda" 2
-Move-ByMarker "The optimization problem" 3
-Move-ByMarker "What the model covers" 4
-Move-ByMarker "The choice set" 5
-Move-ByMarker "How multistart rounds" 7
+Move-ByMarker "RESIDENTS PER PHARMACY[\s\S]*per country" 3
+Move-ByMarker "RESIDENTS PER PHARMACY[\s\S]*key NUTS1" 4
+Move-ByMarker "PER 1 KM. LOCATION[\s\S]*per country" 5
+Move-ByMarker "PER 1 KM. LOCATION[\s\S]*key NUTS1" 6
+Move-ByMarker "The optimization problem" 7
+Move-ByMarker "What the model covers" 8
+Move-ByMarker "The choice set" 9
+Move-ByMarker "How one .* picks one point" 10
+Move-ByMarker "How multistart rounds" 12
 
 # ppSaveAsOpenXMLPresentation = 24
 $deck.SaveAs($Out, 24)

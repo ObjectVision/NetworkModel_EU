@@ -568,7 +568,7 @@ function optProblemSlide() {
   slide.addShape(pptx.ShapeType.roundRect, { x: 7.45, y: 4.22, w: 5.4, h: 0.78, rectRadius: 0.05, fill: { color: "FBF5EA" }, line: { color: "B9791C", width: 1 } });
   slide.addText([
     { text: "⚠ For review:  ", options: { bold: true, color: "B9791C" } },
-    { text: "each client's OD holds every candidate out to its 5 nearest EXISTING pharmacies (max_nr_facilities_per_client) — it shrinks the LP but limits reassignment choice, and it can bind at S2-level facility counts. Clients still unreachable within t_max are priced at BIG on BOTH sides — stranded in the baseline, optionally stranded in the LP — so ★ and frontier stay directly comparable. After the scope rules on p4 that is only 0.012% of residents: 34 of 41 areas have none at all, the largest remainder is SE2 with 165 cells / 14,210 residents (0.32%), and these are genuinely remote cells rather than a coverage artefact. Feedback welcome.", options: { color: INK } },
+    { text: "each client's OD holds every candidate out to its 5 nearest EXISTING pharmacies (max_nr_facilities_per_client) — it shrinks the LP but limits reassignment choice, and it can bind at S2-level facility counts. Clients still unreachable within t_max are priced at BIG on BOTH sides — stranded in the baseline, optionally stranded in the LP — so ★ and frontier stay directly comparable. After the scope rules on p8 that is only 0.012% of residents: 34 of 41 areas have none at all, the largest remainder is SE2 with 165 cells / 14,210 residents (0.32%), and these are genuinely remote cells rather than a coverage artefact. Feedback welcome.", options: { color: INK } },
   ], { x: 7.58, y: 4.28, w: 5.16, h: 0.68, fontSize: 8.3, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 0.98 });
 
   // bottom: bounds story
@@ -634,7 +634,7 @@ function choiceSetSlide() {
   slide.addShape(pptx.ShapeType.roundRect, { x: 0.4, y: 6.05, w: 12.75, h: 0.62, rectRadius: 0.05, fill: { color: "F2F5F8" }, line: { color: "5B6B7B", width: 1 } });
   slide.addText([
     { text: "Also found: ", options: { bold: true, color: "B9791C" } },
-    { text: "S1 and S2 are read off the nearest swept λ grid point. In 5 of 42 areas (FRC, FRH, FRJ, FRK, SE2) both scenarios snap to the SAME point — SE2’s S1 bracket (0.2, 0.5) and S2 bracket (0.5, 1.0) both resolve to w = 0.5, so its delivered S1 has 309 open, not the baseline 452. The interpolated tables on p57–58 are unaffected; the exported S1/S2 location files and the exact-MIP step are where this needs a refinement step rather than a snap.", options: { color: INK } },
+    { text: "S1 and S2 are read off the nearest swept λ grid point. In 5 of 42 areas (FRC, FRH, FRJ, FRK, SE2) both scenarios snap to the SAME point — SE2’s S1 bracket (0.2, 0.5) and S2 bracket (0.5, 1.0) both resolve to w = 0.5, so its delivered S1 has 309 open, not the baseline 452. The interpolated tables on p60–61 are unaffected; the exported S1/S2 location files and the exact-MIP step are where this needs a refinement step rather than a snap.", options: { color: INK } },
   ], { x: 0.6, y: 6.12, w: 12.4, h: 0.52, fontSize: 8.8, fontFace: "Calibri", valign: "top" });
 }
 
@@ -688,6 +688,41 @@ function scopeSlide() {
 // method in lp_run.jl (multistart_round / swap_round! / travel_of), and why the
 // result is an upper bound. merge_deck.ps1 moves this to position 6 via the
 // marker "How multistart rounds".
+// TANGENT slide (REGIO review, Brons/BN comments 41-42): before any frontier is shown,
+// show how ONE lambda picks ONE point -- the objective is a straight line of slope -lambda
+// in the (#open, travel) plane and its optimum is a tangency with the feasible set. Two
+// lambdas give two tangencies; the sweep over the 1-2-5 grid traces the envelope. The
+// PNG is drawn from the Netherlands LINEAR rows by tangent_chart.py.
+// merge_deck.ps1 moves this to position 10 via the marker "How one .* picks one point".
+function tangentSlide() {
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+  slide.addText("METHOD", { x: 0.45, y: 0.3, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText([
+    { text: "How one λ picks one point  ", options: { bold: true, color: INK } },
+    { text: "— and how a sweep over λ traces the frontier", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.56, w: 12.5, h: 0.5, fontSize: 22, fontFace: "Georgia" });
+  slide.addText("The sweep never fixes a value of λ. Each λ is one slope; the solver returns the point of the feasible set where a line of that slope touches. Netherlands, LINEAR c(t) = t, multistart-rounded solutions; the ★ is today’s network.",
+    { x: 0.45, y: 1.0, w: 12.5, h: 0.42, fontSize: 10, color: MUTED, fontFace: "Calibri", valign: "top" });
+
+  const p = join(__dir, "charts", "lambda_tangent.png");
+  if (existsSync(p)) slide.addImage({ path: p, x: 0.35, y: 1.5, w: 8.1, h: 4.93 });
+
+  const step = (y, h, tint, fill, head, body) => {
+    slide.addShape(pptx.ShapeType.roundRect, { x: 8.65, y, w: 4.45, h, rectRadius: 0.05, fill: { color: fill }, line: { color: tint, width: 1 } });
+    slide.addText(head, { x: 8.83, y: y + 0.07, w: 4.1, h: 0.28, fontSize: 12, bold: true, color: tint, fontFace: "Calibri" });
+    slide.addText(body, { x: 8.83, y: y + 0.36, w: 4.12, h: h - 0.42, fontSize: 9.3, color: INK, fontFace: "Calibri", valign: "top" });
+  };
+  step(1.5, 1.2, "5B6B7B", "F2F5F8", "1 · The objective is a line",
+    "We minimise  travel + λ · #open.  Every solution with the same objective value C lies on the line  travel = C − λ · #open:  slope −λ, and the lower the line, the cheaper the solution.");
+  step(2.8, 1.45, "0B6E99", "EEF5FA", "2 · The optimum is a tangency",
+    "Slide the line down until it last touches the feasible set. That touching point is the λ-optimum. λ₁ = €10,000 per facility touches at 3,220 open (22.6 M person-minutes); λ₂ = €50,000 touches at 831 open (74.7 M). A steeper slope buys fewer, busier pharmacies.");
+  step(4.35, 1.2, "1E7A52", "F0F6F2", "3 · Many λ → the frontier",
+    "Two λ give two tangencies; the 1-2-5 grid gives ~30. Their lower-left envelope is the Pareto frontier of the next slides. The frontier itself needs no λ — λ only says which point on it a decision-maker would pick.");
+  step(5.65, 0.95, "B9791C", "FBF5EA", "What a tangency cannot reach",
+    "A point in a concave dent of the frontier is never a tangency, whatever λ. Such points — and an exact count such as “today’s 1,615” — need a fixed-#open solve, which is the refinement step S1/S2 still lack (p9).");
+}
+
 function multistartSlide() {
   const slide = pptx.addSlide();
   slide.background = { color: "FFFFFF" };
@@ -743,6 +778,7 @@ if (!only && !args.includes("--no-summary")) {
   optProblemSlide();
   scopeSlide();
   choiceSetSlide();
+  tangentSlide();
   multistartSlide();
   descriptivesSlide("pharmacy_descriptives.csv",       "pharm", "BASELINE · RESIDENTS PER PHARMACY",       "— per country");
   descriptivesSlide("pharmacy_descriptives_nuts1.csv", "pharm", "BASELINE · RESIDENTS PER PHARMACY",       "— key NUTS1 regions (FR / IT / SE)");
