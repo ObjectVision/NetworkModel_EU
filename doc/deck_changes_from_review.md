@@ -86,8 +86,8 @@ would also reduce degeneracy.
 
 | | page | change |
 |---|---|---|
-| ANSWER | p62 (logistic) | State explicitly: **logistic, not log-logistic**; midpoint 25 / scale 10; **f(0) = 1/(1+e^{2.5}) ≈ 0.076, not 0**; the λ grid is the same 1-2-5/decade for both, but the logistic's *useful* range is much narrower (union grid tops at 0.02 vs 0.5) — that narrowness *is* the degeneracy Brons asks about. |
-| DECIDE | p62 + p60 | BN's rescaling (align f(0) and f(60) with linear) — put it on the slide as the open proposal it is, with the trade-off: it changes the equity weighting the group chose the logistic for. |
+| **DONE** | p63 (logistic) | State explicitly: **logistic, not log-logistic**; midpoint 25 / scale 10; **f(0) = 1/(1+e^{2.5}) ≈ 0.076, not 0**; the λ grid is the same 1-2-5/decade for both, but the logistic's *useful* range is much narrower (union grid tops at 0.02 vs 0.5) — that narrowness *is* the degeneracy Brons asks about. |
+| DECIDE (tabled on p63) | p63 + p60 | BN's rescaling (align f(0) and f(60) with linear) — put it on the slide as the open proposal it is, with the trade-off: it changes the equity weighting the group chose the logistic for. |
 
 ## 7. Candidate cells — neighbours too?
 
@@ -106,7 +106,7 @@ logistic "travel times"? BN defers to Maarten/Chris.
 
 | | page | change |
 |---|---|---|
-| ANSWER | p7 (multistart) | Add one line: **the bounds hold for TOTAL cost only.** The discrete solution can sit with *higher* travel and *lower* facility cost than the relaxation, or the reverse — the components are not individually bounded. For the logistic variant the bound is on the *transformed* cost c(t), not on minutes; mean_t is reported separately and carries no bound. BN's remark that the two bounds are now nearly a line for most areas is correct and worth stating. |
+| **DONE** | p7 (multistart) | Add one line: **the bounds hold for TOTAL cost only.** The discrete solution can sit with *higher* travel and *lower* facility cost than the relaxation, or the reverse — the components are not individually bounded. For the logistic variant the bound is on the *transformed* cost c(t), not on minutes; mean_t is reported separately and carries no bound. BN's remark that the two bounds are now nearly a line for most areas is correct and worth stating. |
 
 ## 9. A diagram of how the curve is traced
 
@@ -132,7 +132,7 @@ needed instead of a snap. Flagged on p5; deserves its own issue.
 
 ## Suggested order of work
 
-1. **Answers** first (§6, §8) — pure text, resolve open questions from the reviewers.
+1. ~~**Answers** first (§6, §8)~~ — DONE (commit below); BN's rescaling is tabled on p63 as the open decision it is.
 2. **Reorder** descriptives ahead of the model (§2) — one script edit.
 3. **Framing** rewrites (§1, §5) — text on p2, p3, p57–58, p58.
 4. **New diagram** (§9).

@@ -286,7 +286,21 @@ function logisticSlide() {
     { text: "The adopted curve is lower below ~10 min (ignores minor relocations) and saturates by ~45 min (caps remote weight) — Lewis's 22-May ask. Applied in the recalculation (settings.jl defaults; previous variant via LOGISTIC_MIDPOINT=30 LOGISTIC_SCALE=15).", options: { color: MUTED } },
   ], { x: 8.4, y: 4.7, w: 4.6, h: 1.05, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 
-  slide.addText("c(t) is applied to travel time in minutes (raw OD seconds ÷ 60); LINEAR uses c(t)=t. settings.jl:82",
+  // Review answers (REGIO comments 28, 35, 36): name the function, its value at 0, and
+  // where the degeneracy Brons asks about actually comes from; table BN's rescaling.
+  slide.addShape(pptx.ShapeType.roundRect, { x: 0.4, y: 5.92, w: 12.55, h: 1.05, rectRadius: 0.05, fill: { color: "F0F6F2" }, line: { color: "1E7A52", width: 1 } });
+  slide.addText([
+    { text: "Answers to the review.  ", options: { bold: true, color: "1E7A52" } },
+    { text: "It is a plain logistic, not a log-logistic:  c(t) = 1 / (1 + e", options: { color: INK } },
+    { text: "−(t−25)/10", options: { color: INK, superscript: true, fontSize: 7.5 } },
+    { text: ").  It does not start at zero — c(0) = 0.076 — so a relocation within a few minutes is nearly free but not free; c(60) = 0.971, c(120) ≈ 1.  ", options: { color: INK } },
+    { text: "The degeneracy: ", options: { bold: true, color: INK } },
+    { text: "both variants sweep the same 1-2-5/decade λ-grid (1e-4 … 5), but c(t) here spans only 0.08–1 where the linear one spans 0–120, so the travel term is ~100× smaller relative to λ·#open. The aggregate’s useful λ-range is 1e-4 … 0.02 for logistic against 1e-4 … 0.5 for linear — that compression is the degeneracy: many λ values map to one solution.  ", options: { color: MUTED } },
+    { text: "Open (BN, 23 Jul): ", options: { bold: true, color: "B9791C" } },
+    { text: "rescale c(t) so c(0) and c(60) match the linear curve. It would spread the λ-range and reduce degeneracy, but it also changes the equity weighting the group chose the logistic for — a group decision, not a tuning.", options: { color: MUTED } },
+  ], { x: 0.6, y: 5.98, w: 12.2, h: 0.95, fontSize: 8.6, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 0.98 });
+
+  slide.addText("c(t) is applied to travel time in minutes (raw OD seconds ÷ 60); LINEAR uses c(t)=t. settings.jl c(): logistic_midpoint=25, logistic_scale=10.",
     { x: 0.45, y: 7.05, w: 12.5, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 
@@ -708,8 +722,9 @@ function multistartSlide() {
     { text: "", options: { breakLine: true, fontSize: 4 } },
     { text: "Rigorous throughout — no caveat needed. Under soft coverage leaving a client unserved is part of the feasible space, and it is priced at the same BIG in the LP bound, in the rounding and in the baseline. The unserved count is reported next to every figure.", options: { color: MUTED, breakLine: true } },
     { text: "", options: { breakLine: true, fontSize: 4 } },
-    { text: "The multi-vs-relax column in the end tables is therefore a certified optimality gap: the integer optimum lies inside it.", options: { color: INK, italic: true, breakLine: true } },
-  ], { x: 8.2, y: 1.88, w: 4.45, h: 3.35, fontSize: 10.5, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 1.04 });
+    { text: "The multi-vs-relax column in the end tables is therefore a certified optimality gap on TOTAL cost: the integer optimum lies inside it. ", options: { color: INK, italic: true } },
+    { text: "It does NOT bound travel and facility cost separately — the discrete solution may sit with higher travel and lower facility cost than the relaxation, or the reverse. For the logistic variant the bound is on the transformed cost c(t), not on minutes; mean_t is reported alongside and carries no bound. In practice the two bounds are now nearly a line for most areas.", options: { color: MUTED, italic: true, breakLine: true } },
+  ], { x: 8.2, y: 1.88, w: 4.45, h: 3.38, fontSize: 9.6, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 1.0 });
 
   slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 5.5, w: 12.33, h: 1.25, rectRadius: 0.06, fill: { color: PANEL }, line: { color: "D9E0E7", width: 1 } });
   slide.addText([
