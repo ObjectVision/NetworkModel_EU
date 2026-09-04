@@ -49,7 +49,7 @@ old 1.5, or bracket weights 1/2/3). BN is agnostic; suggests a box for one count
 
 | | page | change |
 |---|---|---|
-| **DONE** | p63 Remaining | On the roadmap as the first Remaining item. Add: *age-weighted demand — box for one country, compare S1/S2 shift*. Feasible: `client_weight_col` already reads a configurable column; an age-weighted `total_pop` variant is a GeoDMS export away. |
+| DROPPED (4 Sep) | p63 | Not pursued — decided 4 Sep 2026 and recorded in the "Not pursued" line on p63, so BN sees the answer. Was: add: *age-weighted demand — box for one country, compare S1/S2 shift*. Feasible: `client_weight_col` already reads a configurable column; an age-weighted `total_pop` variant is a GeoDMS export away. |
 
 ## 4. Fractional assignment and multi-pharmacy cells
 
@@ -101,7 +101,7 @@ try one country.
 
 | | page | change |
 |---|---|---|
-| **DONE** | p63 Remaining | Second Remaining item, one country. Add as a one-country experiment. Note it pulls in the **same direction as the choice-set widening on p5** — both enlarge what the optimiser may choose from. |
+| DROPPED (4 Sep) | p63 | Not pursued — decided 4 Sep 2026, recorded in the "Not pursued" line on p63. Was: add as a one-country experiment. Note it pulls in the **same direction as the choice-set widening on p5** — both enlarge what the optimiser may choose from. |
 
 ## 8. Bounds — total cost only, not per component
 
@@ -141,5 +141,5 @@ needed instead of a snap. Flagged on p5; deserves its own issue.
 2. ~~**Reorder** descriptives ahead of the model (§2)~~ — DONE.
 3. ~~**Framing** rewrites (§1, §5)~~ — DONE.
 4. ~~**New diagram** (§9)~~ — DONE.
-5. ~~**Roadmap additions** (§3, §7)~~ — DONE, on p63; the roadmap's three columns were rewritten against the current state.
-6. **Decision** items to the group: §6 rescaling, widening the choice set before RSSV, territorial coverage constraints, age-weighted demand — all four on p63 and p2.
+5. ~~**Roadmap additions** (§3, §7)~~ — both DROPPED on 4 Sep 2026 and recorded as such on p63. The roadmap now has two columns, done and remaining in priority order (nothing is mid-flight except the λ-communication thread), plus a "Not pursued" line.
+6. **Decision** items to the group: §6 rescaling, widening the choice set before RSSV, territorial coverage constraints — all three on p63 and p2.

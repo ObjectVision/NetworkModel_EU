@@ -198,22 +198,24 @@ function statusSlide() {
   slide.addText("ROADMAP", { x: 0.45, y: 0.28, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
   slide.addText([
     { text: "Status against Lewis's & Bernhard's framing  ", options: { bold: true, color: INK } },
-    { text: "— implemented · in progress · remaining", options: { color: NAVY } },
+    { text: "— implemented · remaining · not pursued", options: { color: NAVY } },
   ], { x: 0.45, y: 0.54, w: 12.5, h: 0.42, fontSize: 21, fontFace: "Georgia" });
   slide.addText([
     { text: "The λ-sweep is the working general method. ", options: { bold: true, color: INK } },
-    { text: "Two method changes since the previous deck — landbody-complete networks and NUTS region exclusion — make these figures NOT comparable with earlier ones. The REGIO review (Moreno Monroy, Brons, Nöbauer) is worked in where it asked for answers and listed below where it asked for work; the cap/threshold ladder is parked on p15.", options: { color: MUTED } },
+    { text: "Two method changes since the previous deck — landbody-complete networks and NUTS region exclusion — make these figures NOT comparable with earlier ones. The REGIO review (Moreno Monroy, Brons, Nöbauer) is worked in where it asked for answers and listed below where it asked for work. Status confirmed 4 Sep 2026: nothing is mid-flight, so the list is what is done and what remains, in priority order.", options: { color: MUTED } },
   ], { x: 0.45, y: 0.97, w: 12.5, h: 0.4, fontSize: 9.5, fontFace: "Calibri", valign: "top" });
 
-  const GREEN = "1E7A52", AMBER = "B9791C", SLATE = "5B6B7B";
-  const col = (x, tint, fill, title, items, fs = 9) => {
-    slide.addShape(pptx.ShapeType.roundRect, { x, y: 1.42, w: 4.07, h: 4.95, rectRadius: 0.05, fill: { color: fill }, line: { color: tint, width: 1 } });
-    slide.addText(title, { x: x + 0.18, y: 1.5, w: 3.7, h: 0.3, fontSize: 13, bold: true, color: tint, fontFace: "Calibri" });
+  const GREEN = "1E7A52", SLATE = "5B6B7B", AMBER = "B9791C";
+  const col = (x, w, tint, fill, title, items, fs = 9) => {
+    slide.addShape(pptx.ShapeType.roundRect, { x, y: 1.42, w, h: 4.7, rectRadius: 0.05, fill: { color: fill }, line: { color: tint, width: 1 } });
+    slide.addText(title, { x: x + 0.18, y: 1.5, w: w - 0.36, h: 0.3, fontSize: 13, bold: true, color: tint, fontFace: "Calibri" });
     slide.addText(items.map((t) => ({ text: t, options: { bullet: { indent: 12 }, breakLine: true } })),
-      { x: x + 0.2, y: 1.86, w: 3.72, h: 4.45, fontSize: fs, color: INK, fontFace: "Calibri", lineSpacingMultiple: 0.98, paraSpaceAfter: 4, valign: "top" });
+      { x: x + 0.2, y: 1.86, w: w - 0.4, h: 4.2, fontSize: fs, color: INK, fontFace: "Calibri", lineSpacingMultiple: 0.98, paraSpaceAfter: 4, valign: "top" });
   };
-
-  col(0.4, GREEN, "F0F6F2", "Implemented ✓", [
+  // Status as confirmed item by item on 4 Sep 2026: nothing is in progress except the
+  // λ-communication thread, so two columns — done, and remaining in priority order — and
+  // a one-line record of what was dropped, so the reviewers who asked for it see the answer.
+  col(0.4, 6.2, GREEN, "F0F6F2", "Implemented ✓", [
     "NETWORK per landbody + REGION EXCLUSION (>50% of inhabitant locations unreachable → NUTS region dropped, population AND candidates): ITG mean travel 22.3 → 4.9 min; Azores/Madeira out, Portugal baseline travel −62%. A DATA gap no longer ranks as headroom (p8)",
     "Tabula-rasa LP allocation + λ-sweep → Pareto curve of #locations vs travel (Option D); p-median notation (x = assignment, y = facility)",
     "S1 (same #, ↓travel) · S2 (same travel, ↓#) · S3 full frontier — S1/S2 interpolated onto the frontier, stated in NATIVE units first, € second (p60–61)",
@@ -224,31 +226,27 @@ function statusSlide() {
     "Improvement rectangle (raw + relative), diagonal crossing + λ, point-cloud with projections; ranked lists by policy typology, free of coverage artefacts (ITF #1 on an UNCHANGED value)",
     "REGIO review worked in: choice set (p9), λ-tangency (p10), logistic parametrised (p64), bounds on TOTAL cost only (p12), €100,000 a placeholder everywhere",
     "Large-region subsampling keeps EVERY baseline location, so the frontier still dominates the baseline",
-  ], 8.6);
-  col(4.62, AMBER, "FBF5EA", "In progress ◐", [
-    "Exact soft-coverage p-median MIP to pin S1/S2 at p = baseline — also replaces the nearest-grid-point snap that makes S1 = S2 in 5 areas (FRC/FRH/FRJ/FRK/SE2, p9)",
+  ]);
+  col(6.75, 6.2, SLATE, "F2F5F8", "Remaining ○ — in priority order  (◐ = in progress)", [
+    "◐ Communicate λ intuitively (person-minutes per location): the tangency slide (p10) and the native-unit S1/S2 tables (p60–61) are the first steps; the € labels stay placeholders until a is calibrated",
     "Widen the CANDIDATE radius per client (5 → 10 nearest EXISTING), one area first — measured to bind at S2 (SE2: 10.2% of residents one closure from stranding, p9)",
     "RSSV spatial-voting candidate reduction (Avignon CpLP paper, Figueiredo & Genre-Grandpierre) — a principled replacement for the stride subsample on the largest regions; needs the wider radius first",
+    "Exact soft-coverage p-median MIP to pin S1/S2 at p = baseline — also replaces the nearest-grid-point snap that makes S1 = S2 in 5 areas (FRC/FRH/FRJ/FRK/SE2, p9)",
     "Territorial coverage constraints (≥1 pharmacy per NUTS unit; multi-scale) as a STRUCTURED equity lever alongside the soft-coverage BIG penalty",
-    "Exploring (not committed): max-cap + min-threshold rungs — realistic bounds are hard to set, so this may not pay off (p15)",
-  ]);
-  col(8.84, SLATE, "F2F5F8", "Remaining ○", [
-    "Age-weighted demand (Brons/BN): a box for one country, e.g. 0.5 / 1 / 1.5 by age bracket — client_weight_col already reads any column; compare the S1/S2 shift",
-    "Candidate cells = ≥50-pop cells AND their neighbours (Brons/BN), one country — pulls the same way as the wider radius",
     "DECIDE: rescale the logistic so c(0) and c(60) match the linear (BN, 23 July) — less degeneracy, but it changes the equity weighting the logistic was chosen for (p64)",
     "Calibrate the real pharmacy fixed cost a (schools: 99 699 + 3 277.5x) — only the € labels move, nothing else in the deck",
     "Capacity / max-catchment cap constraint (CpMP; the Avignon strengthened ILP shows how to solve it)",
-    "Urban/non-urban flag → model only non-urban, hold urban fixed (options B/C); settlement candidate set (verify existing ⊂ settlements)",
-    "Flat-then-linear travel-cost variant; logit-parameter sensitivity",
-    "Communicate λ intuitively (person-minutes per location) — the tangency slide (p10) is the first step",
     "Counterfactuals: −10% pop · replace a known X% · choose which X to close (hard)",
-    "Pharmacist-based cap (Ana); caps/thresholds pooled across countries, reported per country; corr catchment & travel cost; border cases",
   ]);
 
   slide.addText([
+    { text: "Not pursued (decided 4 Sep 2026):  ", options: { bold: true, color: AMBER } },
+    { text: "the catchment-cap / min-threshold ladder (explored on the Netherlands; p15 kept as the record) · age-weighted demand · candidate cells plus their neighbours · urban/non-urban split and a settlement candidate set · flat-then-linear cost and logit-parameter sensitivity · pharmacist-based and pooled caps, catchment–travel correlation, border cases.", options: { color: MUTED } },
+  ], { x: 0.45, y: 6.2, w: 12.5, h: 0.45, fontSize: 9, fontFace: "Calibri", valign: "top" });
+  slide.addText([
     { text: "Open questions for the group:  ", options: { bold: true, color: NAVY } },
-    { text: "widen the choice set before RSSV (p9)?  ·  logistic vs linear, and BN's rescaling (p64)?  ·  territorial coverage constraints for equity, or keep soft coverage?  ·  age-weighted demand as a one-country box?", options: { color: MUTED } },
-  ], { x: 0.45, y: 6.5, w: 12.5, h: 0.7, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
+    { text: "widen the choice set before RSSV (p9)?  ·  logistic vs linear, and BN's rescaling (p64)?  ·  territorial coverage constraints for equity, or keep soft coverage?", options: { color: MUTED } },
+  ], { x: 0.45, y: 6.68, w: 12.5, h: 0.5, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
 function logisticSlide() {
@@ -461,8 +459,8 @@ function agendaSlide() {
     ["Scope & method", "By how much can accessibility improve at equal cost, or cost fall at equal accessibility? A tabula-rasa LP allocation on the road OD, swept over λ, answers that as a frontier of #locations vs travel (p7–14). Cost and accessibility trade off continuously under exogenous demand — there is no trilemma to resolve.", false],
     ["Scenario results", "S1 (same #, less travel) and S2 (same travel, fewer locations) per area, quantified first in native units — locations and person-minutes, which need no λ — and only then in € (p16–61).", false],
     ["Travel-cost function", "Linear vs the logistic (midpoint 25 / scale 10), its compressed λ-range, and BN's proposal to rescale it (p64).", true],
-    ["Cap / threshold ladder", "A proposed shortcut to the λ-sweep — but catchments vary so widely that realistic min/max bounds are hard to set. Pursue or drop? (p15)", true],
-    ["Choice set, open items & roadmap", "Where the 5-nearest choice set binds and why widening it precedes RSSV (p9); exact S1/S2 pinning; age-weighted demand; priorities (p63).", false],
+    ["Cap / threshold ladder", "A proposed shortcut to the λ-sweep, explored on the Netherlands — catchments vary so widely that realistic min/max bounds cannot be set. Dropped; p15 kept as the record.", false],
+    ["Choice set, open items & roadmap", "Where the 5-nearest choice set binds and why widening it precedes RSSV (p9); exact S1/S2 pinning; what remains, in priority order, and what was dropped (p63).", false],
   ];
   const y0 = 1.6, dy = 0.86;
   items.forEach((it, i) => {
@@ -478,7 +476,7 @@ function agendaSlide() {
 
   slide.addText([
     { text: "Decisions sought:  ", options: { bold: true, color: NAVY } },
-    { text: "travel-cost shape (linear vs logistic, and BN's rescaling)  ·  widen the candidate radius before RSSV  ·  whether the cap–threshold ladder is worth pursuing  ·  age-weighted demand as a one-country box.", options: { color: MUTED } },
+    { text: "travel-cost shape (linear vs logistic, and BN's rescaling)  ·  widen the candidate radius before RSSV  ·  territorial coverage constraints for equity, or keep soft coverage.", options: { color: MUTED } },
   ], { x: 0.45, y: 6.96, w: 12.5, h: 0.4, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
