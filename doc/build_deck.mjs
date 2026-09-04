@@ -575,6 +575,55 @@ function optProblemSlide() {
 }
 
 // How the fractional LP solution is rounded to real pharmacies — the multistart
+// CHOICE-SET slide: how each client's candidate set is bounded, measured evidence that
+// the bound binds at S2, and why widening it is a precondition for the RSSV route.
+// merge_deck.ps1 moves this to position 5 via the marker "The choice set".
+function choiceSetSlide() {
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+  slide.addText("CHOICE SET", { x: 0.45, y: 0.3, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText([
+    { text: "The choice set  ", options: { bold: true, color: INK } },
+    { text: "— where the 5-nearest rule binds, and why widening it comes before RSSV", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.56, w: 12.5, h: 0.5, fontSize: 22, fontFace: "Georgia" });
+  slide.addText("Each client is connected to every candidate cell within the road distance to its 5th-nearest EXISTING pharmacy (or 120 min). That radius holds ~70–90 candidates on average — so it is not “5 choices”, it is a radius fixed by today’s five. When the optimiser removes facilities, the radius does not grow.",
+    { x: 0.45, y: 1.0, w: 12.5, h: 0.45, fontSize: 10, color: MUTED, fontFace: "Calibri", valign: "top" });
+
+  const box = (x, w, tint, fill, head, items, foot) => {
+    slide.addShape(pptx.ShapeType.roundRect, { x, y: 1.58, w, h: 4.3, rectRadius: 0.05, fill: { color: fill }, line: { color: tint, width: 1 } });
+    slide.addText(head, { x: x + 0.2, y: 1.66, w: w - 0.4, h: 0.3, fontSize: 13, bold: true, color: tint, fontFace: "Calibri" });
+    slide.addText(items.map((t) => ({ text: t, options: { bullet: { indent: 12 }, breakLine: true } })),
+      { x: x + 0.22, y: 2.02, w: w - 0.44, h: 3.15, fontSize: 9.4, color: INK, fontFace: "Calibri", lineSpacingMultiple: 1.0, paraSpaceAfter: 5, valign: "top" });
+    if (foot) slide.addText(foot, { x: x + 0.22, y: 5.22, w: w - 0.44, h: 0.6, fontSize: 9.2, bold: true, color: tint, fontFace: "Calibri", valign: "top" });
+  };
+
+  box(0.4, 4.1, "B9791C", "FBF5EA", "Where it binds — measured at S2", [
+    "SE2 at S2 (309 of 452 open): 1,730 cells / 449,261 residents — 10.2% of the population — have exactly ONE open facility left inside their radius. Closing it would strand them at BIG, so the optimiser must keep it open even where a 6th-nearest pharmacy would serve them.",
+    "ITF at S2 (519 of 1,253 open): 9.0% of residents are already stranded and a further 23.9% are one closure away — a third of the population pins the solution.",
+    "Even at S1 — same count as today, only relocated — ITF strands 1.84%: relocation moved facilities out of clients’ fixed radii.",
+  ], "The frontier is under-estimated wherever the radius, not the geography, decides who can be served.");
+
+  box(4.72, 4.1, "1E7A52", "F0F6F2", "Why widening helps", [
+    "More existing and potential locations per client → a wider radius → the optimiser can consolidate further without stranding anyone → S2 reaches the baseline travel cost with fewer facilities.",
+    "The gain is concentrated exactly where the lists rank improvement potential: the areas with the most one-option clients.",
+    "Keep the EXISTING-side radius at 5 for the baseline, so ★ stays comparable with earlier decks; widen the CANDIDATE side only.",
+    "Cost: a wider radius enlarges the full OD (build time, memory) and the exact solve on small areas.",
+  ], "A cheap experiment: one area, radius 5 → 10, compare S2 facility count and stranding.");
+
+  box(9.04, 4.1, "0B6E99", "EEF5FA", "Why RSSV requires it", [
+    "RSSV solves many sub-problems on random CANDIDATE subsets Jᵤ with the FULL client set. Every client must still reach some sampled candidate — otherwise it is stranded at BIG for that sub-problem alone, and those spurious penalties corrupt the spatial votes.",
+    "The chance that a random Jᵤ leaves a client with no reachable candidate falls as the radius widens. A thin radius makes voting noisy; a wide one makes it robust.",
+    "So the two size-control knobs trade against each other: under RSSV, size control moves from pruning per client to sample → vote → filter → exact solve. Widening the radius is the precondition, not a nicety.",
+    "Stratified (not uniform) sampling lets a narrower radius suffice — a lever to trade against OD size.",
+  ], "Sequence: widen the candidate radius → RSSV → exact MIP on the reduced set.");
+
+  slide.addShape(pptx.ShapeType.roundRect, { x: 0.4, y: 6.05, w: 12.75, h: 0.62, rectRadius: 0.05, fill: { color: "F2F5F8" }, line: { color: "5B6B7B", width: 1 } });
+  slide.addText([
+    { text: "Also found: ", options: { bold: true, color: "B9791C" } },
+    { text: "S1 and S2 are read off the nearest swept λ grid point. In 5 of 42 areas (FRC, FRH, FRJ, FRK, SE2) both scenarios snap to the SAME point — SE2’s S1 bracket (0.2, 0.5) and S2 bracket (0.5, 1.0) both resolve to w = 0.5, so its delivered S1 has 309 open, not the baseline 452. The interpolated tables on p57–58 are unaffected; the exported S1/S2 location files and the exact-MIP step are where this needs a refinement step rather than a snap.", options: { color: INK } },
+  ], { x: 0.6, y: 6.12, w: 12.4, h: 0.52, fontSize: 8.8, fontFace: "Calibri", valign: "top" });
+}
+
 // SCOPE slide: the two decisions that determine WHICH demand and WHICH network the
 // model sees. Both changed after the previous deck, so its figures are not comparable.
 // merge_deck.ps1 moves this to position 4 via the marker "What the model covers".
@@ -678,6 +727,7 @@ if (!only && !args.includes("--no-summary")) {
   agendaSlide();
   optProblemSlide();
   scopeSlide();
+  choiceSetSlide();
   multistartSlide();
   descriptivesSlide("pharmacy_descriptives.csv",       "pharm", "BASELINE · RESIDENTS PER PHARMACY",       "— per country");
   descriptivesSlide("pharmacy_descriptives_nuts1.csv", "pharm", "BASELINE · RESIDENTS PER PHARMACY",       "— key NUTS1 regions (FR / IT / SE)");
