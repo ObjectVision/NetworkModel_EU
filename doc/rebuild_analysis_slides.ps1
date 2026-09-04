@@ -12,8 +12,8 @@ $CLOUD = 1.4516     # point clouds 1800x1240
 $charts = @(
   @{f='doc\charts\pointcloud_LINEAR.png';        t='Baselines and their frontier projections  -  LINEAR';   r=$CLOUD},
   @{f='doc\charts\pointcloud_LOGISTIC.png';      t='Baselines and their frontier projections  -  LOGISTIC'; r=$CLOUD},
-  @{f='doc\charts\rank_lambda_LINEAR.png';       t='Lambda at the balanced-improvement crossing, ranked  -  LINEAR';   r=$RANK},
-  @{f='doc\charts\rank_lambda_LOGISTIC.png';     t='Lambda at the balanced-improvement crossing, ranked  -  LOGISTIC'; r=$RANK},
+  @{f='doc\charts\rank_lambda_LINEAR.png';       t='Lambda at the balanced-improvement crossing, ranked  -  LINEAR';   r=$RANK; n='Lambda is in EUR only through the placeholder EUR 100,000 per location (REGIO review, Brons/BN): the crossing point and this ranking do not depend on it; only the EUR axis rescales with the true fixed cost.'},
+  @{f='doc\charts\rank_lambda_LOGISTIC.png';     t='Lambda at the balanced-improvement crossing, ranked  -  LOGISTIC'; r=$RANK; n='Lambda is in EUR only through the placeholder EUR 100,000 per location (REGIO review, Brons/BN): the crossing point and this ranking do not depend on it; only the EUR axis rescales with the true fixed cost.'},
   @{f='doc\charts\rank_area_LINEAR.png';         t='Improvement-potential rectangle area (raw), ranked  -  LINEAR';   r=$RANK},
   @{f='doc\charts\rank_area_LOGISTIC.png';       t='Improvement-potential rectangle area (raw), ranked  -  LOGISTIC'; r=$RANK},
   @{f='doc\charts\rank_area_rel_LINEAR.png';     t='Improvement potential relative to baseline facility x travel cost  -  LINEAR';   r=$RANK},
@@ -57,6 +57,14 @@ foreach ($c in $charts) {
   if ($w -gt 920) { $w = 920; $h = $w / $c.r }
   [void]$slide.Shapes.AddPicture((Resolve-Path $c.f).Path, $false, $true,
                                  ($SW - $w) / 2, $availTop + ($availH - $h) / 2, $w, $h)
+  if ($c.n) {   # one-line caveat under the chart (ASCII only: this file has no BOM, PS 5.1 would read UTF-8 as ANSI)
+    $nb = $slide.Shapes.AddTextbox(1, 30, 518, 900, 20)
+    $nb.TextFrame.TextRange.Text = $c.n
+    $nb.TextFrame.TextRange.Font.Size = 9
+    $nb.TextFrame.TextRange.Font.Italic = $true
+    $nb.TextFrame.TextRange.Font.Name = 'Calibri'
+    $nb.TextFrame.TextRange.Font.Color.RGB = 0x7B6B5B
+  }
 }
 $d.Save()
 "deck: $deckPath"

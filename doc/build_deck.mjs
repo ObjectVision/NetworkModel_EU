@@ -112,8 +112,8 @@ function aggregateSlide() {
     { text: `travel  LIN ${fmtCost(L.baseline.cost)} · LOG ${fmtCost(G.baseline.cost)}`, options: { color: MUTED } },
   ], { x: 0.45, y: 1.16, w: 12.4, h: 0.3, fontSize: 10, fontFace: "Calibri" });
 
-  const cy = 1.6, cw = 5.85, chh = 3.44;
-  for (const [fn, x] of [["LINEAR", 0.32], ["LOGISTIC", 6.42]]) {
+  const cy = 1.5, cw = 5.19, chh = 3.05;   // 9 table rows + footnote must fit below
+  for (const [fn, x] of [["LINEAR", 0.62], ["LOGISTIC", 6.9]]) {
     const cp = join(__dir, "charts", `AGGREGATE_${fn}.png`);
     if (existsSync(cp)) slide.addImage({ path: cp, x, y: cy, w: cw, h: chh });
   }
@@ -133,19 +133,20 @@ function aggregateSlide() {
   }
   const tRows = body.map((row, ri) => row.map((c, ci) => ({
     text: c, options: {
-      fontSize: ri === 0 ? 9 : 9.5, bold: ri === 0, align: ci <= 1 ? "left" : "center",
+      fontSize: ri === 0 ? 8.5 : 9, bold: ri === 0, align: ci <= 1 ? "left" : "center",
       color: ri === 0 ? "FFFFFF" : INK, fill: ri === 0 ? NAVY : (ri % 2 ? PANEL : "FFFFFF"),
       fontFace: "Calibri", valign: "middle",
     },
   })));
   slide.addTable(tRows, {
-    x: 0.5, y: 5.32, w: 12.33, colW: [1.2, 2.5, 1.3, 1.5, 1.6, 2.1, 2.13],
-    rowH: 0.28, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle",
+    x: 0.5, y: 4.7, w: 12.33, colW: [1.2, 2.5, 1.3, 1.5, 1.6, 2.1, 2.13],
+    rowH: 0.235, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle",
   });
   const unbr = [ !L.S1 && "S1", !L.S2 && "S2" ].filter(Boolean).join("/");
   slide.addText(`Exact-by-separability aggregation over ${L.n_regions} disjoint areas (13 countries + FR/IT/SE/PL NUTS-1; country-level Poland excluded in favour of its 7 NUTS-1): at a common λ the sum of the regional optima IS the combined optimum. Summed at the union of swept w-values inside the range every area covers (${L.n_w} points; an area without that exact λ is log-interpolated between its adjacent sweep points — the λ-table rule).` +
+    ` The Δ columns state the aggregate S1/S2 gain in native units and need no λ; λ only prices them (placeholder €100,000 per location).` +
     (unbr ? ` ${unbr} not bracketed: the aggregate baseline (★) lies outside the common λ range, which is capped by the slowest regions' sweep limits (LINEAR: Belgium & FRI time out above w = 0.2) — extending those two sweeps closes it; final frontier segment to follow.` : ""),
-    { x: 0.5, y: 6.98, w: 12.33, h: 0.46, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
+    { x: 0.5, y: 6.9, w: 12.33, h: 0.55, fontSize: 8.3, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 
 function summarySlide() {
@@ -201,52 +202,52 @@ function statusSlide() {
   ], { x: 0.45, y: 0.54, w: 12.5, h: 0.42, fontSize: 21, fontFace: "Georgia" });
   slide.addText([
     { text: "The λ-sweep is the working general method. ", options: { bold: true, color: INK } },
-    { text: "Two method changes since the previous deck — landbody-complete networks and NUTS region exclusion — make these figures NOT comparable with earlier ones. A proposed A→D ladder would cap catchments + set a min threshold to sidestep it — but the descriptives show catchments vary so widely (p10–p90 several-fold; many pharmacies at zero) that realistic bounds are hard to set, and the ladder may not actually simplify the problem.", options: { color: MUTED } },
+    { text: "Two method changes since the previous deck — landbody-complete networks and NUTS region exclusion — make these figures NOT comparable with earlier ones. The REGIO review (Moreno Monroy, Brons, Nöbauer) is worked in where it asked for answers and listed below where it asked for work; the cap/threshold ladder is parked on p15.", options: { color: MUTED } },
   ], { x: 0.45, y: 0.97, w: 12.5, h: 0.4, fontSize: 9.5, fontFace: "Calibri", valign: "top" });
 
   const GREEN = "1E7A52", AMBER = "B9791C", SLATE = "5B6B7B";
-  const col = (x, tint, fill, title, items) => {
+  const col = (x, tint, fill, title, items, fs = 9) => {
     slide.addShape(pptx.ShapeType.roundRect, { x, y: 1.42, w: 4.07, h: 4.95, rectRadius: 0.05, fill: { color: fill }, line: { color: tint, width: 1 } });
     slide.addText(title, { x: x + 0.18, y: 1.5, w: 3.7, h: 0.3, fontSize: 13, bold: true, color: tint, fontFace: "Calibri" });
     slide.addText(items.map((t) => ({ text: t, options: { bullet: { indent: 12 }, breakLine: true } })),
-      { x: x + 0.2, y: 1.86, w: 3.72, h: 4.45, fontSize: 9, color: INK, fontFace: "Calibri", lineSpacingMultiple: 0.98, paraSpaceAfter: 4, valign: "top" });
+      { x: x + 0.2, y: 1.86, w: 3.72, h: 4.45, fontSize: fs, color: INK, fontFace: "Calibri", lineSpacingMultiple: 0.98, paraSpaceAfter: 4, valign: "top" });
   };
 
   col(0.4, GREEN, "F0F6F2", "Implemented ✓", [
-    "NETWORK per landbody: the largest strongly-connected road network is now kept for EVERY separate landbody, not just the single largest one EU-wide — island networks (Sicilia/Sardegna, and their ferry links) were being pruned. ITG baseline mean travel 22.3 → 4.9 min; unreachable residents 983k → 591",
-    "REGION EXCLUSION: a NUTS region where >50% of inhabitant locations cannot reach any pharmacy is dropped entirely — population AND candidates. Excludes the Azores (PT200) and Madeira (PT300), which hold population but no pharmacy in the source data; Portugal baseline travel −62%. Prevents a DATA gap from ranking as policy headroom",
-    "Tabula-rasa LP allocation + λ-sweep → Pareto curve of #facilities vs travel cost (Option D); canonical p-median notation (x = assignment, y = facility)",
-    "Lewis's 3 cases live: S1 (same #, ↓travel) · S2 (same travel, ↓#) · S3 full frontier — S1/S2 now INTERPOLATED onto the frontier (dense-grid + refine, tight to ≤0.1 λ-octave)",
-    "All 6 of Lewis's 22-May descriptive indicators, per country (deck pages 5–8); catchments by ROAD-network travel time",
-    "Recalc: candidates = ≥50-pop cells ∪ pharmacy cells · clients = FULL population · adapted logit (25/10) · Italy from ESPON shapefile — all 42 areas swept incl. Poland + 7 NUTS-1",
+    "NETWORK per landbody + REGION EXCLUSION (>50% of inhabitant locations unreachable → NUTS region dropped, population AND candidates): ITG mean travel 22.3 → 4.9 min; Azores/Madeira out, Portugal baseline travel −62%. A DATA gap no longer ranks as headroom (p8)",
+    "Tabula-rasa LP allocation + λ-sweep → Pareto curve of #locations vs travel (Option D); p-median notation (x = assignment, y = facility)",
+    "S1 (same #, ↓travel) · S2 (same travel, ↓#) · S3 full frontier — S1/S2 interpolated onto the frontier, stated in NATIVE units first, € second (p60–61)",
+    "Lewis's 6 descriptive indicators per country and key NUTS1, catchments by ROAD travel time — ahead of the model (p3–6)",
+    "Candidates = ≥50-pop cells ∪ pharmacy cells · clients = FULL population · adapted logit (25/10) — all 42 areas swept incl. Poland + 7 NUTS-1",
     "Soft coverage (Σx ≤ 1, unserved priced at BIG on BOTH sides): every region brackets S1 & S2; baseline coverage-consistent",
-    "Aggregated frontier over 41 disjoint areas (exact by separability) — now brackets S1 AND S2 for LINEAR & LOGISTIC (Belgium/FRI extended to w = 0.5)",
-    "Status-quo↔frontier metric: improvement rectangle (raw + relative to baseline #F × travel), its diagonal crossing + λ, baseline point-cloud with frontier projections",
-    "Ordered region lists coloured by pharmacy policy typology (regulation archetype + formalisation, from the collaborators' framing) — now free of coverage artefacts: ITG drops from #1 to #2 and Portugal and PL8 leave the top 8, while ITF takes #1 on an UNCHANGED value",
-    "Large-region candidate subsampling keeps EVERY baseline location, so the frontier still dominates the baseline (FRI/PL8 made tractable)",
-  ]);
+    "Aggregated frontier over 41 disjoint areas (exact by separability), bracketing S1 and S2 for both functions (p59)",
+    "Improvement rectangle (raw + relative), diagonal crossing + λ, point-cloud with projections; ranked lists by policy typology, free of coverage artefacts (ITF #1 on an UNCHANGED value)",
+    "REGIO review worked in: choice set (p9), λ-tangency (p10), logistic parametrised (p64), bounds on TOTAL cost only (p12), €100,000 a placeholder everywhere",
+    "Large-region subsampling keeps EVERY baseline location, so the frontier still dominates the baseline",
+  ], 8.6);
   col(4.62, AMBER, "FBF5EA", "In progress ◐", [
-    "Exact soft-coverage p-median MIP to pin S1/S2 at p = baseline (the interpolation is already tight; the MIP would make it exact)",
-    "RSSV spatial-voting candidate reduction (Avignon CpLP paper, Figueiredo & Genre-Grandpierre) — a principled replacement for the stride subsample on the largest regions",
+    "Exact soft-coverage p-median MIP to pin S1/S2 at p = baseline — also replaces the nearest-grid-point snap that makes S1 = S2 in 5 areas (FRC/FRH/FRJ/FRK/SE2, p9)",
+    "Widen the CANDIDATE radius per client (5 → 10 nearest EXISTING), one area first — measured to bind at S2 (SE2: 10.2% of residents one closure from stranding, p9)",
+    "RSSV spatial-voting candidate reduction (Avignon CpLP paper, Figueiredo & Genre-Grandpierre) — a principled replacement for the stride subsample on the largest regions; needs the wider radius first",
     "Territorial coverage constraints (≥1 pharmacy per NUTS unit; multi-scale) as a STRUCTURED equity lever alongside the soft-coverage BIG penalty",
-    "Exploring (not committed): max-cap + min-threshold rungs — the descriptives suggest realistic bounds are hard to set, so this may not pay off",
+    "Exploring (not committed): max-cap + min-threshold rungs — realistic bounds are hard to set, so this may not pay off (p15)",
   ]);
   col(8.84, SLATE, "F2F5F8", "Remaining ○", [
+    "Age-weighted demand (Brons/BN): a box for one country, e.g. 0.5 / 1 / 1.5 by age bracket — client_weight_col already reads any column; compare the S1/S2 shift",
+    "Candidate cells = ≥50-pop cells AND their neighbours (Brons/BN), one country — pulls the same way as the wider radius",
+    "DECIDE: rescale the logistic so c(0) and c(60) match the linear (BN, 23 July) — less degeneracy, but it changes the equity weighting the logistic was chosen for (p64)",
+    "Calibrate the real pharmacy fixed cost a (schools: 99 699 + 3 277.5x) — only the € labels move, nothing else in the deck",
     "Capacity / max-catchment cap constraint (CpMP; the Avignon strengthened ILP shows how to solve it)",
-    "Urban/non-urban flag → model only non-urban, hold urban fixed (options B/C)",
-    "Settlement candidate set: verify existing ⊂ settlements, then restrict locations",
-    "Flat-then-linear travel-cost variant; sweep logit-parameter sensitivity",
-    "Calibrate real pharmacy a,b (schools: 99 699 + 3 277.5x); ?fixed cost vs <6-y care",
-    "Communicate λ intuitively (person-minutes / value-per-user)",
-    "Cost-function-free S3: balance #/capita vs mean travel, widen beyond the A–B segment",
+    "Urban/non-urban flag → model only non-urban, hold urban fixed (options B/C); settlement candidate set (verify existing ⊂ settlements)",
+    "Flat-then-linear travel-cost variant; logit-parameter sensitivity",
+    "Communicate λ intuitively (person-minutes per location) — the tangency slide (p10) is the first step",
     "Counterfactuals: −10% pop · replace a known X% · choose which X to close (hard)",
-    "Pharmacist-based cap (Ana); caps/thresholds pooled across countries, reported per-country",
-    "Corr catchment & travel costs · border-cases",
+    "Pharmacist-based cap (Ana); caps/thresholds pooled across countries, reported per country; corr catchment & travel cost; border cases",
   ]);
 
   slide.addText([
     { text: "Open questions for the group:  ", options: { bold: true, color: NAVY } },
-    { text: "adopt territorial coverage constraints (≥1 per unit) for equity, or keep soft coverage?  ·  logistic vs linear travel cost (the equity-weighting choice)?  ·  best way to communicate λ?", options: { color: MUTED } },
+    { text: "widen the choice set before RSSV (p9)?  ·  logistic vs linear, and BN's rescaling (p64)?  ·  territorial coverage constraints for equity, or keep soft coverage?  ·  age-weighted demand as a one-country box?", options: { color: MUTED } },
   ], { x: 0.45, y: 6.5, w: 12.5, h: 0.7, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
@@ -435,12 +436,12 @@ function agendaSlide() {
   ], { x: 0.45, y: 0.62, w: 12.5, h: 0.5, fontSize: 24, fontFace: "Georgia" });
 
   const items = [
-    ["Scope & method", "Tabula-rasa LP allocation + λ-sweep over the road-network OD; how to read the #facilities ↔ travel-cost frontier.", false],
-    ["The current distribution", "Descriptive metrics per country & key NUTS1 — residents per pharmacy and catchment-size distributions, by road.", false],
-    ["Scenario results", "S1 (same #, less travel) and S2 (same travel, fewer pharmacies) per country and NUTS1 — what the frontiers show so far.", false],
-    ["Travel-cost function", "Logistic vs linear, and the adapted logit with kinks at ~5 & ~45 min (following page).", true],
-    ["Cap / threshold ladder", "A proposed shortcut to the λ-sweep — but catchments vary so widely that realistic min/max bounds are hard to set. Pursue or drop?", true],
-    ["Known issues & roadmap", "Baseline consistency (FRM / ITG / SE2; clients with no reachable pharmacy); priorities and next steps.", false],
+    ["The current distribution", "What exists today: residents per pharmacy and per 1 km² location, per country and key NUTS1, catchments by road (p3–6).", false],
+    ["Scope & method", "By how much can accessibility improve at equal cost, or cost fall at equal accessibility? A tabula-rasa LP allocation on the road OD, swept over λ, answers that as a frontier of #locations vs travel (p7–14). Cost and accessibility trade off continuously under exogenous demand — there is no trilemma to resolve.", false],
+    ["Scenario results", "S1 (same #, less travel) and S2 (same travel, fewer locations) per area, quantified first in native units — locations and person-minutes, which need no λ — and only then in € (p16–61).", false],
+    ["Travel-cost function", "Linear vs the logistic (midpoint 25 / scale 10), its compressed λ-range, and BN's proposal to rescale it (p64).", true],
+    ["Cap / threshold ladder", "A proposed shortcut to the λ-sweep — but catchments vary so widely that realistic min/max bounds are hard to set. Pursue or drop? (p15)", true],
+    ["Choice set, open items & roadmap", "Where the 5-nearest choice set binds and why widening it precedes RSSV (p9); exact S1/S2 pinning; age-weighted demand; priorities (p63).", false],
   ];
   const y0 = 1.6, dy = 0.86;
   items.forEach((it, i) => {
@@ -456,7 +457,7 @@ function agendaSlide() {
 
   slide.addText([
     { text: "Decisions sought:  ", options: { bold: true, color: NAVY } },
-    { text: "travel-cost shape (logistic vs linear / adapted logit)  ·  whether the cap–threshold ladder is worth pursuing  ·  how to communicate λ.", options: { color: MUTED } },
+    { text: "travel-cost shape (linear vs logistic, and BN's rescaling)  ·  widen the candidate radius before RSSV  ·  whether the cap–threshold ladder is worth pursuing  ·  age-weighted demand as a one-country box.", options: { color: MUTED } },
   ], { x: 0.45, y: 6.96, w: 12.5, h: 0.4, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
@@ -467,56 +468,76 @@ function agendaSlide() {
 // opts: {eyebrow, titleRest, col0, label(e), pick(e), labelWide}.
 const COUNTRY_SET = new Set(["Austria", "Belgium", "Czechia", "Denmark", "Estonia", "France", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Netherlands", "Norway", "Poland", "Portugal", "Slovenia", "Sweden"]);
 function lambdaTableSlide(opts) {
-  const FMIN = 100000;  // FACILITY_MIN_COSTS (settings.jl); λ = w · FMIN
-  // log-interpolate w against `key` at `target`, between adjacent w-sorted sweep
-  // rows that bracket it; null if target is outside the swept range (no bracket).
-  const interp = (rows, key, target) => {
-    if (!rows || rows.length < 2 || target == null) return null;
-    for (let i = 0; i < rows.length - 1; i++) {
-      const a = rows[i], b = rows[i + 1], xa = a[key], xb = b[key];
-      if (xa == null || xb == null || !(a.w > 0) || !(b.w > 0) || xa === xb) continue;
+  const FMIN = 100000;  // FACILITY_MIN_COSTS (settings.jl); λ = w · FMIN — a PLACEHOLDER, see the footnote
+  const byW = (rows) => [...(rows || [])].filter((r) => r.w > 0).sort((a, b) => a.w - b.w);
+  // Walk adjacent w-sorted sweep rows; where `key` brackets `target`, return the value of
+  // `out` there — linear in `key`, or log-interpolated w (× FMIN) when out === "w".
+  // null = the target lies outside the swept range (not bracketed).
+  const interp = (rows, key, target, out) => {
+    const rs = byW(rows);
+    if (rs.length < 2 || target == null) return null;
+    for (let i = 0; i < rs.length - 1; i++) {
+      const a = rs[i], b = rs[i + 1], xa = a[key], xb = b[key];
+      if (xa == null || xb == null || xa === xb) continue;
       if (target >= Math.min(xa, xb) && target <= Math.max(xa, xb)) {
         const f = (target - xa) / (xb - xa);
-        return Math.exp(Math.log(a.w) + f * (Math.log(b.w) - Math.log(a.w))) * FMIN;
+        if (out === "w") return Math.exp(Math.log(a.w) + f * (Math.log(b.w) - Math.log(a.w))) * FMIN;
+        if (a[out] == null || b[out] == null) return null;
+        return a[out] + f * (b[out] - a[out]);
       }
     }
     return null;
   };
   const fL = (v) => (v == null ? "—" : Math.round(v).toLocaleString("en-US"));
+  const sgn = (d) => (d < 0 ? "−" : "+");
+  const dpct = (v, base) => (v == null || !base ? "—" : `${sgn(v - base)}${Math.abs((v / base - 1) * 100).toFixed(1)}%`);
+  const fmtMin = (d) => (Math.abs(d) >= 1e6 ? `${(Math.abs(d) / 1e6).toFixed(1)} M` : `${(Math.abs(d) / 1e3).toFixed(0)} k`);
+  // S1 = same count as today (n_open = baseline cells): how much less travel?
+  // S2 = same travel as today (multi = baseline cost): how many fewer locations?
+  // Read off the MULTISTART frontier (feasible solutions, so the gains are achievable),
+  // in native units; these need no λ. The λ columns say at which price the sweep gets there.
+  const s1Lin = (F) => { if (!F) return "—"; const t = interp(F.rows, "n_open", F.baseline.cells, "multi"); return t == null ? "—" : `${sgn(t - F.baseline.cost)}${fmtMin(t - F.baseline.cost)} min · ${dpct(t, F.baseline.cost)}`; };
+  const s1Log = (F) => { if (!F) return "—"; const t = interp(F.rows, "n_open", F.baseline.cells, "multi"); const m = interp(F.rows, "n_open", F.baseline.cells, "mean_t"); return t == null ? "—" : `${dpct(t, F.baseline.cost)}` + (m == null || F.baseline.mean_t == null ? "" : ` · ${sgn(m - F.baseline.mean_t)}${Math.abs(m - F.baseline.mean_t).toFixed(1)} min`); };
+  const s2 = (F) => { if (!F) return "—"; const n = interp(F.rows, "multi", F.baseline.cost, "n_open"); return n == null ? "—" : `${sgn(n - F.baseline.cells)}${fL(Math.abs(n - F.baseline.cells))} · ${dpct(n, F.baseline.cells)}`; };
   const rowsC = data.filter((e) => opts.pick(e) && e.func.LINEAR && e.func.LINEAR.baseline);
 
   const slide = pptx.addSlide();
   slide.background = { color: "FFFFFF" };
   slide.addText(opts.eyebrow, { x: 0.45, y: 0.28, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
   slide.addText([
-    { text: "Interpolated λ for S1 and S2  ", options: { bold: true, color: INK } },
+    { text: "By how much: S1 and S2  ", options: { bold: true, color: INK } },
     { text: opts.titleRest, options: { color: NAVY } },
   ], { x: 0.45, y: 0.54, w: 12.5, h: 0.5, fontSize: 22, fontFace: "Georgia" });
+  slide.addText("Gains in native units first — person-minutes and locations, read off the frontier and independent of any λ — then the λ at which the sweep reaches each point.",
+    { x: 0.45, y: 1.0, w: 12.5, h: 0.3, fontSize: 10, color: MUTED, fontFace: "Calibri" });
 
   const n = rowsC.length;
-  const fs = n > 14 ? 9 : 11;
-  const rh = Math.max(0.22, Math.min(0.34, 5.0 / (n + 1)));
-  const c0 = opts.labelWide ? 3.3 : 2.6;
-  const rest = (11.7 - c0 - 1.5) / 4;
-  const colW = [c0, 1.5, rest, rest, rest, rest];
+  const fs = n > 24 ? 7.6 : n > 14 ? 8.6 : 10;                 // the NUTS-1 table holds 28 rows
+  const rh = Math.max(0.17, Math.min(0.34, 5.0 / (n + 1)));
+  const c0 = opts.labelWide ? 2.9 : 2.2;
+  const dW = 1.32, lamW = (11.9 - c0 - 0.8 - 4 * dW) / 4;
+  const colW = [c0, 0.8, dW, dW, dW, dW, lamW, lamW, lamW, lamW];
 
-  const head = [opts.col0, "baseline #", "λ · S1 (lin)", "λ · S2 (lin)", "λ · S1 (log)", "λ · S2 (log)"];
-  const body = [head.map((h) => ({ text: h, options: { bold: true, color: "FFFFFF", fill: NAVY, fontSize: Math.min(fs + 1, 11), align: h === opts.col0 ? "left" : "center", fontFace: "Calibri", margin: [2, 2, 2, 4] } }))];
+  const head = [opts.col0, "today #", "S1 · Δ travel (lin)", "S2 · Δ # (lin)", "S1 · Δ cost · Δ mean t (log)", "S2 · Δ # (log)", "λ S1 lin", "λ S2 lin", "λ S1 log", "λ S2 log"];
+  const body = [head.map((h, ci) => ({ text: h, options: { bold: true, color: "FFFFFF", fill: ci >= 6 ? "5B6B7B" : NAVY, fontSize: Math.min(fs, 9.5), align: ci === 0 ? "left" : "center", fontFace: "Calibri", margin: [2, 2, 2, 4] } }))];
   rowsC.forEach((e, i) => {
     const L = e.func.LINEAR, G = e.func.LOGISTIC;
     const cells = L.baseline.cells;
     const c = [opts.label(e), cells != null ? cells.toLocaleString("en-US") : "—",
-      fL(interp(L.rows, "sum_y", cells)), fL(interp(L.rows, "multi", L.baseline.cost)),
-      fL(G ? interp(G.rows, "sum_y", G.baseline.cells) : null), fL(G ? interp(G.rows, "multi", G.baseline.cost) : null)];
+      s1Lin(L), s2(L), s1Log(G), s2(G),
+      fL(interp(L.rows, "sum_y", cells, "w")), fL(interp(L.rows, "multi", L.baseline.cost, "w")),
+      fL(G ? interp(G.rows, "sum_y", G.baseline.cells, "w") : null), fL(G ? interp(G.rows, "multi", G.baseline.cost, "w") : null)];
     const fill = i % 2 ? PANEL : "FFFFFF";
-    body.push(c.map((v, ci) => ({ text: v, options: { fontSize: fs, align: ci === 0 ? "left" : "center", color: INK, fill, fontFace: "Calibri", valign: "middle", margin: [2, 2, 2, 4] } })));
+    body.push(c.map((v, ci) => ({ text: v, options: { fontSize: ci >= 6 ? fs - 0.6 : fs, align: ci === 0 ? "left" : "center", color: ci >= 6 ? MUTED : INK, fill, fontFace: "Calibri", valign: "middle", margin: n > 24 ? [1, 2, 1, 3] : [2, 2, 2, 4] } })));
   });
-  slide.addTable(body, { x: 0.8, y: 1.68, w: 11.7, colW, rowH: rh, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
+  slide.addTable(body, { x: 0.7, y: 1.4, w: 11.9, colW, rowH: rh, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
 
   slide.addText([
-    { text: "λ = w · €100,000 (facility fixed-cost weight). ", options: { bold: true, color: NAVY } },
-    { text: "S1 = λ at which the open-facility count equals the baseline #cells; S2 = λ at which the multistart travel cost equals the baseline — each log-interpolated between adjacent sweep points, per travel-cost function (lin / log). “—” = the baseline target lies outside the swept λ range (S1/S2 not yet bracketed — see roadmap).", options: { color: MUTED } },
-  ], { x: 0.8, y: 6.9, w: 11.7, h: 0.5, fontSize: 9, italic: true, fontFace: "Calibri", valign: "top" });
+    { text: "S1 = today's number of locations, travel minimised; S2 = today's travel, fewer locations. ", options: { bold: true, color: NAVY } },
+    { text: "Δ columns are read off the multistart frontier by interpolation between adjacent sweep points — person-minutes (linear), dimensionless logistic cost with the mean minutes beside it, and locations — and need no λ. ", options: { color: MUTED } },
+    { text: "λ = w · €100,000 is the price per location at which the sweep reaches that point; the €100,000 is a placeholder, not an estimate — the frontier, the Δs and the ranking of areas do not depend on it, only these € figures do. ", options: { color: MUTED } },
+    { text: "“—” = the target lies outside the swept λ range.", options: { color: MUTED } },
+  ], { x: 0.7, y: 6.72, w: 11.9, h: 0.66, fontSize: 8.6, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
 // The optimization problem, as actually implemented in lp_run.jl
@@ -557,13 +578,13 @@ function optProblemSlide() {
   ], { x: 0.8, y: 3.68, w: 6.05, h: 0.95, fontSize: 11, valign: "top" });
 
   // right column: ingredients
-  const ing = (y, head, body) => {
+  const ing = (y, head, body, fs = 10.5) => {
     slide.addText(head, { x: 7.45, y, w: 5.4, h: 0.28, fontSize: 12.5, bold: true, color: NAVY, fontFace: "Calibri" });
-    slide.addText(body, { x: 7.45, y: y + 0.27, w: 5.4, h: 0.62, fontSize: 10.5, color: MUTED, fontFace: "Calibri", valign: "top" });
+    slide.addText(body, { x: 7.45, y: y + 0.27, w: 5.4, h: 0.62, fontSize: fs, color: MUTED, fontFace: "Calibri", valign: "top" });
   };
   ing(1.4, "c(t) — travel cost, t in minutes", "LINEAR c(t)=t; LOGISTIC (adapted logit) c(t)=1/(1+e^−(t−25)/10). The swept LPs run once per function.");
-  ing(2.32, "λ = w · €100,000 — the price of a pharmacy", "Linear facility cost a+b·q reduces to λ·#open: the b·q part is ~constant while (nearly) all demand is served, so only the fixed cost a matters. Under soft coverage it cancels only approximately — the unserved share carries no b·q.");
-  ing(3.24, "One LP per λ, exact", "JuMP + HiGHS dual simplex; the model is built once and re-solved along the w-grid from the previous optimal basis (lp_run.jl solve_at_w!) — millions of xᵢⱼ, minutes per point.");
+  ing(2.32, "λ = w · €100,000 — the price of a location (placeholder)", "Linear cost a + b·q reduces to λ·#open: b·q is ~constant while (nearly) all demand is served, so only the fixed cost a matters (approximately, under soft coverage). €100,000 is a placeholder, not an estimate: the frontier, S1/S2 and the rankings are invariant to it — only the € labels move with the true a.", 9.6);
+  ing(3.36, "One LP per λ, exact", "JuMP + HiGHS dual simplex; the model is built once and re-solved along the w-grid from the previous optimal basis (lp_run.jl solve_at_w!) — millions of xᵢⱼ, minutes per point.");
   // review flags — modelling details the group should challenge
   slide.addShape(pptx.ShapeType.roundRect, { x: 7.45, y: 4.22, w: 5.4, h: 0.78, rectRadius: 0.05, fill: { color: "FBF5EA" }, line: { color: "B9791C", width: 1 } });
   slide.addText([
@@ -577,11 +598,11 @@ function optProblemSlide() {
     { text: "Why the relaxation, and what it buys.  ", options: { bold: true, color: INK } },
     { text: "With yⱼ ∈ {0,1} this is the (NP-hard) uncapacitated facility-location problem, in its strong disaggregated formulation — one xᵢⱼ ≤ yⱼ per OD pair — whose LP relaxation is known to be nearly integral, which the sweeps confirm (frac_y stays small). The LP optimum is a certified ", options: { color: MUTED } },
     { text: "lower bound", options: { bold: true, color: BASE } },
-    { text: " (the grey dashed line); rounding x* to a real set of pharmacies (multistart, p. 6) gives a feasible ", options: { color: MUTED } },
+    { text: " (the grey dashed line); rounding x* to a real set of pharmacies (multistart, p. 12) gives a feasible ", options: { color: MUTED } },
     { text: "upper bound", options: { bold: true, color: MULTI } },
     { text: " — the integer optimum is pinched between the two (+0–18% LINEAR, +0–4.7% LOGISTIC).", options: { color: MUTED, breakLine: true } },
     { text: "Relation to the p-median problem.  ", options: { bold: true, color: INK } },
-    { text: "Imposing the count (Σⱼ yⱼ = p) instead of pricing it gives the p-median problem with costs c(tᵢⱼ) (ReVelle & Swain 1970) — S1 at the baseline count is a p-median instance, in its soft-coverage form: a client may go unserved at BIG rather than be forced onto a far facility (an outside option / p-median with an upper bound on assignment cost). The λ-sweep is its Lagrangian relaxation w.r.t. that constraint (Cornuéjols, Fisher & Nemhauser 1977): it recovers only the p’s on the lower convex envelope of the p-median value function, so p-values in non-convex gaps are unreachable by any λ — there S1/S2 are interpolated between sweep points, or pinned exactly with the cardinality constraint (roadmap: better S1/S2 estimations). The swap polish of p. 6 is the classic p-median vertex-substitution search.", options: { color: MUTED } },
+    { text: "Imposing the count (Σⱼ yⱼ = p) instead of pricing it gives the p-median problem with costs c(tᵢⱼ) (ReVelle & Swain 1970) — S1 at the baseline count is a p-median instance, in its soft-coverage form: a client may go unserved at BIG rather than be forced onto a far facility (an outside option / p-median with an upper bound on assignment cost). The λ-sweep is its Lagrangian relaxation w.r.t. that constraint (Cornuéjols, Fisher & Nemhauser 1977): it recovers only the p’s on the lower convex envelope of the p-median value function, so p-values in non-convex gaps are unreachable by any λ — there S1/S2 are interpolated between sweep points, or pinned exactly with the cardinality constraint (roadmap: better S1/S2 estimations). The swap polish of p. 12 is the classic p-median vertex-substitution search.", options: { color: MUTED } },
   ], { x: 0.75, y: 5.2, w: 11.85, h: 1.62, fontSize: 10, fontFace: "Calibri", valign: "top" });
 
   slide.addText("Implementation: lp_run.jl (build_lp_warmstart / solve_at_w!) · weights popᵢ = total residents of cell i (CLIENT_WEIGHT=total_pop) · OD from GeoDMS impedance_matrix_od64, t = seconds/60.",
@@ -789,8 +810,8 @@ if (!only && !args.includes("--no-summary")) {
 regions.forEach(regionSlide);
 if (!only && !args.includes("--no-summary")) {
   aggregateSlide();
-  lambdaTableSlide({ eyebrow: "SCENARIO λ", titleRest: "— per country, by travel-cost function", col0: "country", pick: (e) => COUNTRY_SET.has(e.region), label: (e) => e.name });
-  lambdaTableSlide({ eyebrow: "SCENARIO λ · NUTS-1", titleRest: "— FR / IT / SE NUTS-1 regions", col0: "NUTS-1 region", labelWide: true, pick: (e) => !COUNTRY_SET.has(e.region), label: (e) => `${e.region} · ${e.name}` });
+  lambdaTableSlide({ eyebrow: "SCENARIOS · PER COUNTRY", titleRest: "— per country, by travel-cost function", col0: "country", pick: (e) => COUNTRY_SET.has(e.region), label: (e) => e.name });
+  lambdaTableSlide({ eyebrow: "SCENARIOS · NUTS-1", titleRest: "— FR / IT / SE / PL NUTS-1 regions", col0: "NUTS-1 region", labelWide: true, pick: (e) => !COUNTRY_SET.has(e.region), label: (e) => `${e.region} · ${e.name}` });
   summarySlide(); statusSlide(); logisticSlide();
 }
 

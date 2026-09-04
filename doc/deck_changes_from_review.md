@@ -4,9 +4,11 @@ Source: `doc/modelling_service_networks_REGIO_commentsBN.docx` — 26 comments b
 **Ana Moreno Monroy** (CFE/EDS, July), **Martijn Brons** (REGIO, 6 Aug) and
 **Bernhard Nöbauer** (CFE/EDS, 30 Aug, replying to both). Comment numbers below are the
 docx comment ids. Deck page numbers in the tables refer to the 71-slide `lambda_sweep5.pptx`
-the review was made against. **Since §2 and §9 landed the deck has 72 slides and the numbers
-shifted**: descriptives p3–6, model p7, scope p8, choice set p9, tangent diagram p10,
-Scenarios p11, multistart p12, NL p16, λ tables p60–61, roadmap p63, logistic p64, analysis p65–72.
+the review was made against, and some of them were already off by one or two (the λ tables were
+p59–60 there, the aggregate p58, the roadmap p62, the logistic p63). **Since §2 and §9 landed the
+deck has 72 slides**; the authoritative numbering is: descriptives p3–6, model p7, scope p8,
+choice set p9, tangent diagram p10, Scenarios p11, multistart p12, cap ladder p15, NL p16,
+aggregate p59, S1/S2 tables p60–61, roadmap p63, logistic p64, analysis p65–72.
 
 Status legend: **DONE** = already in the deck · **PROPOSE** = a concrete edit · **DECIDE** = needs
 the group · **ANSWER** = a question we can answer from the results.
@@ -27,8 +29,8 @@ saved" is a quantification in its own units. λ / β₀ is needed only to put **
 
 | | page | change |
 |---|---|---|
-| PROPOSE | p2 agenda | Reword any trilemma phrasing: *trade-off between operational cost and accessibility, under exogenous demand*. Continuous, not a dichotomy. |
-| PROPOSE | p58 summary | Lead with the two quantified deltas per area **in native units** (Δ#facilities at equal travel, Δperson-minutes at equal count), and say explicitly that these need no λ. Keep € as a secondary, labelled-placeholder column. |
+| **DONE** | p2 agenda | The deck never had the trilemma; the agenda now says it explicitly ("cost and accessibility trade off continuously under exogenous demand — there is no trilemma to resolve"), leads with "by how much", and follows the new slide order. Reword any trilemma phrasing: *trade-off between operational cost and accessibility, under exogenous demand*. Continuous, not a dichotomy. |
+| **DONE** | p60–61 (S1/S2 tables), p59 | The per-area tables are now "By how much: S1 and S2": four Δ columns in native units first (S1 Δ person-minutes / Δ logistic cost with the mean minutes beside it; S2 Δ locations, each with %), read off the multistart frontier, then the four λ columns in grey; the footnote says the Δs need no λ and that €100,000 is a placeholder. The aggregate slide's footnote says the same of its Δ columns. Lead with the two quantified deltas per area **in native units** (Δ#facilities at equal travel, Δperson-minutes at equal count), and say explicitly that these need no λ. Keep € as a secondary, labelled-placeholder column. |
 | DONE | p57–58, p64–71 | The crossings table and rectangle charts already quantify S1/S2 and the balanced crossing per area. |
 
 ## 2. Observed distribution first
@@ -47,7 +49,7 @@ old 1.5, or bracket weights 1/2/3). BN is agnostic; suggests a box for one count
 
 | | page | change |
 |---|---|---|
-| PROPOSE | p60 Remaining | Add: *age-weighted demand — box for one country, compare S1/S2 shift*. Feasible: `client_weight_col` already reads a configurable column; an age-weighted `total_pop` variant is a GeoDMS export away. |
+| **DONE** | p63 Remaining | On the roadmap as the first Remaining item. Add: *age-weighted demand — box for one country, compare S1/S2 shift*. Feasible: `client_weight_col` already reads a configurable column; an age-weighted `total_pop` variant is a GeoDMS export away. |
 
 ## 4. Fractional assignment and multi-pharmacy cells
 
@@ -74,9 +76,9 @@ matters for euros; changing the functional form would upend the exercise.
 
 | | page | change |
 |---|---|---|
-| PROPOSE | p3 | `λ = w · €100,000` → label the €100,000 explicitly as a **placeholder**, and add BN's point: *rankings and frontier shape are invariant to β₀; only the € labels move with it*. |
-| PROPOSE | p57–58, p64–65 | Add the same one-line caveat under the λ_cross columns. |
-| DONE | p60 Remaining | "Calibrate real pharmacy a,b" is already listed. |
+| **DONE** | p7 | The ingredient is now "λ = w · €100,000 — the price of a location (placeholder)" with the invariance sentence. `λ = w · €100,000` → label the €100,000 explicitly as a **placeholder**, and add BN's point: *rankings and frontier shape are invariant to β₀; only the € labels move with it*. |
+| **DONE** | p60–61, p67–68 | Footnote on the S1/S2 tables; `rebuild_analysis_slides.ps1` puts an ASCII caveat line under the two λ-ranking charts (that file has no BOM, so PS 5.1 would mangle a €). |
+| DONE | p63 Remaining | "Calibrate real pharmacy a,b" is listed, now with "only the € labels move". |
 
 ## 6. The logistic function — name it, parametrise it, consider rescaling
 
@@ -90,7 +92,7 @@ would also reduce degeneracy.
 | | page | change |
 |---|---|---|
 | **DONE** | p63 (logistic) | State explicitly: **logistic, not log-logistic**; midpoint 25 / scale 10; **f(0) = 1/(1+e^{2.5}) ≈ 0.076, not 0**; the λ grid is the same 1-2-5/decade for both, but the logistic's *useful* range is much narrower (union grid tops at 0.02 vs 0.5) — that narrowness *is* the degeneracy Brons asks about. |
-| DECIDE (tabled on p63) | p63 + p60 | BN's rescaling (align f(0) and f(60) with linear) — put it on the slide as the open proposal it is, with the trade-off: it changes the equity weighting the group chose the logistic for. |
+| DECIDE (tabled on p64, and a DECIDE item in p63 Remaining) | p64 + p63 | BN's rescaling (align f(0) and f(60) with linear) — put it on the slide as the open proposal it is, with the trade-off: it changes the equity weighting the group chose the logistic for. |
 
 ## 7. Candidate cells — neighbours too?
 
@@ -99,7 +101,7 @@ try one country.
 
 | | page | change |
 |---|---|---|
-| PROPOSE | p60 Remaining | Add as a one-country experiment. Note it pulls in the **same direction as the choice-set widening on p5** — both enlarge what the optimiser may choose from. |
+| **DONE** | p63 Remaining | Second Remaining item, one country. Add as a one-country experiment. Note it pulls in the **same direction as the choice-set widening on p5** — both enlarge what the optimiser may choose from. |
 
 ## 8. Bounds — total cost only, not per component
 
@@ -137,7 +139,7 @@ needed instead of a snap. Flagged on p5; deserves its own issue.
 
 1. ~~**Answers** first (§6, §8)~~ — DONE (commit below); BN's rescaling is tabled on p63 as the open decision it is.
 2. ~~**Reorder** descriptives ahead of the model (§2)~~ — DONE.
-3. **Framing** rewrites (§1, §5) — text on p2, p3, p57–58, p58.
+3. ~~**Framing** rewrites (§1, §5)~~ — DONE.
 4. ~~**New diagram** (§9)~~ — DONE.
-5. **Roadmap additions** (§3, §7) on p60.
-6. **Decision** items (§6 rescaling) to the group.
+5. ~~**Roadmap additions** (§3, §7)~~ — DONE, on p63; the roadmap's three columns were rewritten against the current state.
+6. **Decision** items to the group: §6 rescaling, widening the choice set before RSSV, territorial coverage constraints, age-weighted demand — all four on p63 and p2.
