@@ -426,6 +426,27 @@ function capSlide(csvName) {
 // Proposed meeting agenda. Generated as the FIRST slide of region_summary.pptx;
 // merge_deck.ps1 then moves it to position 2 (between the title and the rest of
 // the concept slides). Marker text "Proposed agenda" is what the merge looks for.
+// TITLE slide. Until 2026-09 the title was slide 1 of the base deck (lambda_sweep4.pptx),
+// authored by hand and never updated ("what the Netherlands sweep tells us", May 2026).
+// merge_deck.ps1 now deletes that base slide by its marker and moves this one to
+// position 1 via the marker "how far is today's network from the frontier".
+function titleSlide() {
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+  slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 1.55, w: 0.1, h: 3.9, fill: { color: MULTI }, line: { width: 0 } });
+  slide.addText("NETWORKMODEL_EU  ·  SERVICE ACCESS  ·  PHARMACIES", { x: 1.0, y: 1.55, w: 11.5, h: 0.32, fontSize: 12, bold: true, color: MULTI, charSpacing: 2, fontFace: "Calibri" });
+  slide.addText("Pharmacy locations across EU regions: how far is today's network from the frontier?",
+    { x: 1.0, y: 1.95, w: 11.5, h: 1.45, fontSize: 32, bold: true, color: INK, fontFace: "Georgia", valign: "top" });
+  slide.addText("A λ-sweep over a facility-location LP on the road network — what exists today, by how much it could improve at equal cost or equal accessibility, and which of 42 study areas have the most to gain",
+    { x: 1.0, y: 3.5, w: 11.5, h: 0.95, fontSize: 15, color: NAVY, fontFace: "Calibri", valign: "top" });
+  slide.addText([
+    { text: "Lola Dekhuijzen  ·  Maarten Hilferink", options: { bold: true, color: INK, breakLine: true } },
+    { text: "Object Vision", options: { color: MUTED } },
+  ], { x: 1.0, y: 4.75, w: 11.5, h: 0.75, fontSize: 16, fontFace: "Calibri", valign: "top" });
+  slide.addText("Draft for discussion  ·  September 2026  ·  GeoDMS road-network OD + Julia (JuMP / HiGHS)  ·  NetworkModel_EU / ServiceAccess",
+    { x: 1.0, y: 6.6, w: 11.5, h: 0.4, fontSize: 10, italic: true, color: MUTED, fontFace: "Calibri" });
+}
+
 function agendaSlide() {
   const slide = pptx.addSlide();
   slide.background = { color: "FFFFFF" };
@@ -795,6 +816,7 @@ function multistartSlide() {
 let regions = data;
 if (only) regions = data.filter((e) => e.region === only);
 if (!only && !args.includes("--no-summary")) {
+  titleSlide();
   agendaSlide();
   optProblemSlide();
   scopeSlide();

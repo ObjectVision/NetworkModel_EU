@@ -1,5 +1,6 @@
-# Merge concept slides 1-4 of an existing deck with freshly generated region/summary
-# slides, via PowerPoint COM. Operates on a COPY of the base deck and never calls
+# Merge the concept slides of an existing deck (slides 2-4 of the base: Scenarios, Pareto
+# frontier, Why fractional; its slide 1 title is dropped in favour of the generated one)
+# with freshly generated region/summary slides, via PowerPoint COM. Operates on a COPY of the base deck and never calls
 # Quit (COM may attach to a running PowerPoint where the base deck is open).
 #
 #   powershell -File merge_deck.ps1 [-Base lambda_sweep4.pptx] [-Insert region_summary.pptx]
@@ -27,6 +28,15 @@ for ($i = $deck.Slides.Count; $i -gt $KeepFirst; $i--) { $deck.Slides.Item($i).D
 $n = $deck.Slides.InsertFromFile($Insert, $KeepFirst)
 Write-Host "inserted $n slides -> total $($deck.Slides.Count)"
 
+# drop the base deck's hand-written title slide (May 2026, never updated); the generator's
+# title slide replaces it and is moved to position 1 below. Found by marker so the base
+# file itself need not change.
+foreach ($sl in $deck.Slides) {
+  $txt = ""
+  foreach ($sh in $sl.Shapes) { if ($sh.HasTextFrame) { $txt += $sh.TextFrame.TextRange.Text } }
+  if ($txt -cmatch "what the Netherlands sweep tells us") { $sl.Delete(); Write-Host "dropped the base title slide"; break }
+}
+
 # carry over the manually-authored NL maps slide from the base deck, placing it
 # right after the Netherlands results slide. Rather than count the (now variable)
 # number of leading descriptives / cap slides, find the NL results slide by its
@@ -48,7 +58,7 @@ if ($MapsSlide -gt 0) {
 }
 
 # Move the generated concept slides into their positions among the kept slides:
-#   agenda -> 2, descriptives -> 3..6, optimization-problem -> 7, scope -> 8, choice set -> 9,
+#   title -> 1, agenda -> 2, descriptives -> 3..6, optimization-problem -> 7, scope -> 8, choice set -> 9,
 #   tangent diagram -> 10, multistart summary -> 12.
 # Each is generated at the head of $Insert and located by a marker phrase. Done
 # last (after all index-based inserts) and in ascending target order; re-scan
@@ -66,6 +76,7 @@ function Move-ByMarker([string]$pattern, [int]$target) {
 # descriptives slides go straight after the agenda. The two slides sharing a title are
 # told apart by their subtitle. Then the model block, then (BN 41/42) the tangent
 # diagram right before the kept "Scenarios" slide, and multistart after it.
+Move-ByMarker "how far is today's network from the frontier" 1
 Move-ByMarker "Proposed agenda" 2
 Move-ByMarker "RESIDENTS PER PHARMACY[\s\S]*per country" 3
 Move-ByMarker "RESIDENTS PER PHARMACY[\s\S]*key NUTS1" 4
