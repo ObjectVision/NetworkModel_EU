@@ -14,8 +14,9 @@
 # the count or the travel). NOT the deck_data `scen` rows: those are the nearest swept
 # grid point, and for a single area that snap can be a whole grid step off — the
 # Netherlands LINEAR S1 row sits at w = 0.3 with 1,334 open, where S1 by definition has
-# today's 1,615 (the crossing is at w ≈ 0.245). The label at each guide states the
-# facility count there, so S1 reads the same in both panels.
+# today's 1,615 (the crossing is at w ≈ 0.245). Each guide is labelled with the quantity
+# that DEFINES it: S1 with its facility count (today's) and the facility cost λ·N at that
+# λ, S2 with its travel cost (today's), so S1 reads the same count in both panels.
 #
 # The count axis is logarithmic and SHARED between the two panels (same limits), so the
 # baseline guide and the S1/S2 crossings sit at the same height under LINEAR and
@@ -70,14 +71,25 @@ def crossing(rows, key, target, out):
     return None
 
 
+def euro(v):
+    """€ with an adaptive unit: the LOGISTIC λ is a hundred times the LINEAR one's smaller."""
+    if v >= 1e9: return f"€{v / 1e9:,.1f} bn"
+    if v >= 1e7: return f"€{v / 1e6:,.0f} M"
+    if v >= 1e6: return f"€{v / 1e6:,.1f} M"
+    return f"€{v / 1e3:,.0f} k"
+
+
 def scen_lambda(fd, key):
-    """(λ €, facility count) of S1 / S2 for this area, interpolated: S1 where the integer
-    count crosses today's count, S2 where the multistart travel crosses today's travel."""
+    """(λ €, level) of S1 / S2 for this area, interpolated. S1 is where the integer count
+    crosses today's count — its level is that count; S2 is where the multistart travel
+    crosses today's travel — its level is that travel. None when not bracketed."""
     rows = sorted([r for r in fd["rows"] if r["w"] > 0], key=lambda r: r["w"])
     base = fd["baseline"]
     if key == "S1":
-        return crossing(rows, "n_open", base["cells"], "n_open")
-    return crossing(rows, "multi", base["cost"], "n_open")
+        hit = crossing(rows, "n_open", base["cells"], "n_open")
+        return (hit[0], base["cells"]) if hit else None
+    hit = crossing(rows, "multi", base["cost"], "multi")
+    return (hit[0], base["cost"]) if hit else None
 
 
 def panel(ax, fd, fn, title, count_lim):
@@ -120,18 +132,31 @@ def panel(ax, fd, fn, title, count_lim):
     ytop = ax.get_ylim()[1]
     for key, col, dx, ha in (("S1", MULTI, -3, "right"), ("S2", "#8E44AD", 3, "left")):
         hit = scen_lambda(fd, key)
-        if hit:
-            lv, cnt = hit
-            ax.axvline(lv, color=col, lw=0.9, ls="--", alpha=0.7, zorder=1)
-            ax.annotate(f"{key}  λ ≈ €{lv:,.0f}", xy=(lv, ytop), xytext=(dx, -6),
-                        textcoords="offset points", fontsize=7.5, color=col,
-                        ha=ha, va="top", rotation=90)
-            # the facility count at the guide, on the count axis: S1 = today's count by
-            # construction, so it reads the same number in both panels
-            axr.scatter([lv], [cnt], s=26, facecolors="white", edgecolors=col, lw=1.3, zorder=6)
-            axr.annotate(f"{cnt:,.0f}", xy=(lv, cnt), xytext=(dx * 2, -9 if key == "S1" else 6),
-                         textcoords="offset points", fontsize=7, color=col, ha=ha,
-                         va="top" if key == "S1" else "bottom", zorder=6)
+        if not hit:
+            continue
+        lv, level = hit
+        ax.axvline(lv, color=col, lw=0.9, ls="--", alpha=0.7, zorder=1)
+        ax.annotate(f"{key}  λ ≈ €{lv:,.0f}", xy=(lv, ytop), xytext=(dx, -6),
+                    textcoords="offset points", fontsize=7.5, color=col,
+                    ha=ha, va="top", rotation=90)
+        # Each level line is labelled at its LEFT end with the quantity that defines the
+        # scenario, where no curve runs (the count curve is at its top-left plateau, the
+        # travel curve at its bottom-left one): the S1 level is today's count, the same
+        # number in both panels; the S2 level is today's travel. The S1 crossing also gets
+        # the facility cost λ·N at that λ — what today's count costs at the S1 price.
+        xleft = lam[0]
+        if key == "S1":
+            axr.scatter([lv], [level], s=26, facecolors="white", edgecolors=col, lw=1.3, zorder=6)
+            axr.annotate(f"S1 level · {level:,.0f} facilities", xy=(xleft, level), xytext=(3, 3),
+                         textcoords="offset points", fontsize=7, color=col, ha="left", va="bottom", zorder=6)
+            axr.annotate(f"λ·N ≈ {euro(lv * level)}", xy=(lv, level), xytext=(-6, -6),
+                         textcoords="offset points", fontsize=7, color=col, ha="right", va="top", zorder=6)
+        else:
+            tv = level / scale
+            ax.scatter([lv], [tv], s=26, facecolors="white", edgecolors=col, lw=1.3, zorder=6)
+            ax.annotate(f"S2 level · travel {tv:,.1f} {ulabel}" if tv < 10 else f"S2 level · travel {tv:,.0f} {ulabel}",
+                        xy=(xleft, tv), xytext=(3, -3), textcoords="offset points",
+                        fontsize=7, color=col, ha="left", va="top", zorder=6)
 
     return axr
 

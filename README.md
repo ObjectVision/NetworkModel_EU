@@ -253,9 +253,10 @@ and the sweep's dynamics show: the count collapses over two decades of λ (LINEA
 below €100 per location to ~43 000 at S1) while the travel bounds stay on top of each other, and
 they separate only near S2. The dotted lines are the baseline, so S2 is where travel crosses its
 baseline and S1 where the count crosses its; the guides are the interpolated crossings (the same
-rule as the S1/S2 tables), labelled with their facility count, and the count axis is logarithmic
-and shared by the two panels, so S1 reads 43 320 at the same height under both cost functions and
-S2 28 687 (LINEAR) against 26 400 (LOGISTIC). The two count curves coincide by construction —
+rule as the S1/S2 tables), each labelled with the quantity that defines it — S1 with its facility
+count, today's 43 320, and the facility cost λ·N at that λ; S2 with its travel cost, today's — and
+the count axis is logarithmic and shared by the two panels, so S1 sits at the same height under
+both cost functions. The two count curves coincide by construction —
 `n_open = round(Σy*)` — the certified bound is on *total* cost, not on the count; the informative
 gap is the one on the left axis. Under LOGISTIC the whole picture is compressed into λ ∈ [€10, €2 000],
 the degeneracy noted on deck p64. Per area: `doc/lambda_axis_chart.py <REGION>`; the Netherlands
