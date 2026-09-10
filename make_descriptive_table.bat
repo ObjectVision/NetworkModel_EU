@@ -33,7 +33,7 @@ REM breakdown. Country rows feed the country-level tables; NUTS1 rows the breakd
 if "%~1"=="" (
     REM Iceland dropped: no population grid / pharmacy OD (issue #44) — under the
     REM population-client config its failure mode is a HANG, not a fast error.
-    set "STUDY_AREAS=Austria Belgium Czechia Denmark Estonia France Hungary Ireland Italy Lithuania Luxembourg Latvia Netherlands Norway Poland Portugal Slovenia Sweden FR1 FRB FRC FRD FRE FRF FRG FRH FRI FRJ FRK FRL FRM ITC ITF ITG ITH ITI SE1 SE2 SE3 PL2 PL4 PL5 PL6 PL7 PL8 PL9"
+    set "STUDY_AREAS=Austria Belgium Czechia Denmark Estonia Finland France Hungary Ireland Italy Lithuania Luxembourg Latvia Netherlands Norway Poland Portugal Slovenia Sweden FR1 FRB FRC FRD FRE FRF FRG FRH FRI FRJ FRK FRL FRM ITC ITF ITG ITH ITI SE1 SE2 SE3 PL2 PL4 PL5 PL6 PL7 PL8 PL9"
 ) else (
     set "STUDY_AREAS=%*"
 )

@@ -357,11 +357,17 @@ container Locations : using = "geography;units"
 	}
 	container Pharmacies
 	{
-		unit<uint8> Country := range(0b, 19b) //should be 20b, Finland taken out because of spatial_reference problem (see issue #44)
+		// Finland (#44): its parquet is a GeoParquet -- a real point geometry column with a
+		// CRS, where the other files carry `geom` as a WKT string -- and the June 2026 engine's
+		// reader created an extra spatial_reference item for it that broke the union. The
+		// 20.19 reader does not (probed 10 Sep 2026: read through CountryDataT like the rest),
+		// so Finland is back; the template's calculated geometry (from lat/lon) takes
+		// precedence over the reader's own geometry column, as for every other country.
+		unit<uint8> Country := range(0b, 20b)
 		{
-			attribute<string> Name : ['Austria', 'Belgium', 'Czechia', 'Denmark', 'Estonia', 'France', 'Ireland', 'Iceland', 'Italy', 'Lithuania', 'Luxembourg', 'Latvia', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Slovenia', 'Sweden', 'Hungary']; // 'Finland',
+			attribute<string> Name : ['Austria', 'Belgium', 'Czechia', 'Denmark', 'Estonia', 'France', 'Ireland', 'Iceland', 'Italy', 'Lithuania', 'Luxembourg', 'Latvia', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Slovenia', 'Sweden', 'Hungary', 'Finland'];
 			attribute<string> Label := Name;
-			attribute<string> Code : ['aut', 'bel', 'cze', 'dnk', 'est', 'fra', 'irl', 'isl', 'ita', 'ltu', 'lux', 'lva', 'nld', 'nor', 'pol', 'prt', 'svn', 'swe', 'hun']; //'fin',
+			attribute<string> Code : ['aut', 'bel', 'cze', 'dnk', 'est', 'fra', 'irl', 'isl', 'ita', 'ltu', 'lux', 'lva', 'nld', 'nor', 'pol', 'prt', 'svn', 'swe', 'hun', 'fin'];
 			attribute</SourceData/RegionalUnits/Country/subset> Country_rel:= rlookup(Name, /SourceData/RegionalUnits/Country/subset/NAME_ENGL);
 			// Every country is a parquet with lat/lon columns, read via CountryDataT.
 			// Italy (issue #53, OECD delivery of 7 Sep 2026): the Ministry of Health list,
@@ -380,9 +386,9 @@ container Locations : using = "geography;units"
 		// country-by-country, so EU is unioned over THESE only — a missing-country file
 		// then never breaks the whole pharmacy pipeline. Each Name must also appear in
 		// Country/Name above; ADD A NAME HERE (and bump nrofrows) as each parquet lands.
-		unit<uint32> AvailableCountry : nrofrows = 19
+		unit<uint32> AvailableCountry : nrofrows = 20
 		{
-			attribute<string> Name : ['Austria', 'Belgium', 'Czechia', 'Denmark', 'Estonia', 'France', 'Ireland', 'Iceland', 'Italy', 'Lithuania', 'Luxembourg', 'Latvia', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Slovenia', 'Sweden', 'Hungary']; // all enum countries now have a parquet (Finland still excluded, issue #44)
+			attribute<string> Name : ['Austria', 'Belgium', 'Czechia', 'Denmark', 'Estonia', 'France', 'Ireland', 'Iceland', 'Italy', 'Lithuania', 'Luxembourg', 'Latvia', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Slovenia', 'Sweden', 'Hungary', 'Finland']; // every enum country has a parquet
 
 		}
 		template CountryDataT

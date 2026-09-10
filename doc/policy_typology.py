@@ -25,6 +25,7 @@ COUNTRY = {
     "PT": ("Portugal", 1, "HIGH"),  "SI": ("Slovenia", 1, "HIGH"),
     "LV": ("Latvia", 1, "MEDIUM"),
     "DK": ("Denmark", 2, "HIGH"),   "EE": ("Estonia", 2, "MEDIUM"),
+    "FI": ("Finland", 2, "HIGH"),     # slide 14: Fimea-planned + branches + equalisation (#44)
     "CZ": ("Czechia", 3, "LOW"),    "IE": ("Ireland", 3, "LOW"),
     "LT": ("Lithuania", 3, "LOW"),  "NL": ("Netherlands", 3, "LOW"),
     "NO": ("Norway", 3, "LOW"),     "SE": ("Sweden", 3, "LOW"),
@@ -35,7 +36,7 @@ REGION_ISO = {
     "Netherlands": "NL", "Luxembourg": "LU", "Estonia": "EE", "Latvia": "LV",
     "Slovenia": "SI", "Lithuania": "LT", "Ireland": "IE", "Norway": "NO",
     "Denmark": "DK", "Austria": "AT", "Portugal": "PT", "Czechia": "CZ",
-    "Belgium": "BE", "Poland": "PL", "Hungary": "HU",
+    "Belgium": "BE", "Poland": "PL", "Hungary": "HU", "Finland": "FI",
     **{r: "FR" for r in ("FR1", "FRB", "FRC", "FRD", "FRE", "FRF", "FRG",
                           "FRH", "FRI", "FRJ", "FRK", "FRL", "FRM")},
     **{r: "IT" for r in ("ITC", "ITF", "ITG", "ITH", "ITI")},
