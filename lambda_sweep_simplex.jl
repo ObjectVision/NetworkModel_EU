@@ -408,7 +408,9 @@ function analyze_country(country)
                                     refine_tol * base.cost_c, false)
             did = true
         end
-        if did
+        if did && !(stop_after_refine && haskey(refined, "S1") && haskey(refined, "S2"))
+            # (a refine-only run that has just pinned its last scenario ends the loop next:
+            #  no grid step follows, so no basis to restore -- Ireland LOGISTIC spent 1,558 s on it)
             t = @elapsed ts = resolve_for_basis!(state, r.w)
             pln("  basis restored at w=$(r.w) ($ts, $(round(t, digits=1)) s)")
             sort!(results, by=x->x.w)
