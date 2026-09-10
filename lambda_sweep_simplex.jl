@@ -221,6 +221,16 @@ end
 function print_sweep_row(r, target_cells, target_raw)
     fac_eur = r.sum_y * FACILITY_MIN_COSTS
     n_raw_delta = target_raw === nothing ? "" : string(r.n_open - target_raw)
+    if r.rounding == "none"          # LP point only: no rounding columns (build_deck_data skips the row)
+        pln(rpad(round(r.w, sigdigits=5), 12), rpad(round(r.λ, digits=2), 14), rpad(round(r.sum_y, digits=2), 12),
+            rpad(round(r.travel_relax, digits=0), 16),
+            rpad("-", 16), rpad("-", 16), rpad("-", 16),
+            rpad(r.n_open, 10), rpad(round(fac_eur, digits=0), 14),
+            rpad("-", 10), rpad(r.n_frac, 10),
+            rpad(r.n_open - target_cells, 10),
+            "  (LP only)")
+        return
+    end
     pln(rpad(round(r.w, sigdigits=5), 12), rpad(round(r.λ, digits=2), 14), rpad(round(r.sum_y, digits=2), 12),
         rpad(round(r.travel_relax, digits=0), 16),
         rpad(round(r.travel_c_topp, digits=0), 16),
@@ -268,15 +278,15 @@ function analyze_country(country)
     t_build = @elapsed state = build_lp_warmstart(new_data)
     pln("  built in $(round(t_build, digits=1)) s")
 
-    function run_lp(w)
+    function run_lp(w; light::Bool=false)
         t = @elapsed r = try
-            solve_at_w!(state, w)
+            solve_at_w!(state, w; rounding=!light)
         catch e
             pln("  LP at w=$w FAILED: $(sprint(showerror, e))")
             return nothing
         end
-        pln("  solved w=$w in $(round(t, digits=1)) s")
-        write_sweep_arrows(country, new_data, r)
+        pln("  solved w=$w in $(round(t, digits=1)) s" * (light ? "  (LP only, no rounding)" : ""))
+        light || write_sweep_arrows(country, new_data, r)
         return r
     end
 
@@ -375,7 +385,13 @@ function analyze_country(country)
     results = []
     prev = nothing
     for w in ws_common
-        r = run_lp(w)
+        # Refine-only: until S1 is pinned and while the previous point's LP count is still
+        # more than a grid step (×1.5) above today's, this point cannot close either bracket
+        # (S2 lies at fewer facilities than S1), so solve the LP only: no roundings, no
+        # arrows -- the sweep's own record of these grid points stays as it is.
+        light = stop_after_refine && !haskey(refined, "S1") &&
+                (prev === nothing || prev.sum_y > 1.5 * target_cells)
+        r = run_lp(w; light=light)
         if r === nothing                 # prev stays: the bracket then spans the failed point
             # A timed-out solve leaves the solver on an aborted basis, and every later grid
             # point then warm-starts far from optimal and times out as well (FRC LINEAR:
@@ -486,7 +502,8 @@ function analyze_country(country)
     end
 
     function closest(results, target, key)
-        results[argmin(abs(getfield(r, key) - target) for r in results)]
+        rounded = [r for r in results if r.rounding != "none"]   # a light row has no open set to export
+        rounded[argmin(abs(getfield(r, key) - target) for r in rounded)]
     end
 
     pln()

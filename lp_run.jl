@@ -452,7 +452,12 @@ function resolve_for_basis!(state::WarmStartState, w::Real)
     return termination_status(model)
 end
 
-function solve_at_w!(state::WarmStartState, w::Real)
+# rounding=false returns the LP point only (w, λ, sum_y, travel_relax, n_frac) with the
+# rounding fields set to Inf/NaN/empty and rounding="none": the refine-only walk (#52)
+# uses it for grid points that lie a whole step above today's count, where neither
+# bracket can close and the three roundings (≈50-100 s per point on a mid-size region,
+# ten times the LP itself at low λ) would only be thrown away.
+function solve_at_w!(state::WarmStartState, w::Real; rounding::Bool=true)
     (; model, y, x, data) = state
     (; N, facilities, wpop, t_ij_col, facilities_col, locations) = data
 
@@ -506,6 +511,16 @@ function solve_at_w!(state::WarmStartState, w::Real)
         stranded_relax += BIG_relax * wpop[rows[1]] * (1.0 - served_i)
     end
     travel_relax   = served_relax + stranded_relax
+
+    if !rounding
+        return (
+            w=w, λ=λ, n_open=clamp(round(Int, sum_y), 1, length(facilities)), cost_c=Inf, mean_t=NaN,
+            n_frac=n_fractional_y, sum_y=sum_y, travel_relax=travel_relax,
+            travel_c_topp=NaN, travel_c_greedy=NaN, travel_c_multi=NaN,
+            uncov_topp=-1, uncov_greedy=-1, uncov_multi=-1,
+            rounding="none", open_set=Set{Int}(), assigned_k=Tuple{Int, Int}[],
+        )
+    end
 
     # Three roundings of the LP relaxation to the same count p_open = round(sum_y):
     #   topp       — the p_open facilities with the largest y_relaxed.
