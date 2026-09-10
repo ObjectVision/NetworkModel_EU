@@ -9,7 +9,10 @@ Set-Location (Split-Path -Parent $PSScriptRoot)   # repo root
 
 $RANK = 0.9130      # rank charts  1680x1840
 $CLOUD = 1.4516     # point clouds 1800x1240
+$LAXIS = 2.8333     # lambda-axis charts 2380x840 (doc\lambda_axis_chart.py)
 $charts = @(
+  @{f='doc\charts\lambda_axis_AGGREGATE.png';    t='The sweep read along lambda  -  all 41 areas: travel-cost bounds (left) and facility count (right)'; r=$LAXIS; n='x = lambda, the price per location (log scale). Left axis: LP relaxation (lower bound) and multistart integer solution (upper bound) on travel cost. Right axis: the LP-relaxed count sum_y and the integer count n_open = round(sum_y); they coincide by construction - the certified gap is on TOTAL cost only (p12). Dotted = baseline: S2 is where travel crosses its baseline, S1 where the count does.'},
+  @{f='doc\charts\lambda_axis_Netherlands.png';  t='The sweep read along lambda  -  Netherlands: travel-cost bounds (left) and facility count (right)'; r=$LAXIS; n='Same reading as the aggregate. The count falls over two decades of lambda before the travel bounds separate; under LINEAR they open only above ~EUR 50,000 per location, beyond S2, so the S1/S2 figures sit where lower and upper bound agree.'},
   @{f='doc\charts\pointcloud_LINEAR.png';        t='Baselines and their frontier projections  -  LINEAR';   r=$CLOUD},
   @{f='doc\charts\pointcloud_LOGISTIC.png';      t='Baselines and their frontier projections  -  LOGISTIC'; r=$CLOUD},
   @{f='doc\charts\rank_lambda_LINEAR.png';       t='Lambda at the balanced-improvement crossing, ranked  -  LINEAR';   r=$RANK; n='Lambda is in EUR only through the placeholder EUR 100,000 per location (REGIO review, Brons/BN): the crossing point and this ranking do not depend on it; only the EUR axis rescales with the true fixed cost.'},
@@ -20,7 +23,8 @@ $charts = @(
   @{f='doc\charts\rank_area_rel_LOGISTIC.png';   t='Improvement potential relative to baseline facility x travel cost  -  LOGISTIC'; r=$RANK}
 )
 # any slide whose title starts with one of these is a previously-built analysis slide
-$prefixes = @('Baselines and their frontier projections',
+$prefixes = @('The sweep read along lambda',
+              'Baselines and their frontier projections',
               'Lambda at the balanced-improvement',
               'Improvement-potential rectangle',
               'Improvement potential relative')
@@ -55,10 +59,13 @@ foreach ($c in $charts) {
   $tb.TextFrame.TextRange.Font.Color.RGB = 0x503010
   $h = $availH; $w = $h * $c.r
   if ($w -gt 920) { $w = 920; $h = $w / $c.r }
-  [void]$slide.Shapes.AddPicture((Resolve-Path $c.f).Path, $false, $true,
-                                 ($SW - $w) / 2, $availTop + ($availH - $h) / 2, $w, $h)
-  if ($c.n) {   # one-line caveat under the chart (ASCII only: this file has no BOM, PS 5.1 would read UTF-8 as ANSI)
-    $nb = $slide.Shapes.AddTextbox(1, 30, 518, 900, 20)
+  $picTop = $availTop + ($availH - $h) / 2
+  [void]$slide.Shapes.AddPicture((Resolve-Path $c.f).Path, $false, $true, ($SW - $w) / 2, $picTop, $w, $h)
+  if ($c.n) {   # caveat under the chart (ASCII only: this file has no BOM, PS 5.1 would read UTF-8 as ANSI).
+                # Placed just below the picture, so a wide chart (which is short) leaves room for a
+                # two-line note; a tall chart keeps the old fixed position at the slide's foot.
+    $noteTop = [Math]::Min(518.0, $picTop + $h + 6)
+    $nb = $slide.Shapes.AddTextbox(1, 30, $noteTop, 900, 20)
     $nb.TextFrame.TextRange.Text = $c.n
     $nb.TextFrame.TextRange.Font.Size = 9
     $nb.TextFrame.TextRange.Font.Italic = $true

@@ -19,7 +19,17 @@ node build_deck.mjs                 # flags: --only <REGION>, --no-summary, --ou
 
 # 4. merge concept slides 1-4 + new slides  ->  doc/lambda_sweep5.pptx  (PowerPoint COM)
 powershell -ExecutionPolicy Bypass -File merge_deck.ps1
+
+# 5. the analysis section at the end of the deck  (PowerPoint COM; idempotent)
+PYTHONIOENCODING=utf-8 python frontier_metrics.py interp3                    # rectangle, crossing, lambda_cross
+METRIC_SUFFIX=interp3 PYTHONIOENCODING=utf-8 python frontier_charts.py       # ranked lists + point clouds
+PYTHONIOENCODING=utf-8 python lambda_axis_chart.py            # the sweep along lambda: AGGREGATE + Netherlands
+powershell -ExecutionPolicy Bypass -File rebuild_analysis_slides.ps1   # from the repo root: doc\...
 ```
+
+Step 5 deletes any earlier analysis slides (matched by title prefix) and appends the current
+chart set, so it can be re-run after regenerating any of its charts. Check that PowerPoint is
+not open before running it: the script quits the COM instance it attaches to.
 
 ## What each region chart shows  (per `build_charts.py`)
 

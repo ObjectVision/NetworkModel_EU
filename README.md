@@ -94,8 +94,10 @@ for both.
 `build_deck.mjs` (region + summary slides, pptxgenjs) → `merge_deck.ps1` (concept slides +
 generated slides → `lambda_sweep5.pptx`, PowerPoint COM). `frontier_metrics.py` computes the
 improvement rectangle, the diagonal crossing and λ at the crossing per area;
-`frontier_charts.py` draws the ranked lists and the point cloud; `policy_typology.py` /
-`region_typology.jl` attach the regulation typology and DEGURBA class used to colour them.
+`frontier_charts.py` draws the ranked lists and the point cloud; `lambda_axis_chart.py` draws
+the sweep along λ (bounds on travel and the facility count per λ); `rebuild_analysis_slides.ps1`
+appends those charts as the deck's analysis section; `policy_typology.py` / `region_typology.jl`
+attach the regulation typology and DEGURBA class used to colour the ranked lists.
 `doc/README_deck.md` has the run order.
 
 ---
@@ -240,6 +242,21 @@ pharmacies — never the road-nearest for any populated cell. Full tables: deck 
 
 Read: relocating today's pharmacies without adding any would cut population travel by about a
 quarter (linear); holding travel where it is, about a third of the locations are surplus.
+
+### The same sweep read along λ
+
+![The sweep along λ: travel-cost bounds and facility count, all 41 areas](doc/img/lambda_axis_AGGREGATE.png)
+
+The frontier hides λ. Read along it instead — λ on a log axis, the two travel-cost bounds on the
+left (LP relaxation below, multistart integer solution above) and the facility count on the right —
+and the sweep's dynamics show: the count collapses over two decades of λ (LINEAR: from ~433 000
+below €100 per location to ~43 000 at S1) while the travel bounds stay on top of each other, and
+they separate only near S2. The dotted lines are the baseline, so S2 is where travel crosses its
+baseline and S1 where the count crosses its. The two count curves coincide by construction —
+`n_open = round(Σy*)` — the certified bound is on *total* cost, not on the count; the informative
+gap is the one on the left axis. Under LOGISTIC the whole picture is compressed into λ ∈ [€10, €2 000],
+the degeneracy noted on deck p64. Per area: `doc/lambda_axis_chart.py <REGION>`; the Netherlands
+version is in the deck (p66).
 
 ### Per country — S1 and S2 (LINEAR; LOGISTIC in the deck)
 

@@ -225,51 +225,69 @@ def _interp_at(rows, w):
                 n_open=mix("n_open"), frac=mix("frac"))
 
 
-def render_aggregate(data):
+def aggregate_fd(data, fn):
+    """The aggregated sweep over the disjoint areas for one travel function, in the same
+    {rows, baseline, scen} shape as a region entry — so any chart that draws a region can
+    draw the aggregate. Returns None when fewer than two areas carry `fn` data.
+
+    Split out of render_aggregate so other charts (lambda_axis_chart.py) can reuse the
+    aggregation without re-rendering the region set. Exact by separability: at a common
+    λ the sum of the regional optima IS the combined optimum. Country-level Poland is
+    dropped in favour of its NUTS-1 parts so the areas stay disjoint."""
     part = [e for e in data if not (e["region"] == "Poland" and any(x["region"].startswith("PL") for x in data))]
+    regs = [e for e in part if fn in e["func"] and e["func"][fn].get("rows")]
+    missing = [e["region"] for e in part if e not in regs]
+    if missing:
+        print(f"  [aggregate {fn}] WARNING: skipping areas without {fn} data: {missing}")
+    if len(regs) < 2:
+        return None
+    # union of w values, restricted to the range covered by EVERY area; each area
+    # contributes log-interpolated values between its own adjacent sweep points
+    # (exact at its own grid points) — the same rule as the interpolated-λ tables.
+    per = {e["region"]: sorted([r for r in e["func"][fn]["rows"] if r["w"] > 0], key=lambda r: r["w"]) for e in regs}
+    w_lo = max(rows[0]["w"] for rows in per.values())
+    w_hi = min(rows[-1]["w"] for rows in per.values())
+    union = sorted(set(round(r["w"], 12) for rows in per.values() for r in rows if w_lo <= r["w"] <= w_hi))
+    rows = []
+    for w in union:
+        agg = dict(w=w, sum_y=0.0, relax=0.0, multi=0.0, n_open=0.0, frac=0.0, mean_t=0.0)
+        ok = True
+        for reg, rr in per.items():
+            v = _interp_at(rr, w)
+            if v is None:
+                ok = False
+                break
+            agg["sum_y"] += v["sum_y"]; agg["relax"] += v["relax"]; agg["multi"] += v["multi"]
+            agg["n_open"] += v["n_open"]; agg["frac"] += v["frac"]
+        if ok:
+            agg["n_open"] = round(agg["n_open"]); agg["frac"] = round(agg["frac"])
+            rows.append(agg)
+    base = dict(cells=sum(e["func"][fn]["baseline"]["cells"] for e in regs),
+                cost=sum(e["func"][fn]["baseline"]["cost"] for e in regs),
+                mean_t=0.0)
+    # S1/S2 only when genuinely bracketed by the aggregate curve
+    sxs = [r["sum_y"] for r in rows]; mts = [r["multi"] for r in rows]
+    s1 = min(rows, key=lambda r: abs(r["sum_y"] - base["cells"])) if min(sxs) <= base["cells"] <= max(sxs) else None
+    s2 = min(rows, key=lambda r: abs(r["multi"] - base["cost"])) if min(mts) <= base["cost"] <= max(mts) else None
+    scen = {k: dict(v) for k, v in (("S1", s1), ("S2", s2)) if v}
+    return {"rows": rows, "baseline": base, "scen": scen,
+            "n_regions": len(regs), "w_lo": w_lo, "w_hi": w_hi}
+
+
+def render_aggregate(data):
     agg_out = {}
     for fn in ("LINEAR", "LOGISTIC"):
-        regs = [e for e in part if fn in e["func"] and e["func"][fn].get("rows")]
-        missing = [e["region"] for e in part if e not in regs]
-        if missing:
-            print(f"  [aggregate {fn}] WARNING: skipping areas without {fn} data: {missing}")
-        if len(regs) < 2:
+        fd = aggregate_fd(data, fn)
+        if fd is None:
             continue
-        # union of w values, restricted to the range covered by EVERY area; each area
-        # contributes log-interpolated values between its own adjacent sweep points
-        # (exact at its own grid points) — the same rule as the interpolated-λ tables.
-        per = {e["region"]: sorted([r for r in e["func"][fn]["rows"] if r["w"] > 0], key=lambda r: r["w"]) for e in regs}
-        w_lo = max(rows[0]["w"] for rows in per.values())
-        w_hi = min(rows[-1]["w"] for rows in per.values())
-        union = sorted(set(round(r["w"], 12) for rows in per.values() for r in rows if w_lo <= r["w"] <= w_hi))
-        rows = []
-        for w in union:
-            agg = dict(w=w, sum_y=0.0, relax=0.0, multi=0.0, n_open=0.0, frac=0.0, mean_t=0.0)
-            ok = True
-            for reg, rr in per.items():
-                v = _interp_at(rr, w)
-                if v is None:
-                    ok = False
-                    break
-                agg["sum_y"] += v["sum_y"]; agg["relax"] += v["relax"]; agg["multi"] += v["multi"]
-                agg["n_open"] += v["n_open"]; agg["frac"] += v["frac"]
-            if ok:
-                agg["n_open"] = round(agg["n_open"]); agg["frac"] = round(agg["frac"])
-                rows.append(agg)
-        base = dict(cells=sum(e["func"][fn]["baseline"]["cells"] for e in regs),
-                    cost=sum(e["func"][fn]["baseline"]["cost"] for e in regs),
-                    mean_t=0.0)
-        # S1/S2 only when genuinely bracketed by the aggregate curve
-        sxs = [r["sum_y"] for r in rows]; mts = [r["multi"] for r in rows]
-        s1 = min(rows, key=lambda r: abs(r["sum_y"] - base["cells"])) if min(sxs) <= base["cells"] <= max(sxs) else None
-        s2 = min(rows, key=lambda r: abs(r["multi"] - base["cost"])) if min(mts) <= base["cost"] <= max(mts) else None
-        scen = {k: dict(v) for k, v in (("S1", s1), ("S2", s2)) if v}
-        fd = {"rows": rows, "baseline": base, "scen": scen}
+        rows, base, scen = fd["rows"], fd["baseline"], fd["scen"]
+        s1, s2 = scen.get("S1"), scen.get("S2")
+        regs, w_lo, w_hi = fd["n_regions"], fd["w_lo"], fd["w_hi"]
         render("AGGREGATE", fn, fd)
         by_sx = sorted(rows, key=lambda r: r["sum_y"])
-        agg_out[fn] = {"n_regions": len(regs), "n_w": len(rows), "baseline": base,
+        agg_out[fn] = {"n_regions": regs, "n_w": len(rows), "baseline": base,
                        "S1": s1, "S2": s2, "few": by_sx[0], "many": by_sx[-1]}
-        print(f"  [aggregate {fn}] {len(regs)} areas, {len(rows)} union w-points in "
+        print(f"  [aggregate {fn}] {regs} areas, {len(rows)} union w-points in "
               f"[{w_lo:g}, {w_hi:g}]; baseline {base['cells']} cells / {base['cost']:.3e}; "
               f"S1 bracketed: {s1 is not None}, S2 bracketed: {s2 is not None}")
     json.dump(agg_out, open(os.path.join(ROOT, "doc", "agg_data.json"), "w", encoding="utf-8"), indent=1)
