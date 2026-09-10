@@ -8,7 +8,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FUNCS = ["LINEAR", "LOGISTIC"]
 # display order matches the existing deck
 ORDER = ["Netherlands",
-         "Luxembourg", "Estonia", "Latvia", "Slovenia", "Lithuania", "Ireland", "Norway", "Denmark", "Austria", "Portugal", "Czechia", "Belgium", "Poland",
+         "Luxembourg", "Estonia", "Latvia", "Slovenia", "Lithuania", "Ireland", "Norway", "Denmark", "Austria", "Portugal", "Czechia", "Belgium", "Poland", "Hungary",
          "FR1", "FRB", "FRC", "FRD", "FRE", "FRF", "FRG", "FRH",
          "FRI", "FRJ", "FRK", "FRL", "FRM", "ITC", "ITF", "ITG", "ITH", "ITI",
          "SE1", "SE2", "SE3",
@@ -49,6 +49,7 @@ NICE = {
     "SE2": ("SWEDEN · SE2", "Södra Sverige"),
     "SE3": ("SWEDEN · SE3", "Norra Sverige"),
     "Poland": ("POLAND", "Poland"),
+    "Hungary": ("HUNGARY", "Hungary"),
     "PL2": ("POLAND · PL2", "Południowy"),
     "PL4": ("POLAND · PL4", "Północno-Zachodni"),
     "PL5": ("POLAND · PL5", "Południowo-Zachodni"),

@@ -21,6 +21,7 @@ COUNTRY = {
     "AT": ("Austria", 1, "HIGH"),   "BE": ("Belgium", 1, "MEDIUM"),
     "FR": ("France", 1, "HIGH"),    "IT": ("Italy", 1, "HIGH"),
     "LU": ("Luxembourg", 1, "HIGH"),"PL": ("Poland", 1, "HIGH"),
+    "HU": ("Hungary", 1, "HIGH"),     # slide 13: quota + distance + dispensing physicians (#53)
     "PT": ("Portugal", 1, "HIGH"),  "SI": ("Slovenia", 1, "HIGH"),
     "LV": ("Latvia", 1, "MEDIUM"),
     "DK": ("Denmark", 2, "HIGH"),   "EE": ("Estonia", 2, "MEDIUM"),
@@ -34,7 +35,7 @@ REGION_ISO = {
     "Netherlands": "NL", "Luxembourg": "LU", "Estonia": "EE", "Latvia": "LV",
     "Slovenia": "SI", "Lithuania": "LT", "Ireland": "IE", "Norway": "NO",
     "Denmark": "DK", "Austria": "AT", "Portugal": "PT", "Czechia": "CZ",
-    "Belgium": "BE", "Poland": "PL",
+    "Belgium": "BE", "Poland": "PL", "Hungary": "HU",
     **{r: "FR" for r in ("FR1", "FRB", "FRC", "FRD", "FRE", "FRF", "FRG",
                           "FRH", "FRI", "FRJ", "FRK", "FRL", "FRM")},
     **{r: "IT" for r in ("ITC", "ITF", "ITG", "ITH", "ITI")},

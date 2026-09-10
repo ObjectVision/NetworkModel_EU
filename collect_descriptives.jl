@@ -11,7 +11,7 @@ nuts_csv = replace(out_csv, r"\.csv$" => "_nuts1.csv")
 
 # Iceland omitted: outside the Ardeco population grid (0 residents → meaningless catchments).
 country_order = ["Austria", "Belgium", "Czechia", "Denmark", "Estonia", "France",
-                 "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg",
+                 "Hungary", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg",
                  "Netherlands", "Norway", "Poland", "Portugal", "Slovenia", "Sweden"]
 nuts1_order   = ["Netherlands",
                  "France", "FR1", "FRB", "FRC", "FRD", "FRE", "FRF", "FRG", "FRH", "FRI", "FRJ", "FRK", "FRL", "FRM",
