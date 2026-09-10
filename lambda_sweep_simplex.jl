@@ -347,6 +347,7 @@ function analyze_country(country)
         pln("$label bisection over w in ($lo, $hi): pin $(label == "S1" ? "sum_y" : "cost_c") ≈ $(round(target, digits=2)) to ±$(round(tol, digits=2)) (≤$refine_iters solves)")
         print_sweep_header(target_raw)
         for _ in 1:refine_iters
+            hi / lo < 1.01 && break                     # bracket narrower than the multistart noise: stop
             wmid = sqrt(lo * hi)                        # geometric midpoint
             r = run_lp(wmid)
             r === nothing && break
@@ -361,6 +362,36 @@ function analyze_country(country)
         return best
     end
 
+    # Refine-only, once S1 is pinned: S2 lies at a higher λ, usually inside the NEXT grid
+    # step, and that step's upper endpoint is the most expensive solve of the whole walk
+    # (Denmark LINEAR: w = 1.0 took 1,883 s where the S2 crossing sat at 0.557; on SE2 it
+    # times out). So instead of the grid step, climb from the pinned S1 point by a factor
+    # REFINE_CLIMB (1.3) per solve -- each a near step -- until the multistart travel
+    # passes today's, then bisect that narrow bracket. Returns true when S2 is pinned.
+    climb_factor = parse(Float64, get(ENV, "REFINE_CLIMB", "1.3"))
+    function climb_to_S2!(start_r)
+        pln()
+        pln("S2 climb from the pinned S1 point w=$(round(start_r.w, sigdigits=5)) by ×$climb_factor until cost_c passes today's $(round(base.cost_c, digits=0))")
+        print_sweep_header(target_raw)
+        lo_r = start_r
+        for _ in 1:24
+            w = lo_r.w * climb_factor
+            w > w_max * 1.5 && break
+            r = run_lp(w)
+            r === nothing && return false
+            push!(results, r)
+            print_sweep_row(r, target_cells, target_raw)
+            if crosses(lo_r.cost_c, r.cost_c, base.cost_c, false)
+                refined["S2"] = bisect!("S2", lo_r, r, x -> x.cost_c, base.cost_c,
+                                        refine_tol * base.cost_c, false)
+                sort!(results, by=x->x.w)
+                return true
+            end
+            lo_r = r
+        end
+        return false
+    end
+
     function refine_if_closed!(prev, r)
         prev === nothing && return false
         did = false
@@ -368,6 +399,9 @@ function analyze_country(country)
             refined["S1"] = bisect!("S1", prev, r, x -> x.sum_y, target_cells,
                                     max(1.0, refine_tol * target_cells), true)
             did = true
+            if stop_after_refine && !haskey(refined, "S2") && climb_to_S2!(refined["S1"])
+                return true                       # both pinned; the loop ends, no basis to restore
+            end
         end
         if !haskey(refined, "S2") && crosses(prev.cost_c, r.cost_c, base.cost_c, false)
             refined["S2"] = bisect!("S2", prev, r, x -> x.cost_c, base.cost_c,
