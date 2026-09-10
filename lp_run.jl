@@ -438,6 +438,20 @@ end
 # skipped point, not a stall.
 const LP_TIME_LIMIT = parse(Float64, get(ENV, "LP_TIME_LIMIT", "3600"))
 
+# Re-solve at w for its BASIS only: no rounding, no metrics. After a bisection detour
+# (#52) the solver's basis sits at a w inside the bracket; re-solving the bracket's upper
+# endpoint from there is a near step, and leaves the next grid step warm-starting from
+# the grid point it would have started from without the detour.
+function resolve_for_basis!(state::WarmStartState, w::Real)
+    (; model, y, data) = state
+    λ = w * FACILITY_MIN_COSTS
+    for j in data.facilities
+        set_objective_coefficient(model, y[j], λ)
+    end
+    optimize!(model)
+    return termination_status(model)
+end
+
 function solve_at_w!(state::WarmStartState, w::Real)
     (; model, y, x, data) = state
     (; N, facilities, wpop, t_ij_col, facilities_col, locations) = data

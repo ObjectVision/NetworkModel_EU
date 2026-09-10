@@ -1,5 +1,5 @@
 # run_resweep_batch.ps1 -Areas <a,b,c> [-Threads 3] [-Tag q1]
-#                       [-Funcs LINEAR,LOGISTIC] [-SkipComplete]
+#                       [-Funcs LINEAR,LOGISTIC] [-SkipComplete] [-RefineOnly]
 # Sweep-only worker (todo #3+#4 resweep): networks/ODs are UNCHANGED — only the Julia
 # sweep reruns per area (new coverage-consistent baseline + fixed common λ-grid
 # 1e-4…5.0 with no early stop + S1 extension). Overwrites logs\sweep_<area>_<FUNC>.log.
@@ -11,12 +11,20 @@
 # -SkipComplete skip any (area, func) whose log already ends in a scenario summary.
 #               Makes an interrupted batch resumable without working out by hand which
 #               halves survived.
+# -RefineOnly   (#52) pin S1/S2 by bisection without re-sweeping the frontier: the sweep
+#               walks the coarse grid from 1e-4, bisects each scenario the moment its
+#               bracket closes, and stops once both are pinned (SWEEP_STOP_AFTER_REFINE=1),
+#               so the high-w tail that costs hours of time-outs is never entered. Writes
+#               logs\refine_<area>_<FUNC>.log, which build_deck_data.py prefers for the
+#               S1/S2 summary when it is newer than the sweep log; the frontier rows stay
+#               those of the full sweep. The S1/S2 arrow folders are overwritten.
 param(
   [Parameter(Mandatory=$true)][string]$Areas,
   [int]$Threads = 3,
   [string]$Tag = "q",
   [string]$Funcs = "LINEAR,LOGISTIC",
-  [switch]$SkipComplete
+  [switch]$SkipComplete,
+  [switch]$RefineOnly
 )
 $ErrorActionPreference = "Continue"
 $env:NoDefaultCurrentDirectoryInExePath = $null
@@ -43,14 +51,16 @@ foreach ($f in $funcList) {
     throw "unknown travel-cost function '$f' (expected LINEAR, LOGISTIC, QUADRATIC or PIECEWISE)"
   }
 }
-Log ("===== resweep worker $Tag START ({0} areas x {1}, threads={2}{3}) =====" -f `
-     $list.Count, ($funcList -join '+'), $Threads, $(if ($SkipComplete) { ', skip-complete' } else { '' }))
+$logKind = if ($RefineOnly) { 'refine' } else { 'sweep' }
+if ($RefineOnly) { $env:SWEEP_STOP_AFTER_REFINE = '1' } else { Remove-Item Env:SWEEP_STOP_AFTER_REFINE -ErrorAction SilentlyContinue }
+Log ("===== resweep worker $Tag START ({0} areas x {1}, threads={2}{3}{4}) =====" -f `
+     $list.Count, ($funcList -join '+'), $Threads, $(if ($SkipComplete) { ', skip-complete' } else { '' }), $(if ($RefineOnly) { ', REFINE-ONLY' } else { '' }))
 foreach ($a in $list) {
   $sw = [Diagnostics.Stopwatch]::StartNew()
   Log "----- $a -----"
   $env:ROUNDING = "multistart"; $env:MAX_PARALLEL = "$Threads"; $env:COUNTRIES = "$a"
   foreach ($fn in $funcList) {
-    $logPath = "logs\sweep_${a}_${fn}.log"
+    $logPath = "logs\${logKind}_${a}_${fn}.log"
     if ($SkipComplete -and (Test-SweepComplete $logPath)) {
       Log "  sweep $fn SKIPPED (already complete)"
       continue
@@ -59,7 +69,7 @@ foreach ($a in $list) {
     $ssw = [Diagnostics.Stopwatch]::StartNew()
     & cmd /c "julia --startup-file=no --threads=$Threads lambda_sweep_simplex.jl > $logPath 2>&1"
     $ok = Test-SweepComplete $logPath
-    Log ("  sweep $fn {0} ({1}s)" -f ($(if ($ok) { 'OK' } else { 'NO-SUMMARY' }), [int]$ssw.Elapsed.TotalSeconds))
+    Log ("  $logKind $fn {0} ({1}s)" -f ($(if ($ok) { 'OK' } else { 'NO-SUMMARY' }), [int]$ssw.Elapsed.TotalSeconds))
   }
   Log ("  DONE $a ({0}s total)" -f [int]$sw.Elapsed.TotalSeconds)
 }

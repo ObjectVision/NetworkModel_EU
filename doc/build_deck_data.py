@@ -117,7 +117,7 @@ def parse(path):
             m = re.search(r"sum_[xy]\s*:\s*" + FLT, ln)
             if m and "sum_y" not in d:
                 d["sum_y"] = num(m.group(1))
-            m = re.search(r"n_open\s*:\s*(\d+)\s+frac_x:\s*(\d+)", ln)
+            m = re.search(r"n_open\s*:\s*(\d+)\s+frac_[xy]:\s*(\d+)", ln)
             if m:
                 d["n_open"] = int(m.group(1)); d["frac"] = int(m.group(2))
             m = re.search(r"stranded\s*:\s*topp (\d+)\s+greedy (\d+)\s+multi (\d+)", ln)
@@ -161,6 +161,20 @@ def main():
             if not os.path.exists(p):
                 continue
             base, rows, scen = parse(p)
+            # A refine-only rerun (#52: SWEEP_STOP_AFTER_REFINE=1, written to
+            # logs/refine_<reg>_<FN>.log) pins S1/S2 by bisection without re-sweeping the
+            # frontier. When it is newer than the sweep it supplies the S1/S2 summary, and
+            # its rows (the bracket walk + bisection points) join the frontier at w's the
+            # sweep did not solve.
+            rp = os.path.join(ROOT, "logs", f"refine_{reg}_{fn}.log")
+            if os.path.exists(rp) and os.path.getmtime(rp) > os.path.getmtime(p):
+                rbase, rrows, rscen = parse(rp)
+                if rscen.get("S1") and rscen.get("S2"):
+                    have = {round(r["w"], 9) for r in rows}
+                    rows = sorted(rows + [r for r in rrows if round(r["w"], 9) not in have],
+                                  key=lambda r: r["w"])
+                    scen = rscen
+                    base = rbase or base
             entry["func"][fn] = {"baseline": base, "rows": rows, "scen": scen}
             ok = True
         if ok:

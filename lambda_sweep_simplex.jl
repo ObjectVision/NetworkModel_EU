@@ -304,12 +304,97 @@ function analyze_country(country)
     pln("Common λ sweep ($travel_func_name): fixed grid 1-2-5/decade, 1e-4 … $w_max, warm-start dual simplex, no early stop.")
     print_sweep_header(target_raw)
 
+    # --- S1/S2 refinement by bisection, interleaved with the coarse sweep (#52) --------
+    # S1 = today's facility count (sum_y crosses target_cells; sum_y is the LP count and
+    # falls monotonically with w), S2 = today's travel (cost_c crosses base.cost_c; the
+    # multistart travel rises with w, up to rounding noise). The 1-2-5 grid is a factor
+    # 2-2.5 in w per step and the count moves ~30% per step, so reading a scenario off the
+    # nearest grid point put S1 up to 30% away from today's count and, in 5 areas, on the
+    # same point as S2. Bisection inside the bracket pins each to REFINE_TOL.
+    #
+    # The bisection runs the moment its bracket closes, NOT after the sweep: the LP is
+    # warm-started from the previous solve, and a solve far from the current basis on
+    # the big regions (FRC 1.7M cols, SE2 3.4M) hits the 1 h time limit -- the previous
+    # post-hoc S2 bisection timed out at its first point in 14 of 42 LINEAR areas, after
+    # the sweep had moved on to w_max and three high-w solves had already timed out.
+    # Solved here, right after the bracket's upper endpoint, every bisection point is a
+    # near step (seconds to minutes on the big regions). After the detour the upper
+    # endpoint is re-solved for its basis so the grid continues as if uninterrupted.
+    # SWEEP_STOP_AFTER_REFINE=1 ends the sweep once both scenarios are pinned (the
+    # refine-only rerun of an area whose frontier is already known).
+    refine_tol   = parse(Float64, get(ENV, "REFINE_TOL", "0.002"))     # relative
+    refine_iters = parse(Int,     get(ENV, "REFINE_ITERS", "8"))
+    stop_after_refine = get(ENV, "SWEEP_STOP_AFTER_REFINE", "0") == "1"
+    refined = Dict{String, Any}()
+
+    # descending: the quantity FALLS with w (sum_y); ascending: it rises (cost_c)
+    crosses(a, b, target, descending) = descending ? (b <= target <= a) : (a <= target <= b)
+
+    function bisect!(label, lo_r, hi_r, getter, target, tol, descending)
+        lo, hi = lo_r.w, hi_r.w
+        best = abs(getter(lo_r) - target) <= abs(getter(hi_r) - target) ? lo_r : hi_r
+        pln()
+        pln("$label bisection over w in ($lo, $hi): pin $(label == "S1" ? "sum_y" : "cost_c") ≈ $(round(target, digits=2)) to ±$(round(tol, digits=2)) (≤$refine_iters solves)")
+        print_sweep_header(target_raw)
+        for _ in 1:refine_iters
+            wmid = sqrt(lo * hi)                        # geometric midpoint
+            r = run_lp(wmid)
+            r === nothing && break
+            push!(results, r)
+            print_sweep_row(r, target_cells, target_raw)
+            abs(getter(r) - target) < abs(getter(best) - target) && (best = r)
+            abs(getter(r) - target) <= tol && break
+            below = descending ? getter(r) > target : getter(r) < target
+            below ? (lo = wmid) : (hi = wmid)
+        end
+        pln("  $label pinned at w=$(round(best.w, sigdigits=5)): $(label == "S1" ? "sum_y" : "cost_c")=$(round(getter(best), digits=2)) (target $(round(target, digits=2)))")
+        return best
+    end
+
+    function refine_if_closed!(prev, r)
+        prev === nothing && return false
+        did = false
+        if !haskey(refined, "S1") && crosses(prev.sum_y, r.sum_y, target_cells, true)
+            refined["S1"] = bisect!("S1", prev, r, x -> x.sum_y, target_cells,
+                                    max(1.0, refine_tol * target_cells), true)
+            did = true
+        end
+        if !haskey(refined, "S2") && crosses(prev.cost_c, r.cost_c, base.cost_c, false)
+            refined["S2"] = bisect!("S2", prev, r, x -> x.cost_c, base.cost_c,
+                                    refine_tol * base.cost_c, false)
+            did = true
+        end
+        if did
+            t = @elapsed ts = resolve_for_basis!(state, r.w)
+            pln("  basis restored at w=$(r.w) ($ts, $(round(t, digits=1)) s)")
+            sort!(results, by=x->x.w)
+        end
+        return did
+    end
+
     results = []
+    prev = nothing
     for w in ws_common
         r = run_lp(w)
-        r === nothing && continue
+        if r === nothing                 # prev stays: the bracket then spans the failed point
+            # A timed-out solve leaves the solver on an aborted basis, and every later grid
+            # point then warm-starts far from optimal and times out as well (FRC LINEAR:
+            # 1.0, 2.0 and 5.0 each burned the full hour). Once both scenarios are pinned
+            # the tail only extends the frontier, so give it up at the first failure.
+            if haskey(refined, "S1") && haskey(refined, "S2") && get(ENV, "SWEEP_STOP_AFTER_TAIL_FAIL", "1") == "1"
+                pln("  both scenarios are pinned and w=$w timed out: the rest of the tail would start from the aborted basis; ending the sweep")
+                break
+            end
+            continue
+        end
         push!(results, r)
         print_sweep_row(r, target_cells, target_raw)
+        refine_if_closed!(prev, r)
+        prev = r
+        if stop_after_refine && haskey(refined, "S1") && haskey(refined, "S2")
+            pln("  both scenarios pinned; SWEEP_STOP_AFTER_REFINE=1 ends the sweep at w=$w")
+            break
+        end
     end
     sort!(results, by=x->x.w)
 
@@ -360,6 +445,8 @@ function analyze_country(country)
         d += 1
     end
     sort!(ws_fine)
+    solved(w) = any(isapprox(w, r.w; rtol=1e-9) for r in results)
+    filter!(w -> !solved(w), ws_fine)     # the default mults ARE the coarse grid: skip them
     for w in ws_fine
         r = run_lp(w)
         r === nothing && continue
@@ -368,33 +455,24 @@ function analyze_country(country)
     end
     sort!(results, by=x->x.w)
 
-    # --- S2 bisection: resolve the baseline-travel crossing ------------------
-    # The 1-2-5 grid is too coarse near cost_c ≈ base.cost_c, so under
-    # multistart's lower travel S1 and S2 collapse onto the same sweep row.
-    # Bisect the S2 bracket geometrically (cost_c rises with w) to land a row
-    # with cost_c ≈ baseline, distinct from S1. Bisection (not a uniform dense
-    # grid) keeps the count of expensive high-w solves small with early exit.
-    bracket_S2_fine = find_bracket(results, base.cost_c, r -> r.cost_c, false)
-    if bracket_S2_fine !== nothing
-        lo, hi = bracket_S2_fine
-        seen_ws = Set(round.(getfield.(results, :w), sigdigits=8))
+    # --- fallback: a scenario bracketed but not yet pinned -------------------
+    # Normally both were pinned inside the coarse loop above. This runs only when a
+    # bracket closed across a failed (timed-out) grid point, or was first seen in the fine
+    # sweep -- and it then carries the far-basis risk the interleaved version avoids.
+    for (label, getter, target, tol, desc) in (
+            ("S1", r -> r.sum_y,  target_cells, max(1.0, refine_tol * target_cells), true),
+            ("S2", r -> r.cost_c, base.cost_c,  refine_tol * base.cost_c,            false))
+        haskey(refined, label) && continue
+        br = find_bracket(results, target, getter, desc)
+        br === nothing && continue
+        lo_r = results[findfirst(r -> r.w == br[1], results)]
+        hi_r = results[findfirst(r -> r.w == br[2], results)]
         pln()
-        pln("S2 bisection over w in ($lo, $hi) to resolve cost_c ≈ baseline=$(round(base.cost_c, digits=0)):")
-        print_sweep_header(target_raw)
-        for _ in 1:6
-            wmid = sqrt(lo * hi)                       # geometric midpoint
-            round(wmid, sigdigits=8) in seen_ws && break
-            push!(seen_ws, round(wmid, sigdigits=8))
-            r = run_lp(wmid)
-            r === nothing && break
-            push!(results, r)
-            print_sweep_row(r, target_cells, target_raw)
-            r.cost_c < base.cost_c ? (lo = wmid) : (hi = wmid)
-            abs(r.cost_c - base.cost_c) / base.cost_c < 0.005 && break
-        end
+        pln("$label was bracketed but not pinned in the coarse loop (bracket spans a failed point?): post-hoc bisection")
+        refined[label] = bisect!(label, lo_r, hi_r, getter, target, tol, desc)
         sort!(results, by=x->x.w)
     end
-    end  # if do_fine (fine sweep + S2 bisection)
+    end  # if do_fine (fine sweep + fallback bisection)
 
     pln()
     pln("Combined sweep, sorted by w:")

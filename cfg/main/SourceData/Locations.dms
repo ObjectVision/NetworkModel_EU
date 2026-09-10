@@ -357,30 +357,32 @@ container Locations : using = "geography;units"
 	}
 	container Pharmacies
 	{
-		unit<uint8> Country := range(0b, 18b) //should be 19b, Finland taken out because of spatial_reference problem (see issue #44)
+		unit<uint8> Country := range(0b, 19b) //should be 20b, Finland taken out because of spatial_reference problem (see issue #44)
 		{
-			attribute<string> Name : ['Austria', 'Belgium', 'Czechia', 'Denmark', 'Estonia', 'France', 'Ireland', 'Iceland', 'Italy', 'Lithuania', 'Luxembourg', 'Latvia', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Slovenia', 'Sweden']; // 'Finland',
+			attribute<string> Name : ['Austria', 'Belgium', 'Czechia', 'Denmark', 'Estonia', 'France', 'Ireland', 'Iceland', 'Italy', 'Lithuania', 'Luxembourg', 'Latvia', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Slovenia', 'Sweden', 'Hungary']; // 'Finland',
 			attribute<string> Label := Name;
-			attribute<string> Code : ['aut', 'bel', 'cze', 'dnk', 'est', 'fra', 'irl', 'isl', 'ita', 'ltu', 'lux', 'lva', 'nld', 'nor', 'pol', 'prt', 'svn', 'swe']; //'fin',
+			attribute<string> Code : ['aut', 'bel', 'cze', 'dnk', 'est', 'fra', 'irl', 'isl', 'ita', 'ltu', 'lux', 'lva', 'nld', 'nor', 'pol', 'prt', 'svn', 'swe', 'hun']; //'fin',
 			attribute</SourceData/RegionalUnits/Country/subset> Country_rel:= rlookup(Name, /SourceData/RegionalUnits/Country/subset/NAME_ENGL);
-			// Italy is delivered as an ESPON 2021 point shapefile (native WGS84 geometry,
-			// no lat/lon columns) rather than a parquet; read it via CountryDataShpT below.
-			// All other countries keep the parquet path read via CountryDataT.
-			attribute<string> FileName := Name == 'Italy'
-				? '%NetworkModelDataDir%/Locations/Pharmacies/Italy_espon_2021_pharmacies.shp'
-				: '%NetworkModelDataDir%/Locations/pharmacies/'+Code+'_pharmacies.parquet';
-			attribute<string> Calculator := Name == 'Italy'
-				? 'CountryDataShpT("'+FileName+'")'
-				: 'CountryDataT("'+FileName+'")';
+			// Every country is a parquet with lat/lon columns, read via CountryDataT.
+			// Italy (issue #53, OECD delivery of 7 Sep 2026): the Ministry of Health list,
+			// 20,635 pharmacies, geolocated by the OECD (Mapbox > ArcGIS > manual; 28 of 30
+			// rural checks correct) because the official coordinates were duplicated or
+			// implausible. It replaces the ESPON 2021 point shapefile (12,991 pharmacies,
+			// read through CountryDataShpT until 10 Sep 2026); the June 2026 unchecked
+			// parquet is kept beside it as ita_pharmacies_20260622_unchecked.parquet.
+			// Hungary (same delivery): 3,094 pharmacies, geocoded by the OECD from a
+			// coordinate-less source; records starting with "DR." removed (accuracy 76% → 90%).
+			attribute<string> FileName   := '%NetworkModelDataDir%/Locations/pharmacies/'+Code+'_pharmacies.parquet';
+			attribute<string> Calculator := 'CountryDataT("'+FileName+'")';
 			container V := for_each_nedv(Name, string(ID(.))+'[..]', void, .);
 		}
 		// Countries whose pharmacy parquet is actually present. Chris's data arrives
 		// country-by-country, so EU is unioned over THESE only — a missing-country file
 		// then never breaks the whole pharmacy pipeline. Each Name must also appear in
 		// Country/Name above; ADD A NAME HERE (and bump nrofrows) as each parquet lands.
-		unit<uint32> AvailableCountry : nrofrows = 18
+		unit<uint32> AvailableCountry : nrofrows = 19
 		{
-			attribute<string> Name : ['Austria', 'Belgium', 'Czechia', 'Denmark', 'Estonia', 'France', 'Ireland', 'Iceland', 'Italy', 'Lithuania', 'Luxembourg', 'Latvia', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Slovenia', 'Sweden']; // all enum countries now have a parquet (Finland still excluded, issue #44)
+			attribute<string> Name : ['Austria', 'Belgium', 'Czechia', 'Denmark', 'Estonia', 'France', 'Ireland', 'Iceland', 'Italy', 'Lithuania', 'Luxembourg', 'Latvia', 'Netherlands', 'Norway', 'Poland', 'Portugal', 'Slovenia', 'Sweden', 'Hungary']; // all enum countries now have a parquet (Finland still excluded, issue #44)
 
 		}
 		template CountryDataT
@@ -396,9 +398,10 @@ container Locations : using = "geography;units"
 			}
 		}
 		// Variant for point shapefiles that carry a native (CRS-tagged) geometry instead of
-		// separate lat/lon columns (e.g. Italy's ESPON 2021 pharmacy .shp). The geometry is
-		// read directly and reprojected to BaseProjection; downstream (EU union etc.) only
-		// uses Table + Table/geometry, so it is interchangeable with CountryDataT.
+		// separate lat/lon columns. Used for Italy's ESPON 2021 pharmacy .shp until the OECD
+		// parquet replaced it (issue #53); kept for the next delivery of that shape. The
+		// geometry is read directly and reprojected to BaseProjection; downstream (EU union
+		// etc.) only uses Table + Table/geometry, so it is interchangeable with CountryDataT.
 		template CountryDataShpT
 		{
 			parameter<string> fileName;
