@@ -9,7 +9,19 @@
 # the count collapses per decade of λ. Here that is the picture. The horizontal
 # guides are the baseline — travel on the left axis, count on the right — so S2 is
 # where the travel curve crosses its guide and S1 where the count curve crosses its
-# guide; the vertical guides mark the λ the deck's tables report for each.
+# guide; the vertical guides mark the λ of those crossings, interpolated between the
+# two bracketing sweep rows exactly as the deck's S1/S2 tables do (log in λ, linear in
+# the count or the travel). NOT the deck_data `scen` rows: those are the nearest swept
+# grid point, and for a single area that snap can be a whole grid step off — the
+# Netherlands LINEAR S1 row sits at w = 0.3 with 1,334 open, where S1 by definition has
+# today's 1,615 (the crossing is at w ≈ 0.245). The label at each guide states the
+# facility count there, so S1 reads the same in both panels.
+#
+# The count axis is logarithmic and SHARED between the two panels (same limits), so the
+# baseline guide and the S1/S2 crossings sit at the same height under LINEAR and
+# LOGISTIC; with per-panel linear axes the LINEAR panel, whose sweep opens up to ten
+# times today's count at λ = €10, squashed the same 43,320 to a different height and the
+# eye read a difference in facilities that is not in the numbers.
 #
 # On the right axis, honestly: Σy* (dashed) is the LP-relaxed count and n_open (solid)
 # is the integer count of the rounded set, with n_open = round(Σy*) by construction
@@ -25,6 +37,7 @@
 import os, sys, json, math
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.ticker
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
@@ -42,13 +55,32 @@ plt.rcParams.update({
 })
 
 
+def crossing(rows, key, target, out):
+    """Walk the w-sorted sweep rows; where `key` brackets `target`, return (λ, value of
+    `out`) there — λ log-interpolated, `out` linear in `key`. None when not bracketed.
+    Same rule as the deck's S1/S2 tables (build_deck.mjs lambdaTableSlide)."""
+    rs = [r for r in rows if r.get("w", 0) > 0 and r.get(key) is not None]
+    for a, b in zip(rs, rs[1:]):
+        xa, xb = a[key], b[key]
+        if xa == xb or not (min(xa, xb) <= target <= max(xa, xb)):
+            continue
+        f = (target - xa) / (xb - xa)
+        lam = math.exp(math.log(a["w"]) + f * (math.log(b["w"]) - math.log(a["w"]))) * FMIN
+        return lam, a[out] + f * (b[out] - a[out])
+    return None
+
+
 def scen_lambda(fd, key):
-    """λ (€) of the deck's S1/S2 row for this area, or None when not bracketed."""
-    s = fd.get("scen", {}).get(key)
-    return s["w"] * FMIN if s and s.get("w") else None
+    """(λ €, facility count) of S1 / S2 for this area, interpolated: S1 where the integer
+    count crosses today's count, S2 where the multistart travel crosses today's travel."""
+    rows = sorted([r for r in fd["rows"] if r["w"] > 0], key=lambda r: r["w"])
+    base = fd["baseline"]
+    if key == "S1":
+        return crossing(rows, "n_open", base["cells"], "n_open")
+    return crossing(rows, "multi", base["cost"], "n_open")
 
 
-def panel(ax, fd, fn, title):
+def panel(ax, fd, fn, title, count_lim):
     rows = sorted([r for r in fd["rows"] if r["w"] > 0], key=lambda r: r["w"])
     lam = [r["w"] * FMIN for r in rows]
     base = fd["baseline"]
@@ -76,20 +108,30 @@ def panel(ax, fd, fn, title):
     axr.plot(lam, [r["n_open"] for r in rows], color=CNT_HI, lw=1.8, marker=".", ms=3.5, zorder=3)
     axr.plot(lam, [r["sum_y"] for r in rows], color=CNT_LO, lw=1.2, ls=(0, (4, 3)), zorder=4)
     axr.axhline(base["cells"], color=CNT_HI, lw=0.9, ls=":", alpha=0.8, zorder=2)
-    axr.set_ylabel("number of facilities", color=CNT_HI)
+    axr.set_yscale("log")
+    axr.set_ylim(*count_lim)          # shared between the panels: same height = same count
+    axr.set_ylabel("number of facilities  (log, same scale in both panels)", color=CNT_HI)
     axr.tick_params(axis="y", colors=CNT_HI, labelsize=7.5)
+    axr.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:,.0f}"))
 
     # vertical guides at the λ the deck reports for S1 and S2; S1's label sits to the
     # left of its line and S2's to the right, so the two never overlap however close
     # the λ's are (the aggregate has them within a factor 1.7)
     ytop = ax.get_ylim()[1]
     for key, col, dx, ha in (("S1", MULTI, -3, "right"), ("S2", "#8E44AD", 3, "left")):
-        lv = scen_lambda(fd, key)
-        if lv:
+        hit = scen_lambda(fd, key)
+        if hit:
+            lv, cnt = hit
             ax.axvline(lv, color=col, lw=0.9, ls="--", alpha=0.7, zorder=1)
             ax.annotate(f"{key}  λ ≈ €{lv:,.0f}", xy=(lv, ytop), xytext=(dx, -6),
                         textcoords="offset points", fontsize=7.5, color=col,
                         ha=ha, va="top", rotation=90)
+            # the facility count at the guide, on the count axis: S1 = today's count by
+            # construction, so it reads the same number in both panels
+            axr.scatter([lv], [cnt], s=26, facecolors="white", edgecolors=col, lw=1.3, zorder=6)
+            axr.annotate(f"{cnt:,.0f}", xy=(lv, cnt), xytext=(dx * 2, -9 if key == "S1" else 6),
+                         textcoords="offset points", fontsize=7, color=col, ha=ha,
+                         va="top" if key == "S1" else "bottom", zorder=6)
 
     return axr
 
@@ -98,6 +140,12 @@ def render(region, entries):
     fig, axes = plt.subplots(1, 2, figsize=(11.9, 4.2), dpi=200)
     fig.subplots_adjust(left=0.06, right=0.925, bottom=0.2, top=0.9, wspace=0.45)
     title = "All 41 areas combined" if region == "AGGREGATE" else region
+    counts = [r["n_open"] for fn in ("LINEAR", "LOGISTIC") for r in (entries.get(fn) or {}).get("rows", [])
+              if r.get("n_open")]
+    for fn in ("LINEAR", "LOGISTIC"):
+        if entries.get(fn):
+            counts.append(entries[fn]["baseline"]["cells"])
+    count_lim = (min(counts) / 1.4, max(counts) * 1.4) if counts else (1, 10)
     drawn = 0
     for ax, fn in zip(axes, ("LINEAR", "LOGISTIC")):
         fd = entries.get(fn)
@@ -105,7 +153,7 @@ def render(region, entries):
             ax.set_axis_off()
             ax.text(0.5, 0.5, f"no {fn} sweep", ha="center", va="center", color="#7A8794")
             continue
-        panel(ax, fd, fn, title)
+        panel(ax, fd, fn, title, count_lim)
         drawn += 1
     handles = [
         Line2D([], [], color=RELAX, lw=1.6, ls=(0, (5, 2)), label="travel cost lower bound — LP relaxation"),
