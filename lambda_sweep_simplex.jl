@@ -420,7 +420,25 @@ function analyze_country(country)
 
     results = []
     prev = nothing
-    for w in ws_common
+    grid = copy(ws_common)
+    gi = 0
+    while true
+        # Refine-only, S1 not yet pinned and the previous point's LP count within ×2 of
+        # today's: the S1 crossing is at most a grid step away, and a grid step (×2-2.5 in
+        # λ) is a far warm-start on the largest LPs (Poland LINEAR: 0.05 → 0.1 timed out at
+        # 1 h after 0.05 itself took 49 min). Climb by ×climb_factor from the previous point
+        # instead: each solve a near step, and the S1 bracket that closes is ×1.3 wide, so
+        # the bisection needs fewer solves too. Otherwise take the next grid point.
+        if stop_after_refine && !haskey(refined, "S1") && prev !== nothing &&
+           prev.sum_y <= 2.0 * target_cells && prev.sum_y > target_cells
+            w = prev.w * climb_factor
+            w > w_max && break
+        else
+            gi += 1
+            gi > length(grid) && break
+            w = grid[gi]
+            prev !== nothing && w <= prev.w && continue     # grid point already passed by a climb
+        end
         # Refine-only: until S1 is pinned and while the previous point's LP count is still
         # more than a grid step (×1.5) above today's, this point cannot close either bracket
         # (S2 lies at fewer facilities than S1), so solve the LP only: no roundings, no
@@ -499,6 +517,7 @@ function analyze_country(country)
     sort!(ws_fine)
     solved(w) = any(isapprox(w, r.w; rtol=1e-9) for r in results)
     filter!(w -> !solved(w), ws_fine)     # the default mults ARE the coarse grid: skip them
+    stop_after_refine && empty!(ws_fine)  # refine-only: the grid points beyond S2 are exactly the ones not to solve
     for w in ws_fine
         r = run_lp(w)
         r === nothing && continue
