@@ -455,6 +455,13 @@ function analyze_country(country)
                 pln("  both scenarios are pinned and w=$w timed out: the rest of the tail would start from the aborted basis; ending the sweep")
                 break
             end
+            # A refine-only climb step that timed out would be retried forever (the next w is
+            # computed from prev, which did not move): the point is out of reach from here,
+            # and so is everything above it -- end the walk and leave the scenarios unpinned.
+            if stop_after_refine && !haskey(refined, "S1")
+                pln("  refine-only climb: w=$w timed out (LP_TIME_LIMIT); the crossing is out of reach from this basis -- ending the walk, S1/S2 NOT pinned")
+                break
+            end
             continue
         end
         push!(results, r)
