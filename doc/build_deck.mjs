@@ -143,7 +143,7 @@ function aggregateSlide() {
     rowH: 0.235, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle",
   });
   const unbr = [ !L.S1 && "S1", !L.S2 && "S2" ].filter(Boolean).join("/");
-  slide.addText(`Exact-by-separability aggregation over ${L.n_regions} disjoint areas (13 countries + FR/IT/SE/PL NUTS-1; country-level Poland excluded in favour of its 7 NUTS-1): at a common λ the sum of the regional optima IS the combined optimum. Summed at the union of swept w-values inside the range every area covers (${L.n_w} points; an area without that exact λ is log-interpolated between its adjacent sweep points — the λ-table rule).` +
+  slide.addText(`Exact-by-separability aggregation over ${L.n_regions} disjoint areas (15 countries + FR/IT/SE/PL NUTS-1; country-level Poland excluded in favour of its 7 NUTS-1): at a common λ the sum of the regional optima IS the combined optimum. Summed at the union of swept w-values inside the range every area covers (${L.n_w} points; an area without that exact λ is log-interpolated between its adjacent sweep points — the λ-table rule).` +
     ` The Δ columns state the aggregate S1/S2 gain in native units and need no λ; λ only prices them (placeholder €100,000 per location).` +
     (unbr ? ` ${unbr} not bracketed: the aggregate baseline (★) lies outside the common λ range, which is capped by the slowest regions' sweep limits (LINEAR: Belgium & FRI time out above w = 0.2) — extending those two sweeps closes it; final frontier segment to follow.` : ""),
     { x: 0.5, y: 6.9, w: 12.33, h: 0.55, fontSize: 8.3, italic: true, color: MUTED, fontFace: "Calibri" });
@@ -217,23 +217,22 @@ function statusSlide() {
   // a one-line record of what was dropped, so the reviewers who asked for it see the answer.
   col(0.4, 6.2, GREEN, "F0F6F2", "Implemented ✓", [
     "NETWORK per landbody + REGION EXCLUSION (>50% of inhabitant locations unreachable → NUTS region dropped, population AND candidates): ITG mean travel 22.3 → 4.9 min; Azores/Madeira out, Portugal baseline travel −62%. A DATA gap no longer ranks as headroom (p8)",
-    "Tabula-rasa LP allocation + λ-sweep → Pareto curve of #locations vs travel (Option D); p-median notation (x = assignment, y = facility)",
-    "S1 (same #, ↓travel) · S2 (same travel, ↓#) · S3 full frontier — S1/S2 interpolated onto the frontier, stated in NATIVE units first, € second (p60–61)",
+    "OECD-checked pharmacy lists (7 Sep): Italy 20,635 geolocated (was ESPON 12,991; ITF 1,951 → 4,955), Hungary new (3,094), Finland back in (797; the June reader issue is gone on GeoDMS 20.19) — 44 areas swept, Italy's five rebuilt from the network up",
+    "S1/S2 pinned by bisection (#52): within max(1, 0.2%) of today's count / 0.2% of today's travel in 87 of 88 sweeps (country-level Poland LINEAR, the largest LP, keeps its 1.6%-off grid point); the snap that put S1 up to 32% off and S1 = S2 in 5 areas is gone, and the sweep no longer burns hours on time-outs beyond S2",
+    "Tabula-rasa LP allocation + λ-sweep → Pareto curve of #locations vs travel (Option D), p-median notation; S1 (same #, ↓travel) · S2 (same travel, ↓#) · S3 full frontier, in NATIVE units first, € second (p62–63)",
     "Lewis's 6 descriptive indicators per country and key NUTS1, catchments by ROAD travel time — ahead of the model (p3–6)",
-    "Candidates = ≥50-pop cells ∪ pharmacy cells · clients = FULL population · adapted logit (25/10) — all 42 areas swept incl. Poland + 7 NUTS-1",
-    "Soft coverage (Σx ≤ 1, unserved priced at BIG on BOTH sides): every region brackets S1 & S2; baseline coverage-consistent",
-    "Aggregated frontier over 41 disjoint areas (exact by separability), bracketing S1 and S2 for both functions (p59)",
-    "Improvement rectangle (raw + relative), diagonal crossing + λ, point-cloud with projections; ranked lists by policy typology, free of coverage artefacts (ITF #1 on an UNCHANGED value)",
-    "REGIO review worked in: choice set (p9), λ-tangency (p10), logistic parametrised (p64), bounds on TOTAL cost only (p12), €100,000 a placeholder everywhere",
-    "Large-region subsampling keeps EVERY baseline location, so the frontier still dominates the baseline",
+    "Candidates = ≥50-pop cells ∪ pharmacy cells (large regions subsampled, EVERY baseline location kept) · clients = FULL population · adapted logit (25/10) · soft coverage (Σx ≤ 1, unserved at BIG on BOTH sides): every area brackets S1 & S2",
+    "Aggregated frontier over 43 disjoint areas (exact by separability), bracketing S1 and S2 for both functions (p61)",
+    "Improvement rectangle (raw + relative), diagonal crossing + λ, point-cloud with projections; ranked lists by policy typology — on the OECD data the sparse Nordic and Baltic areas lead (SE1, Norway, Lithuania, SE2, Estonia); the Italian lead of earlier decks was missing data",
+    "REGIO review worked in: choice set (p9), λ-tangency (p10), logistic parametrised (p66), bounds on TOTAL cost only (p12), €100,000 a placeholder everywhere",
   ]);
   col(6.75, 6.2, SLATE, "F2F5F8", "Remaining ○ — in priority order  (◐ = in progress)", [
-    "◐ Communicate λ intuitively (person-minutes per location): the tangency slide (p10) and the native-unit S1/S2 tables (p60–61) are the first steps; the € labels stay placeholders until a is calibrated",
-    "Widen the CANDIDATE radius per client (5 → 10 nearest EXISTING), one area first — measured to bind at S2 (SE2: 10.2% of residents one closure from stranding, p9)",
+    "◐ Communicate λ intuitively (person-minutes per location): the tangency slide (p10) and the native-unit S1/S2 tables (p62–63) are the first steps; the € labels stay placeholders until a is calibrated",
+    "Widen the CANDIDATE radius per client (5 → 10 nearest EXISTING), one area first — measured to bind at S2 (Norway: 18.6% of residents one closure from stranding, SE1 12.7%, SE2 12.0%; p9)",
     "RSSV spatial-voting candidate reduction (Avignon CpLP paper, Figueiredo & Genre-Grandpierre) — a principled replacement for the stride subsample on the largest regions; needs the wider radius first",
-    "Exact soft-coverage p-median MIP to pin S1/S2 at p = baseline — also replaces the nearest-grid-point snap that makes S1 = S2 in 5 areas (FRC/FRH/FRJ/FRK/SE2, p9)",
+    "Exact soft-coverage p-median MIP at p = baseline — S1 is now pinned to ±1 facility by bisection (#52), so this is about the integrality gap, no longer about the snap",
     "Territorial coverage constraints (≥1 pharmacy per NUTS unit; multi-scale) as a STRUCTURED equity lever alongside the soft-coverage BIG penalty",
-    "DECIDE: rescale the logistic so c(0) and c(60) match the linear (BN, 23 July) — less degeneracy, but it changes the equity weighting the logistic was chosen for (p64)",
+    "DECIDE: rescale the logistic so c(0) and c(60) match the linear (BN, 23 July) — less degeneracy, but it changes the equity weighting the logistic was chosen for (p66)",
     "Calibrate the real pharmacy fixed cost a (schools: 99 699 + 3 277.5x) — only the € labels move, nothing else in the deck",
     "Capacity / max-catchment cap constraint (CpMP; the Avignon strengthened ILP shows how to solve it)",
     "Counterfactuals: −10% pop · replace a known X% · choose which X to close (hard)",
@@ -245,7 +244,7 @@ function statusSlide() {
   ], { x: 0.45, y: 6.2, w: 12.5, h: 0.45, fontSize: 9, fontFace: "Calibri", valign: "top" });
   slide.addText([
     { text: "Open questions for the group:  ", options: { bold: true, color: NAVY } },
-    { text: "widen the choice set before RSSV (p9)?  ·  logistic vs linear, and BN's rescaling (p64)?  ·  territorial coverage constraints for equity, or keep soft coverage?", options: { color: MUTED } },
+    { text: "widen the choice set before RSSV (p9)?  ·  logistic vs linear, and BN's rescaling (p66)?  ·  territorial coverage constraints for equity, or keep soft coverage?", options: { color: MUTED } },
   ], { x: 0.45, y: 6.68, w: 12.5, h: 0.5, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
@@ -435,7 +434,7 @@ function titleSlide() {
   slide.addText("NETWORKMODEL_EU  ·  SERVICE ACCESS  ·  PHARMACIES", { x: 1.0, y: 1.55, w: 11.5, h: 0.32, fontSize: 12, bold: true, color: MULTI, charSpacing: 2, fontFace: "Calibri" });
   slide.addText("Pharmacy locations across EU regions: how far is today's network from the frontier?",
     { x: 1.0, y: 1.95, w: 11.5, h: 1.45, fontSize: 32, bold: true, color: INK, fontFace: "Georgia", valign: "top" });
-  slide.addText("A λ-sweep over a facility-location LP on the road network — what exists today, by how much it could improve at equal cost or equal accessibility, and which of 42 study areas have the most to gain",
+  slide.addText("A λ-sweep over a facility-location LP on the road network — what exists today, by how much it could improve at equal cost or equal accessibility, and which of 44 study areas have the most to gain",
     { x: 1.0, y: 3.5, w: 11.5, h: 0.95, fontSize: 15, color: NAVY, fontFace: "Calibri", valign: "top" });
   slide.addText([
     { text: "Lola Dekhuijzen  ·  Maarten Hilferink", options: { bold: true, color: INK, breakLine: true } },
@@ -457,10 +456,10 @@ function agendaSlide() {
   const items = [
     ["The current distribution", "What exists today: residents per pharmacy and per 1 km² location, per country and key NUTS1, catchments by road (p3–6).", false],
     ["Scope & method", "By how much can accessibility improve at equal cost, or cost fall at equal accessibility? A tabula-rasa LP allocation on the road OD, swept over λ, answers that as a frontier of #locations vs travel (p7–14). Cost and accessibility trade off continuously under exogenous demand — there is no trilemma to resolve.", false],
-    ["Scenario results", "S1 (same #, less travel) and S2 (same travel, fewer locations) per area, quantified first in native units — locations and person-minutes, which need no λ — and only then in € (p16–61).", false],
-    ["Travel-cost function", "Linear vs the logistic (midpoint 25 / scale 10), its compressed λ-range, and BN's proposal to rescale it (p64).", true],
+    ["Scenario results", "S1 (same #, less travel) and S2 (same travel, fewer locations) per area, quantified first in native units — locations and person-minutes, which need no λ — and only then in € (p16–63).", false],
+    ["Travel-cost function", "Linear vs the logistic (midpoint 25 / scale 10), its compressed λ-range, and BN's proposal to rescale it (p66).", true],
     ["Cap / threshold ladder", "A proposed shortcut to the λ-sweep, explored on the Netherlands — catchments vary so widely that realistic min/max bounds cannot be set. Dropped; p15 kept as the record.", false],
-    ["Choice set, open items & roadmap", "Where the 5-nearest choice set binds and why widening it precedes RSSV (p9); exact S1/S2 pinning; what remains, in priority order, and what was dropped (p63).", false],
+    ["Choice set, open items & roadmap", "Where the 5-nearest choice set binds and why widening it precedes RSSV (p9); exact S1/S2 pinning; what remains, in priority order, and what was dropped (p65).", false],
   ];
   const y0 = 1.6, dy = 0.86;
   items.forEach((it, i) => {
@@ -485,7 +484,7 @@ function agendaSlide() {
 // S2: λ where the multistart travel cost equals the baseline travel. Per travel-cost
 // function (LINEAR / LOGISTIC). λ = w · FACILITY_MIN_COSTS (settings.jl).
 // opts: {eyebrow, titleRest, col0, label(e), pick(e), labelWide}.
-const COUNTRY_SET = new Set(["Austria", "Belgium", "Czechia", "Denmark", "Estonia", "France", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Netherlands", "Norway", "Poland", "Portugal", "Slovenia", "Sweden"]);
+const COUNTRY_SET = new Set(["Austria", "Belgium", "Czechia", "Denmark", "Estonia", "Finland", "France", "Hungary", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Netherlands", "Norway", "Poland", "Portugal", "Slovenia", "Sweden"]);
 function lambdaTableSlide(opts) {
   const FMIN = 100000;  // FACILITY_MIN_COSTS (settings.jl); λ = w · FMIN — a PLACEHOLDER, see the footnote
   const byW = (rows) => [...(rows || [])].filter((r) => r.w > 0).sort((a, b) => a.w - b.w);
@@ -608,7 +607,7 @@ function optProblemSlide() {
   slide.addShape(pptx.ShapeType.roundRect, { x: 7.45, y: 4.22, w: 5.4, h: 0.78, rectRadius: 0.05, fill: { color: "FBF5EA" }, line: { color: "B9791C", width: 1 } });
   slide.addText([
     { text: "⚠ For review:  ", options: { bold: true, color: "B9791C" } },
-    { text: "each client's OD holds every candidate out to its 5 nearest EXISTING pharmacies (max_nr_facilities_per_client) — it shrinks the LP but limits reassignment choice, and it can bind at S2-level facility counts. Clients still unreachable within t_max are priced at BIG on BOTH sides — stranded in the baseline, optionally stranded in the LP — so ★ and frontier stay directly comparable. After the scope rules on p8 that is only 0.012% of residents: 34 of 41 areas have none at all, the largest remainder is SE2 with 165 cells / 14,210 residents (0.32%), and these are genuinely remote cells rather than a coverage artefact. Feedback welcome.", options: { color: INK } },
+    { text: "each client's OD holds every candidate out to its 5 nearest EXISTING pharmacies (max_nr_facilities_per_client) — it shrinks the LP but limits reassignment choice, and it can bind at S2-level facility counts. Clients still unreachable within t_max are priced at BIG on BOTH sides — stranded in the baseline, optionally stranded in the LP — so ★ and frontier stay directly comparable. After the scope rules on p8 that is only 0.012% of residents: 36 of 43 areas have none at all, the largest remainder is SE2 with 165 cells / 14,210 residents (0.32%), and these are genuinely remote cells rather than a coverage artefact. Feedback welcome.", options: { color: INK } },
   ], { x: 7.58, y: 4.28, w: 5.16, h: 0.68, fontSize: 8.3, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 0.98 });
 
   // bottom: bounds story
@@ -638,8 +637,8 @@ function choiceSetSlide() {
   slide.addText("CHOICE SET", { x: 0.45, y: 0.3, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
   slide.addText([
     { text: "The choice set  ", options: { bold: true, color: INK } },
-    { text: "— where the 5-nearest rule binds, and why widening it comes before RSSV", options: { color: NAVY } },
-  ], { x: 0.45, y: 0.56, w: 12.5, h: 0.5, fontSize: 22, fontFace: "Georgia" });
+    { text: "— where the 5-nearest rule binds, and why widening it precedes RSSV", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.56, w: 12.5, h: 0.5, fontSize: 20, fontFace: "Georgia" });
   slide.addText("Each client is connected to every candidate cell within the road distance to its 5th-nearest EXISTING pharmacy (or 120 min). That radius holds ~70–90 candidates on average — so it is not “5 choices”, it is a radius fixed by today’s five. When the optimiser removes facilities, the radius does not grow.",
     { x: 0.45, y: 1.0, w: 12.5, h: 0.45, fontSize: 10, color: MUTED, fontFace: "Calibri", valign: "top" });
 
@@ -652,9 +651,9 @@ function choiceSetSlide() {
   };
 
   box(0.4, 4.1, "B9791C", "FBF5EA", "Where it binds — measured at S2", [
-    "SE2 at S2 (309 of 452 open): 1,730 cells / 449,261 residents — 10.2% of the population — have exactly ONE open facility left inside their radius. Closing it would strand them at BIG, so the optimiser must keep it open even where a 6th-nearest pharmacy would serve them.",
-    "ITF at S2 (519 of 1,253 open): 9.0% of residents are already stranded and a further 23.9% are one closure away — a third of the population pins the solution.",
-    "Even at S1 — same count as today, only relocated — ITF strands 1.84%: relocation moved facilities out of clients’ fixed radii.",
+    "Norway at S2 (429 of 757 open): 2,642 cells / 949,030 residents — 18.6% of the population — have exactly ONE open facility left inside their radius. Closing it would strand them at BIG, so the optimiser must keep it open even where a 6th-nearest pharmacy would serve them.",
+    "SE1 at S2 (221 of 388): 12.7% one closure away; SE2 at S2 (278 of 452): 12.0%, 529,700 residents. These are the areas the ranked lists now put on top — the sparse Nordic ones — and exactly where the radius binds hardest.",
+    "On the OECD Italian data the pressure is gone from ITF (1.8% at S2, 0% stranded; 28.6 candidates per client): its earlier 9% + 24% was the ESPON list missing three pharmacies in five. Measured on the S1/S2 pinned by bisection (#52).",
   ], "The frontier is under-estimated wherever the radius, not the geography, decides who can be served.");
 
   box(4.72, 4.1, "1E7A52", "F0F6F2", "Why widening helps", [
@@ -673,8 +672,8 @@ function choiceSetSlide() {
 
   slide.addShape(pptx.ShapeType.roundRect, { x: 0.4, y: 6.05, w: 12.75, h: 0.62, rectRadius: 0.05, fill: { color: "F2F5F8" }, line: { color: "5B6B7B", width: 1 } });
   slide.addText([
-    { text: "Also found: ", options: { bold: true, color: "B9791C" } },
-    { text: "S1 and S2 are read off the nearest swept λ grid point. In 5 of 42 areas (FRC, FRH, FRJ, FRK, SE2) both scenarios snap to the SAME point — SE2’s S1 bracket (0.2, 0.5) and S2 bracket (0.5, 1.0) both resolve to w = 0.5, so its delivered S1 has 309 open, not the baseline 452. The interpolated tables on p60–61 are unaffected; the exported S1/S2 location files and the exact-MIP step are where this needs a refinement step rather than a snap.", options: { color: INK } },
+    { text: "Fixed (#52): ", options: { bold: true, color: "1E7A52" } },
+    { text: "S1 and S2 used to be read off the nearest swept λ grid point — a coarse read anywhere (S1 was more than 10% off today’s count in 22 of 74 sweeps) and in 5 areas the same point for both (SE2’s delivered S1 had 309 open, not 452). Both are now pinned by bisection the moment their bracket closes, to within max(1, 0.2%) of today’s count and 0.2% of today’s travel — in 87 of 88 sweeps; the exception is country-level Poland LINEAR (S1 1.6% off), the largest LP, whose solves near S1 take hours each and whose seven NUTS-1 areas are all pinned. The exported S1/S2 location files (#45) and everything measured on them, this slide included, are on the pinned points.", options: { color: INK } },
   ], { x: 0.6, y: 6.12, w: 12.4, h: 0.52, fontSize: 8.8, fontFace: "Calibri", valign: "top" });
 }
 
@@ -707,7 +706,7 @@ function scopeSlide() {
     ["Before, one component survived per study area, so island networks — and the ferry links inside them — were discarded entirely.",
      "Sicilia and Sardegna are two separate landbodies, so at most one of them could ever be kept.",
      "No source data changed: the links were always in the TomTom extract, they were being pruned."],
-    "ITG: mean travel 22.3 → 4.9 min · unreachable residents 983,169 → 591");
+    "ITG: mean travel 22.3 → 4.9 min · unreachable residents 983,169 → 591 (on the ESPON list; 2.0 min and 1,682 on the OECD list, next box)");
 
   panel(6.9, "B9791C", "FBF5EA",
     "2 · Regions the model cannot serve at all",
@@ -720,8 +719,8 @@ function scopeSlide() {
 
   slide.addShape(pptx.ShapeType.roundRect, { x: 0.4, y: 6.05, w: 12.75, h: 0.62, rectRadius: 0.05, fill: { color: "F2F5F8" }, line: { color: "5B6B7B", width: 1 } });
   slide.addText([
-    { text: "⚠ Not comparable with the previous deck.  ", options: { bold: true, color: "B9791C" } },
-    { text: "Both rules change which residents are counted, so baselines, frontiers and the ranked improvement lists all shift. Absence of a pharmacy record is not evidence of absence of a pharmacy — excluding those regions states what we do not know, rather than asserting the strong version of it.", options: { color: INK } },
+    { text: "⚠ Not comparable with the previous deck, and Italy not with the previous one either.  ", options: { bold: true, color: "B9791C" } },
+    { text: "Both rules change which residents are counted, so baselines, frontiers and the ranked lists all shift. And since 7 Sep the Italian pharmacies are the OECD-geolocated Ministry of Health list — 20,635 instead of the ESPON shapefile's 12,991 (ITF 1,951 → 4,955): the “improvement potential” the earlier decks ranked ITF and ITG first on was mostly pharmacies missing from the DATA. Hungary (3,094, OECD-geocoded) and Finland (797) are new areas: 44 swept, 43 disjoint in the aggregate.", options: { color: INK } },
   ], { x: 0.6, y: 6.13, w: 12.4, h: 0.5, fontSize: 9.3, fontFace: "Calibri", valign: "top" });
 }
 

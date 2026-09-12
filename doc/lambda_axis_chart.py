@@ -164,7 +164,7 @@ def panel(ax, fd, fn, title, count_lim):
 def render(region, entries):
     fig, axes = plt.subplots(1, 2, figsize=(11.9, 4.2), dpi=200)
     fig.subplots_adjust(left=0.06, right=0.925, bottom=0.2, top=0.9, wspace=0.45)
-    title = "All 41 areas combined" if region == "AGGREGATE" else region
+    title = f"All {entries['LINEAR']['n_regions']} areas combined" if region == "AGGREGATE" and entries.get("LINEAR") and "n_regions" in entries["LINEAR"] else ("All areas combined" if region == "AGGREGATE" else region)
     counts = [r["n_open"] for fn in ("LINEAR", "LOGISTIC") for r in (entries.get(fn) or {}).get("rows", [])
               if r.get("n_open")]
     for fn in ("LINEAR", "LOGISTIC"):

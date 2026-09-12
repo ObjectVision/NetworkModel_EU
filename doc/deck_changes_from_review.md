@@ -8,7 +8,9 @@ the review was made against, and some of them were already off by one or two (th
 p59–60 there, the aggregate p58, the roadmap p62, the logistic p63). **Since §2 and §9 landed the
 deck has 72 slides**; the authoritative numbering is: descriptives p3–6, model p7, scope p8,
 choice set p9, tangent diagram p10, Scenarios p11, multistart p12, cap ladder p15, NL p16,
-aggregate p59, S1/S2 tables p60–61, roadmap p63, logistic p64, analysis p65–72.
+aggregate p59, S1/S2 tables p60–61, roadmap p63, logistic p64, analysis p65–72 — and since
+Hungary and Finland joined (12 Sep, 76 slides): aggregate p61, S1/S2 tables p62–63, roadmap p65,
+logistic p66, analysis p67–76.
 
 Status legend: **DONE** = already in the deck · **PROPOSE** = a concrete edit · **DECIDE** = needs
 the group · **ANSWER** = a question we can answer from the results.
@@ -129,9 +131,9 @@ values** showing the trade-off and its optimum, so the reader sees how the front
 **S1/S2 snap to the nearest swept grid point.** In **5 of 42 areas** (FRC, FRH, FRJ, FRK, SE2)
 both scenarios resolve to the *same* λ point — SE2's S1 bracket (0.2, 0.5) and S2 bracket
 (0.5, 1.0) both snap to w = 0.5, so its delivered **S1 has 309 open facilities, not the baseline
-452**. The interpolated λ tables (p57–58) are unaffected because they interpolate; the exported
-S1/S2 **location files** (#45) and the planned exact-MIP step are where a refinement step is
-needed instead of a snap. Flagged on p5; deserves its own issue.
+452**. Filed as #52 and **fixed 10–12 Sep**: both scenarios are pinned by bisection the moment
+their bracket closes; measured over all 74 sweeps the snap had put S1 more than 10 % off in 22
+of them, so the defect was general, not five areas. The p9 box now records the fix.
 
 ---
 

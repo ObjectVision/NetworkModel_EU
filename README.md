@@ -1,7 +1,7 @@
 # NetworkModel_EU — `ServiceAccess` branch
 
 Where should a service network's facilities be, and how far is today's network from that?
-This branch answers it for **pharmacies** across 42 European study areas: a road-network
+This branch answers it for **pharmacies** across 44 European study areas: a road-network
 origin–destination matrix from GeoDMS, a facility-location LP in Julia swept over the price
 of a location, and a Pareto frontier of *number of locations* against *population travel
 cost* — with today's network placed on it.
@@ -180,21 +180,23 @@ reaches each point.
    must not rank as policy headroom.
 
 After both rules, residents still unreachable within 120 min are 0.012 % of the total; 34 of
-41 areas have none.
+43 areas have none.
 
 ### The choice set, and where it binds
 
 Each client's OD row holds every candidate out to the road time of its 5th-nearest
 *existing* pharmacy — ~70–90 candidates on average, a radius fixed by today's five. When the
 optimiser removes facilities the radius does not grow, so at S2-level counts it can bind:
-SE2 at S2 has 10.2 % of residents with exactly one open facility left in their radius; ITF a
-third of the population one closure from stranding. The frontier is under-estimated wherever
+Norway at S2 has 18.6 % of residents with exactly one open facility left in their radius,
+SE1 12.7 %, SE2 12.0 % — measured on the S1/S2 pinned by bisection (#52). On the OECD
+Italian list the pressure has gone from ITF (1.8 % at S2, nobody stranded; its earlier "a
+third of the population" was the ESPON list). The frontier is under-estimated wherever
 the radius rather than the geography decides who can be served. Widening the candidate radius
 is the first remaining item on the roadmap.
 
 ### Aggregation and metrics
 
-- **Aggregated frontier** over the 41 disjoint areas (13 countries + FR/IT/SE/PL NUTS-1;
+- **Aggregated frontier** over the 43 disjoint areas (15 countries + FR/IT/SE/PL NUTS-1;
   country-level Poland dropped in favour of its 7 NUTS-1): at a common λ the sum of the
   regional optima *is* the combined optimum (separability), summed at the union of swept
   w-values inside the range every area covers, log-interpolated where an area lacks the exact λ.
@@ -217,85 +219,94 @@ bounds cannot be set. The λ-sweep is the general method.
 ## Results (September 2026)
 
 From `doc/lambda_sweep5.pptx`; every number below has a LOGISTIC twin in the deck.
-Two method changes since the previous deck — landbody-complete networks and region
-exclusion — make these figures **not comparable with earlier ones**.
+Three changes since the previous deck make these figures **not comparable with earlier
+ones**: landbody-complete networks and region exclusion (method), and the OECD-checked pharmacy
+lists of 7 September (data; #53). The Italian pharmacies are now the Ministry of Health list
+geolocated by the OECD — 20,635 instead of the ESPON shapefile's 12,991, ITF alone 1,951 →
+4,955 — so the "improvement potential" that earlier decks ranked ITF and ITG first on was
+mostly pharmacies missing from the data. Hungary (3,094, OECD-geocoded) and Finland (797; #44)
+are new areas. S1 and S2 are pinned by bisection (#52) in 87 of 88 sweeps; the exception is
+country-level Poland LINEAR, whose S1 keeps its grid point 1.6 % above today's count.
 
 ### Today's network
 
-Residents per pharmacy range from ~2 200 (Lithuania) to ~10 700 (Denmark); per 1 km² location
-from ~3 800 (Latvia) to ~12 300 (Denmark). Within-country spread is wide everywhere (NL:
-p10 4 394, median 10 167, max 34 905 residents per location). France has 660 "empty"
-pharmacies — never the road-nearest for any populated cell. Full tables: deck p3–6,
-`doc/pharmacy_descriptives*.csv`.
+Residents per pharmacy range from ~2 200 (Lithuania) to ~10 700 (Denmark); Italy is now 2 848
+(was 4 520 on the ESPON list), Hungary 3 119, Finland 6 876. Per 1 km² location from ~3 800
+(Latvia) to ~12 300 (Denmark). Within-country spread is wide everywhere (NL: p10 4 394, median
+10 167, max 34 905 residents per location). France has 660 "empty" pharmacies — never the
+road-nearest for any populated cell. Full tables: deck p3–6, `doc/pharmacy_descriptives*.csv`.
 
-### The aggregated frontier — 41 areas, 43 320 pharmacy cells today
+### The aggregated frontier — 43 areas, 51 350 pharmacy cells today
 
 ![Aggregated frontier, LINEAR](doc/img/AGGREGATE_LINEAR.png)
 
 | | point | w | locations | Δ locations | Δ travel |
 |---|---|---|---|---|---|
-| LINEAR | **S1** same count | 0.130 | 43 357 | +0 % | **−26 %** |
-| | **S2** same travel | 0.227 | 28 609 | **−34 %** | +0 % |
-| | fewest swept | 0.5 | 15 808 | −64 % | +55 % |
-| LOGISTIC | **S1** same count | 0.00130 | 44 416 | +3 % | **−13 %** |
-| | **S2** same travel | 0.00282 | 26 673 | **−38 %** | −0 % |
+| LINEAR | **S1** same count | 0.109 | 51 573 | +0 % | **−23 %** |
+| | **S2** same travel | 0.180 | 35 809 | **−30 %** | +0 % |
+| LOGISTIC | **S1** same count | 0.00113 | 51 382 | +0 % | **−10 %** |
+| | **S2** same travel | 0.00212 | 33 568 | **−35 %** | −0 % |
 
-Read: relocating today's pharmacies without adding any would cut population travel by about a
-quarter (linear); holding travel where it is, about a third of the locations are surplus.
+Read: relocating today's pharmacies without adding any would cut population travel by
+about a quarter (linear); holding travel where it is, about 30 % of the locations are surplus.
+Both a few points below the previous deck: Italy on its full pharmacy list sits closer to its
+frontier than the ESPON list made it look.
 
 ### The same sweep read along λ
 
-![The sweep along λ: travel-cost bounds and facility count, all 41 areas](doc/img/lambda_axis_AGGREGATE.png)
+![The sweep along λ: travel-cost bounds and facility count, all 43 areas](doc/img/lambda_axis_AGGREGATE.png)
 
 The frontier hides λ. Read along it instead — λ on a log axis, the two travel-cost bounds on the
 left (LP relaxation below, multistart integer solution above) and the facility count on the right —
-and the sweep's dynamics show: the count collapses over two decades of λ (LINEAR: from ~433 000
-below €100 per location to ~43 000 at S1) while the travel bounds stay on top of each other, and
-they separate only near S2. The dotted lines are the baseline, so S2 is where travel crosses its
-baseline and S1 where the count crosses its; the guides are the interpolated crossings (the same
-rule as the S1/S2 tables), each labelled with the quantity that defines it — S1 with its facility
-count, today's 43 320, and the facility cost λ·N at that λ; S2 with its travel cost, today's — and
-the count axis is logarithmic and shared by the two panels, so S1 sits at the same height under
-both cost functions. The two count curves coincide by construction —
-`n_open = round(Σy*)` — the certified bound is on *total* cost, not on the count; the informative
-gap is the one on the left axis. Under LOGISTIC the whole picture is compressed into λ ∈ [€10, €2 000],
-the degeneracy noted on deck p64. Per area: `doc/lambda_axis_chart.py <REGION>`; the Netherlands
-version is in the deck (p66).
+and the sweep's dynamics show: the count collapses over two decades of λ while the travel bounds
+stay on top of each other, and they separate only near S2. The dotted lines are the baseline, so
+S2 is where travel crosses its baseline and S1 where the count crosses its; the guides are the
+interpolated crossings (the same rule as the S1/S2 tables), each labelled with the quantity that
+defines it — S1 with its facility count, today's 51 350, and the facility cost λ·N at that λ; S2
+with its travel cost, today's — and the count axis is logarithmic and shared by the two panels,
+so S1 sits at the same height under both cost functions. The two count curves coincide by
+construction — `n_open = round(Σy*)` — the certified bound is on *total* cost, not on the count;
+the informative gap is the one on the left axis. Under LOGISTIC the whole picture is compressed
+into λ ∈ [€10, €2 000], the degeneracy noted on deck p66. Per area: `doc/lambda_axis_chart.py
+<REGION>`; the Netherlands version is in the deck (p68).
 
 ### Per country — S1 and S2 (LINEAR; LOGISTIC in the deck)
 
 | country | today | S1 · Δ travel | S2 · Δ locations | λ S1 | λ S2 |
 |---|---|---|---|---|---|
-| Netherlands | 1 615 | −12.1 M min · −19.9 % | −443 · −27.4 % | 24 532 | 34 329 |
-| Belgium | 2 958 | −3.2 M min · −14.9 % | −520 · −17.6 % | 5 666 | 7 340 |
-| Denmark | 466 | −5.5 M min · −14.8 % | −133 · −28.6 % | 37 082 | 55 960 |
-| Norway | 755 | −10.3 M min · −25.3 % | −326 · −43.2 % | 23 174 | 49 999 |
-| Austria | 1 129 | −8.8 M min · −20.4 % | −373 · −33.0 % | 18 361 | 31 027 |
-| Portugal (mainland) | 1 882 | −7.4 M min · −21.6 % | −527 · −28.0 % | 10 473 | 17 033 |
+| Netherlands | 1 615 | −12.8 M min · −21.1 % | −443 · −27.4 % | 24 319 | 34 297 |
+| Belgium | 2 958 | −3.4 M min · −15.6 % | −520 · −17.6 % | 5 652 | 7 353 |
+| Denmark | 466 | −5.9 M min · −15.8 % | −133 · −28.6 % | 35 580 | 55 947 |
+| Norway | 755 | −10.6 M min · −26.0 % | −326 · −43.2 % | 22 633 | 49 999 |
+| Austria | 1 129 | −8.9 M min · −20.7 % | −373 · −33.1 % | 18 294 | 31 095 |
+| Portugal (mainland) | 1 882 | −7.6 M min · −22.1 % | −571 · −30.3 % | 10 355 | 17 150 |
 | Poland | 7 027 | −23.7 M min · −17.8 % | −1 883 · −26.8 % | 10 254 | 15 809 |
-| ITF · Sud | 1 253 | −40.7 M min · −45.8 % | −732 · −58.5 % | 30 189 | 101 789 |
-| ITG · Isole | 891 | −15.0 M min · −49.1 % | −474 · −53.2 % | 18 626 | 56 207 |
-| FRI · Nouvelle-Aquitaine | 1 584 | −2.4 M min · −8.7 % | −296 · −18.7 % | 8 368 | 10 901 |
+| Hungary | 1 864 | −6.8 M min · −19.5 % | −481 · −25.8 % | 11 682 | 17 208 |
+| Finland | 719 | −4.7 M min · −13.5 % | −178 · −24.7 % | 21 768 | 33 003 |
+| ITF · Sud | 3 187 | −7.5 M min · −27.8 % | −818 · −25.7 % | 7 159 | 11 618 |
+| ITG · Isole | 1 431 | −3.7 M min · −29.3 % | −359 · −25.1 % | 8 157 | 13 131 |
+| SE1 · Östra Sverige | 387 | −6.3 M min · −27.2 % | −166 · −43.0 % | 27 899 | 54 063 |
+| FRI · Nouvelle-Aquitaine | 1 583 | −3.8 M min · −14.2 % | −232 · −14.7 % | 8 824 | 10 268 |
 
-All 14 countries and 28 NUTS-1 regions: deck p60–61, `doc/frontier_metrics_interp3.csv`.
+All 16 countries and 28 NUTS-1 regions: deck p62–63, `doc/frontier_metrics_interp3.csv`.
 λ in € through the placeholder only.
 
 ### Which areas have the most to gain
 
 ![Improvement potential relative to baseline, ranked, LINEAR](doc/img/rank_area_rel_LINEAR.png)
 
-Southern Italy (ITF, ITG) stands far above the field — a quarter of the baseline
-`count × travel` rectangle — followed by the other Italian regions, Norway, Lithuania and
-eastern Sweden; the French regions and Belgium close the list. The ranking is the same under
-LOGISTIC at the top. It does **not** follow regulatory regime: the largest gaps span both
-high-formalisation (Italy, Portugal, PL8) and low-formalisation systems (Sweden, Norway, NL) —
-geography dominates regime. It is free of coverage artefacts: ITF ranks first on an unchanged
-value after the two scope rules.
+The sparse Nordic and Baltic areas lead — SE1, Norway, Lithuania, SE2, Estonia — at about
+8–12 % of the baseline `count × travel` rectangle; ITG and ITF follow at 7 %, and under
+LOGISTIC the Italian areas sit in the bottom ten. On the ESPON list ITG and ITF had stood far
+above the field (38 % and 27 %); that was the list missing three pharmacies in five in the
+south, not headroom. The ranking does **not** follow regulatory regime: the largest gaps are
+low-formalisation systems (Sweden, Norway, Lithuania) with high-formalisation Austria and
+Estonia among them — geography dominates regime.
 
 ### How tight is the bound
 
 The multistart upper bound sits +0–18 % above the LP lower bound under LINEAR and +0–4.7 %
-under LOGISTIC; for most areas the two are now nearly a line (deck p62). Rounding costs most
+under LOGISTIC; for most areas the two are now nearly a line (deck p64). Rounding costs most
 where stranding is dear — the sparse Swedish regions keep the largest gaps.
 
 ### A single area
@@ -303,7 +314,8 @@ where stranding is dear — the sparse Swedish regions keep the largest gaps.
 ![Netherlands, LINEAR](doc/img/Netherlands_LINEAR.png)
 
 Grey dashed = LP lower bound, blue = multistart upper bound, amber = log₁₀ λ; ★ today,
-◆ S1, ■ S2. Netherlands LINEAR: 1 615 cells → S1 at 1 334 open (w 0.30), S2 at 1 180 (w 0.34).
+◆ S1, ■ S2. Netherlands LINEAR: 1 615 cells → S1 pinned at 1 618 open (w 0.243), S2 at
+1 174 (w 0.342).
 
 ---
 
@@ -342,22 +354,25 @@ Confirmed 4 September 2026 — nothing is mid-flight.
 **Implemented**: landbody-complete networks and region exclusion; the tabula-rasa LP +
 λ-sweep in p-median notation; S1/S2/S3 in native units; the six descriptive indicators per
 country and key NUTS-1; candidates = ≥ 50-pop cells ∪ pharmacy cells, clients = full
-population, adapted logit (25/10); soft coverage on both sides; all 42 areas swept including
+population, adapted logit (25/10); soft coverage on both sides; all 44 areas swept including
 Poland and its 7 NUTS-1; the aggregated frontier; the improvement metrics and ranked lists;
 the REGIO review worked in.
 
 **Remaining, in priority order**: communicate λ intuitively (person-minutes per location);
 widen the candidate radius per client (5 → 10 nearest existing), one area first; RSSV
 spatial-voting candidate reduction (Albuquerque, Figueiredo & Genre-Grandpierre, SSRN
-7133060) to replace the stride subsample; an exact soft-coverage p-median MIP to pin S1/S2 at
-the baseline count (also replaces the nearest-grid-point snap that makes S1 = S2 in FRC, FRH,
-FRJ, FRK, SE2); territorial coverage constraints as a structured equity lever; decide the
+7133060) to replace the stride subsample; an exact soft-coverage p-median MIP at
+the baseline count (S1 is pinned to ±1 facility by bisection since #52, so this is about the
+integrality gap); territorial coverage constraints as a structured equity lever; decide the
 logistic rescaling; calibrate the real fixed cost; capacity caps; counterfactuals.
 
 **Not pursued**: the catchment-cap ladder; age-weighted demand; candidate cells plus
 neighbours; urban/non-urban split; flat-then-linear cost; pharmacist-based caps.
 
-Issues: [#45](https://github.com/ObjectVision/NetworkModel_EU/issues/45) S1/S2 locations,
+Issues: [#44](https://github.com/ObjectVision/NetworkModel_EU/issues/44) Finland's GeoParquet,
+[#45](https://github.com/ObjectVision/NetworkModel_EU/issues/45) S1/S2 locations,
 [#47](https://github.com/ObjectVision/NetworkModel_EU/issues/47) the rounding algorithm,
 [#48](https://github.com/ObjectVision/NetworkModel_EU/issues/48) frontier data,
-[#49](https://github.com/ObjectVision/NetworkModel_EU/issues/49) region exclusion.
+[#49](https://github.com/ObjectVision/NetworkModel_EU/issues/49) region exclusion,
+[#52](https://github.com/ObjectVision/NetworkModel_EU/issues/52) S1/S2 pinned by bisection,
+[#53](https://github.com/ObjectVision/NetworkModel_EU/issues/53) the OECD Italy and Hungary lists.
