@@ -810,6 +810,32 @@ function multistartSlide() {
     { x: 0.5, y: 6.95, w: 12.33, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 
+// Maps slide after an area's results slide, where nl_maps.jl + nl_maps.py rendered one
+// (doc/charts/maps_<region>_LINEAR.png: travel time to the nearest open pharmacy per 1-km
+// client cell, baseline | S1 | S2, in the classes of Classifications.dms). Replaces the
+// hand-made GeoDMS screenshot of 21 May 2026 that merge_deck.ps1 used to carry over.
+function mapsSlide(e) {
+  const p = join(__dir, "charts", `maps_${e.region}_LINEAR.png`);
+  if (!existsSync(p)) return;
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+  slide.addText(e.title, { x: 0.45, y: 0.26, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText([
+    { text: e.name + "  ", options: { bold: true, color: INK } },
+    { text: "— travel time to the nearest open pharmacy: today, S1, S2", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.52, w: 12.4, h: 0.5, fontSize: 22, fontFace: "Georgia" });
+  const L = e.func.LINEAR, s1 = L.scen.S1, s2 = L.scen.S2;
+  slide.addText([
+    { text: "LINEAR cost, pinned scenarios (#52).  ", options: { bold: true, color: NAVY } },
+    { text: `Each 1-km client cell coloured by its road travel time to the nearest OPEN pharmacy, in the classes of the model's own classification (0–2 … 30–60, > 60 min). ` +
+            `S1 keeps today's count (${s1 ? s1.n_open.toLocaleString() : "—"} open) and moves pharmacies where they cut travel most; S2 keeps today's travel with ${s2 ? s2.n_open.toLocaleString() : "—"} open. ` +
+            `A cell with no open pharmacy among its five nearest candidates is stranded (marked) and priced at BIG in the sweep.`, options: { color: MUTED } },
+  ], { x: 0.45, y: 1.05, w: 12.4, h: 0.5, fontSize: 9.5, fontFace: "Calibri", valign: "top" });
+  slide.addImage({ path: p, x: 0.45, y: 1.6, w: 12.4, h: 5.0 });
+  slide.addText("Means are population-weighted, a stranded cell at the 120-min cutoff. From the arrows the sweep writes for the baseline and the pinned S1/S2 (lambda_sweep/LINEAR/{baseline,S1,S2}/traveltime.arrow); doc/nl_maps.jl → doc/nl_maps.py.",
+    { x: 0.45, y: 6.75, w: 12.4, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
+}
+
 let regions = data;
 if (only) regions = data.filter((e) => e.region === only);
 if (!only && !args.includes("--no-summary")) {
@@ -826,7 +852,7 @@ if (!only && !args.includes("--no-summary")) {
   descriptivesSlide("pharmacy_descriptives_nuts1.csv", "loc",   "BASELINE · RESIDENTS PER 1 KM² LOCATION", "— key NUTS1 regions (FR / IT / SE)");
   capSlide("cap_results_Netherlands.csv");
 }
-regions.forEach(regionSlide);
+regions.forEach((e) => { regionSlide(e); mapsSlide(e); });
 if (!only && !args.includes("--no-summary")) {
   aggregateSlide();
   lambdaTableSlide({ eyebrow: "SCENARIOS · PER COUNTRY", titleRest: "— per country, by travel-cost function", col0: "country", pick: (e) => COUNTRY_SET.has(e.region), label: (e) => e.name });

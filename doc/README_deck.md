@@ -18,6 +18,11 @@ PYTHONIOENCODING=utf-8 python check_s1s2.py       # S1 within max(1, 1%) of toda
 
 # 2. render the per-region charts  ->  doc/charts/<region>_<FUNC>.png   (matplotlib)
 PYTHONIOENCODING=utf-8 python build_charts.py
+#    and the Netherlands maps (baseline | S1 | S2 travel time per 1-km cell, from the arrows
+#    the sweep wrote)  ->  doc/charts/maps_Netherlands_LINEAR.png; build_deck.mjs puts it on
+#    the slide after the Netherlands results slide
+julia --startup-file=no nl_maps.jl Netherlands LINEAR
+PYTHONIOENCODING=utf-8 python nl_maps.py Netherlands LINEAR
 
 # 3. assemble region + summary slides  ->  doc/region_summary.pptx      (Node + pptxgenjs)
 npm install        # first time only (installs pptxgenjs locally)

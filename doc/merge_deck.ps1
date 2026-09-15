@@ -10,7 +10,7 @@ param(
   [string]$Insert  = "$PSScriptRoot\region_summary.pptx",
   [string]$Out     = "$PSScriptRoot\lambda_sweep5.pptx",
   [int]   $KeepFirst = 4,
-  [int]   $MapsSlide = 6   # manually-authored NL maps slide in $Base; carried over after the NL results slide (0 = skip)
+  [int]   $MapsSlide = 0   # 0 = skip (default since 15 Sep 2026: build_deck.mjs generates the NL maps slide from the S1/S2 arrows); 6 = the hand-made GeoDMS screenshot of 21 May 2026 in $Base, carried over after the NL results slide
 )
 $ErrorActionPreference = "Stop"
 $copy = Join-Path $env:TEMP ("deck_merge_{0}.pptx" -f ([guid]::NewGuid().ToString("N").Substring(0,8)))
