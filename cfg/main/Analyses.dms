@@ -374,24 +374,26 @@ container Analyses: Using = "Units;Classifications;geography;sourcedata"
 			// only baseline/ClientTravelTime is valid here — its facility-openness items
 			// join existing-pharmacy ids onto this allocation's New Facility set, so use
 			// the Existing allocation's SweepResults/baseline for an open-pharmacy map.
+			// The sweep writes the baseline under every cost function it runs with; its
+			// content (nearest existing pharmacy per client) does not depend on the
+			// function, so read it from LINEAR, which every area is swept with. Until
+			// 15 Sep 2026 it read the QUADRATIC folder, left behind by the June sweeps
+			// and never rewritten since (stale for the areas rebuilt in September, absent
+			// for Hungary and Finland); the QUADRATIC scenarios went with it.
 			container SweepResults
 			{
 				parameter<string> BaselineProj := replace(ProjName, 'New', 'Existing');
 
-				container baseline  := ReadSweepResults_T(BaselineProj, 'QUADRATIC', 'baseline');
+				container baseline  := ReadSweepResults_T(BaselineProj, 'LINEAR', 'baseline');
 
 				container lin_S1    := ReadSweepResults_T(ProjName, 'LINEAR',    'S1');
 				container lin_S2    := ReadSweepResults_T(ProjName, 'LINEAR',    'S2');
-				container quad_S1   := ReadSweepResults_T(ProjName, 'QUADRATIC', 'S1');
-				container quad_S2   := ReadSweepResults_T(ProjName, 'QUADRATIC', 'S2');
 				container log_S1    := ReadSweepResults_T(ProjName, 'LOGISTIC',  'S1');
 				container log_S2    := ReadSweepResults_T(ProjName, 'LOGISTIC',  'S2');
 
 				// Travel-time impact vs baseline (negative = faster than existing situation).
 				attribute<min_f> dT_lin_S1  (Org) := lin_S1/ClientTravelTime  - baseline/ClientTravelTime;
 				attribute<min_f> dT_lin_S2  (Org) := lin_S2/ClientTravelTime  - baseline/ClientTravelTime;
-				attribute<min_f> dT_quad_S1 (Org) := quad_S1/ClientTravelTime - baseline/ClientTravelTime;
-				attribute<min_f> dT_quad_S2 (Org) := quad_S2/ClientTravelTime - baseline/ClientTravelTime;
 				attribute<min_f> dT_log_S1  (Org) := log_S1/ClientTravelTime  - baseline/ClientTravelTime;
 				attribute<min_f> dT_log_S2  (Org) := log_S2/ClientTravelTime  - baseline/ClientTravelTime;
 			}

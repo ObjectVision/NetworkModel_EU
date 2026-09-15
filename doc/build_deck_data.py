@@ -67,6 +67,28 @@ def num(s):
     return float(s)
 
 
+# doc/recompute_mean_t.jl: the mean_t of every rounded row and of S1/S2, recomputed from
+# the per-w traveltime arrows with the stranded clients at the 120-min cutoff (rows logged
+# before 15 Sep 2026 counted them at 0 min; the baseline never did). Keyed by
+# (region, func, label) with label "S1"/"S2" or the row's w rounded as the log prints it.
+MEAN_T = {}
+mp = os.path.join(ROOT, "doc", "mean_t_stranded.csv")
+if os.path.exists(mp):
+    for ln in open(mp, encoding="utf-8").read().splitlines()[1:]:
+        area, fn, label, w, _, m, _, _ = ln.split(",")
+        MEAN_T[(area, fn, label if label != "row" else round(float(w), 9))] = float(m)
+
+
+def apply_mean_t(reg, fn, rows, scen):
+    for r in rows:
+        k = (reg, fn, round(r["w"], 9))
+        if k in MEAN_T:
+            r["mean_t"] = MEAN_T[k]
+    for lbl, d in scen.items():
+        if (reg, fn, lbl) in MEAN_T:
+            d["mean_t"] = MEAN_T[(reg, fn, lbl)]
+
+
 def parse(path):
     t = open(path, encoding="utf-8", errors="replace").read().splitlines()
     base = {}
@@ -177,13 +199,25 @@ def main():
                                   key=lambda r: r["w"])
                     scen = rscen
                     base = rbase or base
+            # A tail-only run (SWEEP_TAIL_ONLY=1, logs/tail_<reg>_<FN>.log) continues the
+            # sweep's grid beyond its tail stop with a longer time limit; its rows extend the
+            # frontier at the w's the sweep did not reach. S1/S2 stay the sweep's (or refine's).
+            tp = os.path.join(ROOT, "logs", f"tail_{reg}_{fn}.log")
+            if os.path.exists(tp) and os.path.getmtime(tp) > os.path.getmtime(p):
+                _, trows, _ = parse(tp)
+                have = {round(r["w"], 9) for r in rows}
+                rows = sorted(rows + [r for r in trows if round(r["w"], 9) not in have],
+                              key=lambda r: r["w"])
+            apply_mean_t(reg, fn, rows, scen)
             entry["func"][fn] = {"baseline": base, "rows": rows, "scen": scen}
             ok = True
         if ok:
             out.append(entry)
     dest = os.path.join(ROOT, "doc", "deck_data.json")
     json.dump(out, open(dest, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-    print(f"wrote {dest}: {len(out)} regions")
+    print(f"wrote {dest}: {len(out)} regions" +
+          (f"; mean_t from mean_t_stranded.csv ({len(MEAN_T)} entries)" if MEAN_T else
+           "; mean_t as logged (no doc/mean_t_stranded.csv)"))
     for e in out:
         fs = ",".join(e["func"].keys())
         rc = {f: len(e["func"][f]["rows"]) for f in e["func"]}

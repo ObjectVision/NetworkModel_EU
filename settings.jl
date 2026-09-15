@@ -41,7 +41,10 @@ const FUNC_NAMES = Dict(
 
 parse_func(envname, default) = FUNC_NAMES[get(ENV, envname, default)]
 
-travel_func   = parse_func("TRAVEL_FUNC",   "QUADRATIC")
+# The study's cost functions are LINEAR and LOGISTIC (deck p7); every launcher sets
+# TRAVEL_FUNC explicitly. The default was QUADRATIC until 15 Sep 2026, so a bare
+# `julia lambda_sweep_simplex.jl` produced a sweep the deck never uses.
+travel_func   = parse_func("TRAVEL_FUNC",   "LINEAR")
 facility_func = parse_func("FACILITY_FUNC", "LINEAR")
 
 # LP-relaxation → integer open-set rounding rule used by the warm-start sweep.

@@ -7,8 +7,14 @@ region slides and the summary are regenerated.
 ## Run order (from `doc/`)
 
 ```bash
-# 1. parse logs/sweep_<region>_<FUNC>.log  ->  doc/deck_data.json
+# 0. after any new sweep/refine/tail run: the mean_t of every rounded row and of S1/S2,
+#    recomputed from the per-w traveltime arrows with stranded clients at the 120-min cutoff
+#    -> doc/mean_t_stranded.csv  (rows logged before 15 Sep 2026 counted them at 0 min)
+julia --startup-file=no recompute_mean_t.jl
+
+# 1. parse logs/{sweep,refine,tail}_<region>_<FUNC>.log  ->  doc/deck_data.json
 PYTHONIOENCODING=utf-8 python build_deck_data.py
+PYTHONIOENCODING=utf-8 python check_s1s2.py       # S1 within max(1, 1%) of today's count, S2 within 1% of today's travel
 
 # 2. render the per-region charts  ->  doc/charts/<region>_<FUNC>.png   (matplotlib)
 PYTHONIOENCODING=utf-8 python build_charts.py

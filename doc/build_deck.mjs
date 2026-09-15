@@ -221,7 +221,7 @@ function statusSlide() {
     "S1/S2 pinned by bisection (#52): within max(1, 0.2%) of today's count / 0.2% of today's travel in 87 of 88 sweeps (country-level Poland LINEAR, the largest LP, keeps its 1.6%-off grid point); the snap that put S1 up to 32% off and S1 = S2 in 5 areas is gone, and the sweep no longer burns hours on time-outs beyond S2",
     "Tabula-rasa LP allocation + λ-sweep → Pareto curve of #locations vs travel (Option D), p-median notation; S1 (same #, ↓travel) · S2 (same travel, ↓#) · S3 full frontier, in NATIVE units first, € second (p62–63)",
     "Lewis's 6 descriptive indicators per country and key NUTS1, catchments by ROAD travel time — ahead of the model (p3–6)",
-    "Candidates = ≥50-pop cells ∪ pharmacy cells (large regions subsampled, EVERY baseline location kept) · clients = FULL population · adapted logit (25/10) · soft coverage (Σx ≤ 1, unserved at BIG on BOTH sides): every area brackets S1 & S2",
+    "Candidates = ≥50-pop cells ∪ pharmacy cells, the FULL set in every area (the stride subsample of the July FRI/PL8 sweeps is retired, #54) · clients = FULL population · adapted logit (25/10) · soft coverage (Σx ≤ 1, unserved at BIG on BOTH sides): every area brackets S1 & S2",
     "Aggregated frontier over 43 disjoint areas (exact by separability), bracketing S1 and S2 for both functions (p61)",
     "Improvement rectangle (raw + relative), diagonal crossing + λ, point-cloud with projections; ranked lists by policy typology — on the OECD data the sparse Nordic and Baltic areas lead (SE1, Norway, Lithuania, SE2, Estonia); the Italian lead of earlier decks was missing data",
     "REGIO review worked in: choice set (p9), λ-tangency (p10), logistic parametrised (p66), bounds on TOTAL cost only (p12), €100,000 a placeholder everywhere",
@@ -229,7 +229,7 @@ function statusSlide() {
   col(6.75, 6.2, SLATE, "F2F5F8", "Remaining ○ — in priority order  (◐ = in progress)", [
     "◐ Communicate λ intuitively (person-minutes per location): the tangency slide (p10) and the native-unit S1/S2 tables (p62–63) are the first steps; the € labels stay placeholders until a is calibrated",
     "Widen the CANDIDATE radius per client (5 → 10 nearest EXISTING), one area first — measured to bind at S2 (Norway: 18.6% of residents one closure from stranding, SE1 12.7%, SE2 12.0%; p9)",
-    "RSSV spatial-voting candidate reduction (Avignon CpLP paper, Figueiredo & Genre-Grandpierre) — a principled replacement for the stride subsample on the largest regions; needs the wider radius first",
+    "RSSV spatial-voting candidate reduction (Avignon CpLP paper, Figueiredo & Genre-Grandpierre) — the principled way to make the largest LPs tractable (country-level Poland) now that the stride subsample is retired; needs the wider radius first",
     "Exact soft-coverage p-median MIP at p = baseline — S1 is now pinned to ±1 facility by bisection (#52), so this is about the integrality gap, no longer about the snap",
     "Territorial coverage constraints (≥1 pharmacy per NUTS unit; multi-scale) as a STRUCTURED equity lever alongside the soft-coverage BIG penalty",
     "DECIDE: rescale the logistic so c(0) and c(60) match the linear (BN, 23 July) — less degeneracy, but it changes the equity weighting the logistic was chosen for (p66)",

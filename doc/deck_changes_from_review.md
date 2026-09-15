@@ -135,6 +135,8 @@ both scenarios resolve to the *same* λ point — SE2's S1 bracket (0.2, 0.5) an
 their bracket closes; measured over all 74 sweeps the snap had put S1 more than 10 % off in 22
 of them, so the defect was general, not five areas. The p9 box now records the fix.
 
+**#54 (15 Sep 2026).** The FRI LINEAR bound on the region slide was two problems in one curve: the July sweep on a factor-3 candidate subsample and the September refine points on the full set. FRI is fully re-swept on the full set; its S2 goes −232 → −364 locations (−14.7 → −23.0 %). Two things came with it: a tail-only sweep mode, because FRI LOGISTIC's tail stop at w = 0.002 had capped the aggregate frontier below its own S2; and the rows' mean_t now prices a stranded client at the 120-min cutoff like the baseline (`doc/recompute_mean_t.jl` for the existing logs; ≤ 0.17 min on any S1/S2). The README's "largest areas are candidate-subsampled" was stale: all 88 current sweeps use the full set.
+
 ---
 
 ## Suggested order of work

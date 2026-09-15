@@ -548,7 +548,15 @@ function solve_at_w!(state::WarmStartState, w::Real; rounding::Bool=true)
     # assigned_k for the SELECTED set drives the per-client arrow output.
     assigned_k, _    = assign_nearest(open_set, data)
     total_client_pop = sum(wpop[rows[1]] for (_, rows) in locations)
-    mean_t           = isempty(assigned_k) ? 0.0 : sum(t_ij_col[k] * wpop[k] for (i, k) in assigned_k) / total_client_pop
+    # A client with no open facility in its choice set is stranded: it enters cost_c at
+    # BIG (travel_of) and mean_t at the 120-min cutoff, exactly as baseline_metrics prices
+    # the baseline's stranded clients. Until 15 Sep 2026 the stranded entered mean_t at
+    # 0 min, so a row's mean_t was not comparable with the baseline's wherever rounding
+    # stranded anyone (SE2 LOGISTIC S1: 110 cells); doc/recompute_mean_t.jl corrects the
+    # rows of older logs from their per-w traveltime arrows.
+    stranded_pop     = sum((data.client_pop[i] for i in keys(locations) if !haskey(assigned_k, i)); init=0.0)
+    mean_t           = (sum((t_ij_col[k] * wpop[k] for (_, k) in assigned_k); init=0.0) +
+                        MAX_TRAVELTIME_MIN * stranded_pop) / total_client_pop
 
     return (
         w=w, λ=λ, n_open=length(open_set), cost_c=travel_c, mean_t=mean_t,

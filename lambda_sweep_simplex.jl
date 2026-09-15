@@ -308,10 +308,19 @@ function analyze_country(country)
     mults = haskey(ENV, "SWEEP_MULTS") ?
             sort(parse.(Float64, split(ENV["SWEEP_MULTS"], ","))) : [1.0, 2.0, 5.0]
     d_hi = max(0, ceil(Int, log10(w_max)))
+    # SWEEP_TAIL_ONLY=1 continues a finished sweep's grid beyond its tail stop: the grid
+    # starts at SWEEP_WMIN (a cold solve, then warm steps), no bisection, no fine sweep,
+    # no S1/S2 summary or arrows -- only the Combined-sweep table, which build_deck_data.py
+    # merges into the sweep's frontier from logs/tail_<area>_<FUNC>.log. Written for FRI
+    # LOGISTIC, whose w=0.005 (the step after S2) needs more than the sweep's hour and
+    # whose stop at 0.002 capped the aggregate frontier below its own S2 (15 Sep 2026).
+    tail_only = get(ENV, "SWEEP_TAIL_ONLY", "0") == "1"
+    w_min = parse(Float64, get(ENV, "SWEEP_WMIN", "1e-4"))
     ws_common = sort(unique(Float64[m * 10.0^d for d in -4:d_hi for m in mults
-                                    if m * 10.0^d <= w_max * (1.0 + 1e-9)]))
+                                    if w_min * (1.0 - 1e-9) <= m * 10.0^d <= w_max * (1.0 + 1e-9)]))
     pln()
-    pln("Common λ sweep ($travel_func_name): fixed grid 1-2-5/decade, 1e-4 … $w_max, warm-start dual simplex, no early stop.")
+    pln("Common λ sweep ($travel_func_name): fixed grid 1-2-5/decade, $w_min … $w_max, warm-start dual simplex, no early stop." *
+        (tail_only ? "  SWEEP_TAIL_ONLY=1: grid rows only, no bisection, no scenario summary." : ""))
     print_sweep_header(target_raw)
 
     # --- S1/S2 refinement by bisection, interleaved with the coarse sweep (#52) --------
@@ -466,7 +475,7 @@ function analyze_country(country)
         end
         push!(results, r)
         print_sweep_row(r, target_cells, target_raw)
-        refine_if_closed!(prev, r)
+        tail_only || refine_if_closed!(prev, r)
         prev = r
         if stop_after_refine && haskey(refined, "S1") && haskey(refined, "S2")
             pln("  both scenarios pinned; SWEEP_STOP_AFTER_REFINE=1 ends the sweep at w=$w")
@@ -477,7 +486,7 @@ function analyze_country(country)
 
     bracket_S1 = find_bracket(results, target_cells, r -> r.sum_y, true)
     bracket_S2 = find_bracket(results, base.cost_c,  r -> r.cost_c, false)
-    if bracket_S1 === nothing
+    if bracket_S1 === nothing && !tail_only
         pln("  S1 (sum_y=$target_cells) not bracketed at w_max=$w_max: under soft coverage the frontier should pass the baseline count — check for skipped/timed-out points or extend SWEEP_WMAX; exact pin via soft-coverage MIP (todo #5).")
     end
 
@@ -488,8 +497,10 @@ function analyze_country(country)
     # early return left rows=[] → the region rendered empty). Skip only the fine sweep and the
     # S1/S2 summary+arrows (a nearest-point S1/S2 here would be a misleading frontier-edge
     # scenario); exact S1/S2 for these need the soft-coverage MIP (todo #5).
-    do_fine = bracket_S1 !== nothing || bracket_S2 !== nothing
-    if !do_fine
+    do_fine = !tail_only && (bracket_S1 !== nothing || bracket_S2 !== nothing)
+    if tail_only
+        pln("\nSWEEP_TAIL_ONLY=1: the grid rows above extend the area's sweep; its S1/S2 stand.")
+    elseif !do_fine
         pln("\nNeither S1 (sum_y=$target_cells) nor S2 (cost=$(round(base.cost_c,digits=0))) bracketed in coarse range (structural coverage-floor region).")
         pln("Emitting coarse frontier only; exact S1/S2 via soft-coverage MIP (todo #5).")
     end

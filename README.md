@@ -148,7 +148,10 @@ An LP-guided matheuristic, seconds per point (the LP dominates):
    p-median vertex-substitution search in its fast-interchange form (Resende & Werneck 2007);
    ≤ 12 rounds per seed, each accepted only on an exact travel improvement.
 4. **Score coverage-honestly, keep the best** (`travel_of`): every client at its nearest open
-   facility, a stranded client at `BIG`.
+   facility, a stranded client at `BIG`. The mean travel time reported beside it prices a
+   stranded client at the 120-min OD cutoff, as the baseline's does (until 15 September
+   2026 the rows counted the stranded at 0 min; `doc/recompute_mean_t.jl` recomputes the
+   rows of older logs from their per-λ arrows, and `build_deck_data.py` applies the result).
 
 Because the result is a feasible point of the same problem, `LP relaxation ≤ integer optimum
 ≤ multistart` — a certified gap on *total* cost, reported next to every figure.
@@ -242,10 +245,10 @@ road-nearest for any populated cell. Full tables: deck p3–6, `doc/pharmacy_des
 
 | | point | w | locations | Δ locations | Δ travel |
 |---|---|---|---|---|---|
-| LINEAR | **S1** same count | 0.109 | 51 573 | +0 % | **−23 %** |
-| | **S2** same travel | 0.180 | 35 809 | **−30 %** | +0 % |
-| LOGISTIC | **S1** same count | 0.00113 | 51 382 | +0 % | **−10 %** |
-| | **S2** same travel | 0.00212 | 33 568 | **−35 %** | −0 % |
+| LINEAR | **S1** same count | 0.109 | 51 637 | +0 % | **−24 %** |
+| | **S2** same travel | 0.180 | 35 813 | **−30 %** | +0 % |
+| LOGISTIC | **S1** same count | 0.00113 | 51 372 | +0 % | **−10 %** |
+| | **S2** same travel | 0.00212 | 33 530 | **−35 %** | −0 % |
 
 Read: relocating today's pharmacies without adding any would cut population travel by
 about a quarter (linear); holding travel where it is, about 30 % of the locations are surplus.
@@ -286,7 +289,7 @@ into λ ∈ [€10, €2 000], the degeneracy noted on deck p66. Per area: `doc/
 | ITF · Sud | 3 187 | −7.5 M min · −27.8 % | −818 · −25.7 % | 7 159 | 11 618 |
 | ITG · Isole | 1 431 | −3.7 M min · −29.3 % | −359 · −25.1 % | 8 157 | 13 131 |
 | SE1 · Östra Sverige | 387 | −6.3 M min · −27.2 % | −166 · −43.0 % | 27 899 | 54 063 |
-| FRI · Nouvelle-Aquitaine | 1 583 | −3.8 M min · −14.2 % | −232 · −14.7 % | 8 824 | 10 268 |
+| FRI · Nouvelle-Aquitaine | 1 583 | −3.8 M min · −14.2 % | −364 · −23.0 % | 8 824 | 12 369 |
 
 All 16 countries and 28 NUTS-1 regions: deck p62–63, `doc/frontier_metrics_interp3.csv`.
 λ in € through the placeholder only.
@@ -341,9 +344,10 @@ variables (`COUNTRIES`, `TRAVEL_FUNC`, `SWEEP_WMAX`, `SWEEP_MULTS`, `SOLVER`,
 The deck is regenerated with the four steps in `doc/README_deck.md`.
 
 Sweep cost: minutes per λ-point for most areas, hours for the largest (Poland country-level:
-15.1 M OD rows, 29 h LINEAR). The largest areas are candidate-subsampled
-(`LOCATION_SELECTION_FACTOR`), keeping every baseline location so the frontier still
-dominates the baseline.
+15.1 M OD rows, 29 h LINEAR). Every sweep in the deck runs on the **full candidate set**;
+the candidate subsample (`LOCATION_SELECTION_FACTOR`, keeping every baseline location so
+the frontier still dominates the baseline) is a scale-test knob that the July FRI and PL8
+sweeps used and that has been superseded (#54).
 
 ---
 
@@ -361,7 +365,8 @@ the REGIO review worked in.
 **Remaining, in priority order**: communicate λ intuitively (person-minutes per location);
 widen the candidate radius per client (5 → 10 nearest existing), one area first; RSSV
 spatial-voting candidate reduction (Albuquerque, Figueiredo & Genre-Grandpierre, SSRN
-7133060) to replace the stride subsample; an exact soft-coverage p-median MIP at
+7133060) to make the largest LPs tractable now that the stride subsample is retired; an
+exact soft-coverage p-median MIP at
 the baseline count (S1 is pinned to ±1 facility by bisection since #52, so this is about the
 integrality gap); territorial coverage constraints as a structured equity lever; decide the
 logistic rescaling; calibrate the real fixed cost; capacity caps; counterfactuals.

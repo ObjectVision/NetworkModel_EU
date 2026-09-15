@@ -1,5 +1,6 @@
 # run_resweep_batch.ps1 -Areas <a,b,c> [-Threads 3] [-Tag q1]
 #                       [-Funcs LINEAR,LOGISTIC] [-SkipComplete] [-RefineOnly]
+#                       [-TailFrom <w> [-TailTo <w>] [-TailLimit <s>]]
 # Sweep-only worker (todo #3+#4 resweep): networks/ODs are UNCHANGED — only the Julia
 # sweep reruns per area (new coverage-consistent baseline + fixed common λ-grid
 # 1e-4…5.0 with no early stop + S1 extension). Overwrites logs\sweep_<area>_<FUNC>.log.
@@ -18,13 +19,23 @@
 #               logs\refine_<area>_<FUNC>.log, which build_deck_data.py prefers for the
 #               S1/S2 summary when it is newer than the sweep log; the frontier rows stay
 #               those of the full sweep. The S1/S2 arrow folders are overwritten.
+# -TailFrom w   continue a finished sweep's grid beyond its tail stop (SWEEP_TAIL_ONLY=1):
+#               grid points from w (a cold solve) up to -TailTo (default: the sweep's
+#               w_max), each with -TailLimit seconds (default 14400), no bisection and no
+#               scenario summary. Writes logs\tail_<area>_<FUNC>.log; build_deck_data.py
+#               adds its rows to the frontier at the w's the sweep did not reach. Written
+#               for FRI LOGISTIC, whose w=0.005 needed more than the sweep's hour and whose
+#               stop at 0.002 capped the aggregate frontier below its own S2.
 param(
   [Parameter(Mandatory=$true)][string]$Areas,
   [int]$Threads = 3,
   [string]$Tag = "q",
   [string]$Funcs = "LINEAR,LOGISTIC",
   [switch]$SkipComplete,
-  [switch]$RefineOnly
+  [switch]$RefineOnly,
+  [double]$TailFrom = 0,
+  [double]$TailTo = 0,
+  [int]$TailLimit = 14400
 )
 $ErrorActionPreference = "Continue"
 $env:NoDefaultCurrentDirectoryInExePath = $null
@@ -41,6 +52,8 @@ function Test-SweepComplete([string]$path) {
   if (-not $t) { return $false }
   $i = $t.LastIndexOf('Country:')
   if ($i -lt 0) { return $false }
+  # a tail-only run has no scenario summary; its Combined-sweep table is its result
+  if ($TailFrom -gt 0) { return $t.Substring($i).Contains('Combined sweep') }
   return $t.Substring($i).Contains('scenario summary')
 }
 
@@ -51,10 +64,19 @@ foreach ($f in $funcList) {
     throw "unknown travel-cost function '$f' (expected LINEAR, LOGISTIC, QUADRATIC or PIECEWISE)"
   }
 }
-$logKind = if ($RefineOnly) { 'refine' } else { 'sweep' }
+if ($RefineOnly -and $TailFrom -gt 0) { throw "-RefineOnly and -TailFrom exclude each other" }
+$logKind = if ($RefineOnly) { 'refine' } elseif ($TailFrom -gt 0) { 'tail' } else { 'sweep' }
 if ($RefineOnly) { $env:SWEEP_STOP_AFTER_REFINE = '1' } else { Remove-Item Env:SWEEP_STOP_AFTER_REFINE -ErrorAction SilentlyContinue }
-Log ("===== resweep worker $Tag START ({0} areas x {1}, threads={2}{3}{4}) =====" -f `
-     $list.Count, ($funcList -join '+'), $Threads, $(if ($SkipComplete) { ', skip-complete' } else { '' }), $(if ($RefineOnly) { ', REFINE-ONLY' } else { '' }))
+foreach ($v in 'SWEEP_TAIL_ONLY', 'SWEEP_WMIN', 'SWEEP_WMAX', 'LP_TIME_LIMIT') { Remove-Item "Env:$v" -ErrorAction SilentlyContinue }
+if ($TailFrom -gt 0) {
+  $env:SWEEP_TAIL_ONLY = '1'
+  $env:SWEEP_WMIN      = $TailFrom.ToString([Globalization.CultureInfo]::InvariantCulture)
+  if ($TailTo -gt 0) { $env:SWEEP_WMAX = $TailTo.ToString([Globalization.CultureInfo]::InvariantCulture) }
+  $env:LP_TIME_LIMIT   = "$TailLimit"
+}
+Log ("===== resweep worker $Tag START ({0} areas x {1}, threads={2}{3}{4}{5}) =====" -f `
+     $list.Count, ($funcList -join '+'), $Threads, $(if ($SkipComplete) { ', skip-complete' } else { '' }), $(if ($RefineOnly) { ', REFINE-ONLY' } else { '' }), `
+     $(if ($TailFrom -gt 0) { ", TAIL from w=$TailFrom" + $(if ($TailTo -gt 0) { " to $TailTo" } else { '' }) + " ($TailLimit s/solve)" } else { '' }))
 foreach ($a in $list) {
   $sw = [Diagnostics.Stopwatch]::StartNew()
   Log "----- $a -----"
