@@ -19,8 +19,10 @@ func = sys.argv[2] if len(sys.argv) > 2 else "LINEAR"
 
 BREAKS = [0, 2, 4, 6, 8, 10, 20, 30, 60]                     # Classifications.dms ClientTravelTimeK
 LABELS = [f"{a}–{b} min" for a, b in zip(BREAKS, BREAKS[1:])] + ["> 60 min"]
-# one hue, light -> dark (the deck's sequential blue ramp, steps 100..700); stranded = ink
-RAMP = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#6da7ec", "#5598e7", "#2a78d6", "#1c5cab", "#104281", "#0d366b"]
+# Palette as asked for on 16 Sep 2026: under 10 min green (darker = nearer), 10-20 light
+# green, 20-30 yellow, 30-60 blue, over 60 red; a stranded cell black.
+RAMP = ["#1b7837", "#2f9e4f", "#52b96b", "#7fcd88", "#a6dea7", "#cdedb8", "#f6d84a", "#3987e5", "#d7301f"]
+STRANDED = "#000000"
 INK, MUTED, NAVY = "#12233A", "#5B6B7B", "#1C3D5A"
 
 rows = list(csv.DictReader(open(os.path.join(HERE, "charts", f"maps_{area}_{func}.csv"), encoding="utf-8")))
@@ -54,7 +56,7 @@ for ax, (col, title, sub) in zip(axes, panels):
     grid[iy[~stranded], ix[~stranded]] = t[~stranded]
     ax.imshow(grid, cmap=cmap, norm=norm, interpolation="nearest", aspect="equal")
     if stranded.any():
-        ax.scatter(ix[stranded], iy[stranded], s=28, marker="s", facecolors="none", edgecolors=INK, linewidths=1.2, zorder=5)
+        ax.scatter(ix[stranded], iy[stranded], s=30, marker="s", facecolors=STRANDED, edgecolors=STRANDED, linewidths=1.0, zorder=5)
     ax.set_axis_off()
     ax.text(0.0, 1.075, title, transform=ax.transAxes, fontsize=11, color=INK, va="bottom", ha="left", fontweight="bold")
     ax.text(0.0, 1.03, sub, transform=ax.transAxes, fontsize=8.5, color=MUTED, va="bottom", ha="left")
@@ -70,7 +72,7 @@ for ax, (col, title, sub) in zip(axes, panels):
             va="top", ha="left", bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="#D9E0E7", lw=0.6))
 
 handles = [Patch(facecolor=c, edgecolor="none", label=l) for c, l in zip(RAMP, LABELS)]
-handles.append(Patch(facecolor="white", edgecolor=INK, label="stranded: no open pharmacy in the choice set"))
+handles.append(Patch(facecolor=STRANDED, edgecolor=STRANDED, label="stranded: no open pharmacy in the choice set"))
 fig.legend(handles=handles, loc="lower center", ncol=10, fontsize=7.5, frameon=False, bbox_to_anchor=(0.5, -0.005),
            handlelength=1.4, columnspacing=1.2)
 fig.subplots_adjust(left=0.01, right=0.99, top=0.88, bottom=0.07, wspace=0.04)
