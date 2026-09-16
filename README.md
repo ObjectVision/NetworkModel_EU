@@ -245,10 +245,10 @@ road-nearest for any populated cell. Full tables: deck p3–6, `doc/pharmacy_des
 
 | | point | w | locations | Δ locations | Δ travel |
 |---|---|---|---|---|---|
-| LINEAR | **S1** same count | 0.109 | 51 637 | +0 % | **−24 %** |
-| | **S2** same travel | 0.180 | 35 813 | **−30 %** | +0 % |
-| LOGISTIC | **S1** same count | 0.00113 | 51 372 | +0 % | **−10 %** |
-| | **S2** same travel | 0.00212 | 33 530 | **−35 %** | −0 % |
+| LINEAR | **S1** same count | 0.109 | 51 640 | +0 % | **−24 %** |
+| | **S2** same travel | 0.179 | 35 992 | **−30 %** | −0 % |
+| LOGISTIC | **S1** same count | 0.00113 | 51 362 | +0 % | **−10 %** |
+| | **S2** same travel | 0.00214 | 33 350 | **−35 %** | +0 % |
 
 Read: relocating today's pharmacies without adding any would cut population travel by
 about a quarter (linear); holding travel where it is, about 30 % of the locations are surplus.
@@ -288,7 +288,7 @@ into λ ∈ [€10, €2 000], the degeneracy noted on deck p66. Per area: `doc/
 | Finland | 719 | −4.7 M min · −13.5 % | −178 · −24.7 % | 21 768 | 33 003 |
 | ITF · Sud | 3 187 | −7.5 M min · −27.8 % | −818 · −25.7 % | 7 159 | 11 618 |
 | ITG · Isole | 1 431 | −3.7 M min · −29.3 % | −359 · −25.1 % | 8 157 | 13 131 |
-| SE1 · Östra Sverige | 387 | −6.3 M min · −27.2 % | −166 · −43.0 % | 27 899 | 54 063 |
+| SE1 · Östra Sverige | 387 | −6.3 M min · −27.2 % | −166 · −43.0 % | 27 899 | 53 985 |
 | FRI · Nouvelle-Aquitaine | 1 583 | −3.8 M min · −14.2 % | −364 · −23.0 % | 8 824 | 12 369 |
 
 All 16 countries and 28 NUTS-1 regions: deck p62–63, `doc/frontier_metrics_interp3.csv`.
