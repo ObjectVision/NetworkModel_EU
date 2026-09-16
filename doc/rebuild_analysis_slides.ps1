@@ -15,8 +15,8 @@ $charts = @(
   @{f='doc\charts\lambda_axis_Netherlands.png';  t='The sweep read along lambda  -  Netherlands: travel-cost bounds (left) and facility count (right)'; r=$LAXIS; n='Same reading as the aggregate. The count falls over two decades of lambda before the travel bounds separate; under LINEAR they open only above ~EUR 50,000 per location, beyond S2, so the S1/S2 figures sit where lower and upper bound agree. S1 is 1,615 facilities under both cost functions by construction; the deck_data scenario rows would have put the guide a whole grid step off (1,334 LINEAR, 1,788 LOGISTIC), which is the S1/S2 snap noted on p9.'},
   @{f='doc\charts\pointcloud_LINEAR.png';        t='Baselines and their frontier projections  -  LINEAR';   r=$CLOUD},
   @{f='doc\charts\pointcloud_LOGISTIC.png';      t='Baselines and their frontier projections  -  LOGISTIC'; r=$CLOUD},
-  @{f='doc\charts\rank_lambda_LINEAR.png';       t='Lambda at the balanced-improvement crossing, ranked  -  LINEAR';   r=$RANK; n='Lambda is in EUR only through the placeholder EUR 100,000 per location (REGIO review, Brons/BN): the crossing point and this ranking do not depend on it; only the EUR axis rescales with the true fixed cost.'},
-  @{f='doc\charts\rank_lambda_LOGISTIC.png';     t='Lambda at the balanced-improvement crossing, ranked  -  LOGISTIC'; r=$RANK; n='Lambda is in EUR only through the placeholder EUR 100,000 per location (REGIO review, Brons/BN): the crossing point and this ranking do not depend on it; only the EUR axis rescales with the true fixed cost.'},
+  @{f='doc\charts\rank_lambda_LINEAR.png';       t='Cross-lambda: lambda at the balanced-improvement crossing, ranked  -  LINEAR';   r=$RANK; n='Cross-lambda (Lewis''s p21) = the lambda at the balanced-improvement crossing, read there as a revealed network preference. For one geography it falls as today''s pharmacy count rises, so across areas it moves with residents per pharmacy (p3) as well as with policy. EUR only via the placeholder EUR 100,000 per location (REGIO review, Brons/BN): the ranking does not depend on it.'},
+  @{f='doc\charts\rank_lambda_LOGISTIC.png';     t='Cross-lambda: lambda at the balanced-improvement crossing, ranked  -  LOGISTIC'; r=$RANK; n='Cross-lambda (Lewis''s p21) = the lambda at the balanced-improvement crossing, read there as a revealed network preference. For one geography it falls as today''s pharmacy count rises, so across areas it moves with residents per pharmacy (p3) as well as with policy. EUR only via the placeholder EUR 100,000 per location (REGIO review, Brons/BN): the ranking does not depend on it.'},
   @{f='doc\charts\rank_area_LINEAR.png';         t='Improvement-potential rectangle area (raw), ranked  -  LINEAR';   r=$RANK},
   @{f='doc\charts\rank_area_LOGISTIC.png';       t='Improvement-potential rectangle area (raw), ranked  -  LOGISTIC'; r=$RANK},
   @{f='doc\charts\rank_area_rel_LINEAR.png';     t='Improvement potential relative to baseline facility x travel cost  -  LINEAR';   r=$RANK},
@@ -26,6 +26,7 @@ $charts = @(
 $prefixes = @('The sweep read along lambda',
               'Baselines and their frontier projections',
               'Lambda at the balanced-improvement',
+              'Cross-lambda',
               'Improvement-potential rectangle',
               'Improvement potential relative')
 
@@ -57,17 +58,18 @@ foreach ($c in $charts) {
   $tb.TextFrame.TextRange.Font.Bold = $true
   $tb.TextFrame.TextRange.Font.Name = 'Calibri'
   $tb.TextFrame.TextRange.Font.Color.RGB = 0x503010
-  $h = $availH; $w = $h * $c.r
+  $h = $availH; if ($c.n) { $h = $availH - 35 }   # a tall chart with a note leaves room for two note lines
+  $w = $h * $c.r
   if ($w -gt 920) { $w = 920; $h = $w / $c.r }
   $picTop = $availTop + ($availH - $h) / 2
   [void]$slide.Shapes.AddPicture((Resolve-Path $c.f).Path, $false, $true, ($SW - $w) / 2, $picTop, $w, $h)
   if ($c.n) {   # caveat under the chart (ASCII only: this file has no BOM, PS 5.1 would read UTF-8 as ANSI).
                 # Placed just below the picture, so a wide chart (which is short) leaves room for a
                 # two-line note; a tall chart keeps the old fixed position at the slide's foot.
-    $noteTop = [Math]::Min(518.0, $picTop + $h + 6)
+    $noteTop = [Math]::Min(508.0, $picTop + $h + 6)
     $nb = $slide.Shapes.AddTextbox(1, 30, $noteTop, 900, 20)
     $nb.TextFrame.TextRange.Text = $c.n
-    $nb.TextFrame.TextRange.Font.Size = 9
+    $nb.TextFrame.TextRange.Font.Size = 8.5
     $nb.TextFrame.TextRange.Font.Italic = $true
     $nb.TextFrame.TextRange.Font.Name = 'Calibri'
     $nb.TextFrame.TextRange.Font.Color.RGB = 0x7B6B5B

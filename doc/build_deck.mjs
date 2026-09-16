@@ -202,8 +202,8 @@ function statusSlide() {
   ], { x: 0.45, y: 0.54, w: 12.5, h: 0.42, fontSize: 21, fontFace: "Georgia" });
   slide.addText([
     { text: "The λ-sweep is the working general method. ", options: { bold: true, color: INK } },
-    { text: "Two method changes since the previous deck — landbody-complete networks and NUTS region exclusion — make these figures NOT comparable with earlier ones. The REGIO review (Moreno Monroy, Brons, Nöbauer) is worked in where it asked for answers and listed below where it asked for work. Status confirmed 4 Sep 2026: nothing is mid-flight, so the list is what is done and what remains, in priority order.", options: { color: MUTED } },
-  ], { x: 0.45, y: 0.97, w: 12.5, h: 0.4, fontSize: 9.5, fontFace: "Calibri", valign: "top" });
+    { text: "Landbody-complete networks and NUTS region exclusion make these figures NOT comparable with earlier decks. The REGIO review (Moreno Monroy, Brons, Nöbauer) is worked in where it asked for answers and listed below where it asked for work. Status confirmed 4 Sep 2026, in priority order; items marked ▸ came from the seminar decks of Lewis and Rosa (16 Sep 2026) as proposals, not results.", options: { color: MUTED } },
+  ], { x: 0.45, y: 0.96, w: 12.5, h: 0.44, fontSize: 8.6, fontFace: "Calibri", valign: "top" });
 
   const GREEN = "1E7A52", SLATE = "5B6B7B", AMBER = "B9791C";
   const col = (x, w, tint, fill, title, items, fs = 9) => {
@@ -223,20 +223,21 @@ function statusSlide() {
     "Lewis's 6 descriptive indicators per country and key NUTS1, catchments by ROAD travel time — ahead of the model (p3–6)",
     "Candidates = ≥50-pop cells ∪ pharmacy cells, the FULL set in every area (the stride subsample of the July FRI/PL8 sweeps is retired, #54) · clients = FULL population · adapted logit (25/10) · soft coverage (Σx ≤ 1, unserved at BIG on BOTH sides): every area brackets S1 & S2",
     "Aggregated frontier over 43 disjoint areas (exact by separability), bracketing S1 and S2 for both functions (p61)",
-    "Improvement rectangle (raw + relative), diagonal crossing + λ, point-cloud with projections; ranked lists by policy typology — on the OECD data the sparse Nordic and Baltic areas lead (SE1, Norway, Lithuania, SE2, Estonia); the Italian lead of earlier decks was missing data",
+    "Improvement rectangle (raw + relative), diagonal crossing + λ — Lewis's “cross-lambda” (his p21) —, point-cloud with projections; ranked lists by policy typology — on the OECD data the sparse Nordic and Baltic areas lead (SE1, Norway, Lithuania, SE2, Estonia); the Italian lead of earlier decks was missing data",
     "REGIO review worked in: choice set (p9), λ-tangency (p10), logistic parametrised (p66), bounds on TOTAL cost only (p12), €100,000 a placeholder everywhere",
-  ]);
+  ], 8.6);
   col(6.75, 6.2, SLATE, "F2F5F8", "Remaining ○ — in priority order  (◐ = in progress)", [
     "◐ Communicate λ intuitively (person-minutes per location): the tangency slide (p10) and the native-unit S1/S2 tables (p62–63) are the first steps; the € labels stay placeholders until a is calibrated",
     "Widen the CANDIDATE radius per client (5 → 10 nearest EXISTING), one area first — measured to bind at S2 (Norway: 18.6% of residents one closure from stranding, SE1 12.7%, SE2 12.0%; p9)",
-    "RSSV spatial-voting candidate reduction (Avignon CpLP paper, Figueiredo & Genre-Grandpierre) — the principled way to make the largest LPs tractable (country-level Poland) now that the stride subsample is retired; needs the wider radius first",
+    "RSSV random-sampling spatial-voting matheuristic (Albuquerque, Figueiredo & Genre-Grandpierre 2026, arXiv 2607.22666; Rosa's p12) — the principled way to make the largest LPs tractable (country-level Poland) now that the stride subsample is retired; needs the wider radius first",
     "Exact soft-coverage p-median MIP at p = baseline — S1 is now pinned to ±1 facility by bisection (#52), so this is about the integrality gap, no longer about the snap",
-    "Territorial coverage constraints (≥1 pharmacy per NUTS unit; multi-scale) as a STRUCTURED equity lever alongside the soft-coverage BIG penalty",
+    "Territorial coverage constraints (≥1 pharmacy per NUTS unit; multi-scale nested — Rosa's CpMP with territorial coverage, her p8–9) as a STRUCTURED equity lever alongside the soft-coverage BIG penalty. Her PACA case prices the levels: +0.9% travel at the canton level, +111% at the commune level, +51% nested (her p19; RIC = travel above the p-median optimum at equal p)",
     "DECIDE: rescale the logistic so c(0) and c(60) match the linear (BN, 23 July) — less degeneracy, but it changes the equity weighting the logistic was chosen for (p66)",
     "Calibrate the real pharmacy fixed cost a (schools: 99 699 + 3 277.5x) — only the € labels move, nothing else in the deck",
-    "Capacity / max-catchment cap constraint (CpMP; the Avignon strengthened ILP shows how to solve it)",
-    "Counterfactuals: −10% pop · replace a known X% · choose which X to close (hard)",
-  ]);
+    "Capacity / max-catchment cap constraint (Rosa's CpMP; her lifted p-cover and location-bound cuts, p11, solve it exactly; her capacities are synthetic — Voronoi cells → demand bins → sampled, her p21)",
+    "▸ Counterfactuals anchored at today's network, as the La Poste curves (Rosa's p17–18): closure-only and addition-only frontiers next to the tabula-rasa one, a relocation budget, and the share of today's sites an optimum keeps (her “Actual %”). Lewis's two questions (his p4: subsidy to bring everybody nearby; extra travel if small facilities go) read off these. Closure-only = the sweep on the Existing OD; addition-only = today's cells fixed open. Still listed: −10% pop · replace a known X%",
+    "▸ Lewis's next steps (his p25): the S1/S2 gains by degree of urbanisation (his p6/p8; the DEGURBA 2021 grid is already in Locations.dms), a policy-vs-geography split of today's travel on the frontier (common-λ frontier · today's count · gap to the frontier), and cross-lambda against distance-to-frontier by OECD archetype — post-processing on existing sweep output, no new solves",
+  ], 8.0);
 
   slide.addText([
     { text: "Not pursued (decided 4 Sep 2026):  ", options: { bold: true, color: AMBER } },
@@ -244,7 +245,7 @@ function statusSlide() {
   ], { x: 0.45, y: 6.2, w: 12.5, h: 0.45, fontSize: 9, fontFace: "Calibri", valign: "top" });
   slide.addText([
     { text: "Open questions for the group:  ", options: { bold: true, color: NAVY } },
-    { text: "widen the choice set before RSSV (p9)?  ·  logistic vs linear, and BN's rescaling (p66)?  ·  territorial coverage constraints for equity, or keep soft coverage?", options: { color: MUTED } },
+    { text: "widen the choice set before RSSV (p9)?  ·  logistic vs linear, and BN's rescaling (p66)?  ·  territorial coverage constraints (≥1 per zone; Rosa's p19 prices the levels) for equity, or keep soft coverage?", options: { color: MUTED } },
   ], { x: 0.45, y: 6.68, w: 12.5, h: 0.5, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
@@ -281,12 +282,12 @@ function logisticSlide() {
 
   slide.addText([
     { text: "Both cross at ≈15 min (0.27). ", options: { color: INK } },
-    { text: "The adopted curve is lower below ~10 min (ignores minor relocations) and saturates by ~45 min (caps remote weight) — Lewis's 22-May ask. Applied in the recalculation (settings.jl defaults; previous variant via LOGISTIC_MIDPOINT=30 LOGISTIC_SCALE=15).", options: { color: MUTED } },
-  ], { x: 8.4, y: 4.7, w: 4.6, h: 1.05, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
+    { text: "The adopted curve is lower below ~10 min (ignores minor relocations) and saturates by ~45 min (caps remote weight) — Lewis's 22-May ask; his benchmarking deck (p14) reads it as: short-trip differences matter little, 10–60 min is critical, beyond 60 min equally disliked. Applied in the recalculation (settings.jl defaults; previous variant via LOGISTIC_MIDPOINT=30 LOGISTIC_SCALE=15).", options: { color: MUTED } },
+  ], { x: 8.4, y: 4.86, w: 4.6, h: 1.0, fontSize: 8.8, italic: true, fontFace: "Calibri", valign: "top" });
 
   // Review answers (REGIO comments 28, 35, 36): name the function, its value at 0, and
   // where the degeneracy Brons asks about actually comes from; table BN's rescaling.
-  slide.addShape(pptx.ShapeType.roundRect, { x: 0.4, y: 5.92, w: 12.55, h: 1.05, rectRadius: 0.05, fill: { color: "F0F6F2" }, line: { color: "1E7A52", width: 1 } });
+  slide.addShape(pptx.ShapeType.roundRect, { x: 0.4, y: 5.9, w: 12.55, h: 1.12, rectRadius: 0.05, fill: { color: "F0F6F2" }, line: { color: "1E7A52", width: 1 } });
   slide.addText([
     { text: "Answers to the review.  ", options: { bold: true, color: "1E7A52" } },
     { text: "It is a plain logistic, not a log-logistic:  c(t) = 1 / (1 + e", options: { color: INK } },
@@ -295,8 +296,10 @@ function logisticSlide() {
     { text: "The degeneracy: ", options: { bold: true, color: INK } },
     { text: "both variants sweep the same 1-2-5/decade λ-grid (1e-4 … 5), but c(t) here spans only 0.08–1 where the linear one spans 0–120, so the travel term is ~100× smaller relative to λ·#open. The aggregate’s useful λ-range is 1e-4 … 0.02 for logistic against 1e-4 … 0.5 for linear — that compression is the degeneracy: many λ values map to one solution.  ", options: { color: MUTED } },
     { text: "Open (BN, 23 Jul): ", options: { bold: true, color: "B9791C" } },
-    { text: "rescale c(t) so c(0) and c(60) match the linear curve. It would spread the λ-range and reduce degeneracy, but it also changes the equity weighting the group chose the logistic for — a group decision, not a tuning.", options: { color: MUTED } },
-  ], { x: 0.6, y: 5.98, w: 12.2, h: 0.95, fontSize: 8.6, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 0.98 });
+    { text: "rescale c(t) so c(0) and c(60) match the linear curve. It would spread the λ-range and reduce degeneracy, but it also changes the equity weighting the group chose the logistic for — a group decision, not a tuning.  ", options: { color: MUTED } },
+    { text: "In Rosa's terms: ", options: { bold: true, color: INK } },
+    { text: "LINEAR c(t) = t is the p-median (pMP) objective; the saturating logistic is a smooth counterpart of maximal covering (MCLP) with a ~25-min radius, so linear-vs-logistic is the soft version of her pMP-vs-MCLP-5km comparison (her p16).", options: { color: MUTED } },
+  ], { x: 0.6, y: 5.95, w: 12.2, h: 1.04, fontSize: 8.4, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 0.98 });
 
   slide.addText("c(t) is applied to travel time in minutes (raw OD seconds ÷ 60); LINEAR uses c(t)=t. settings.jl c(): logistic_midpoint=25, logistic_scale=10.",
     { x: 0.45, y: 7.05, w: 12.5, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
@@ -434,7 +437,7 @@ function titleSlide() {
   slide.addText("NETWORKMODEL_EU  ·  SERVICE ACCESS  ·  PHARMACIES", { x: 1.0, y: 1.55, w: 11.5, h: 0.32, fontSize: 12, bold: true, color: MULTI, charSpacing: 2, fontFace: "Calibri" });
   slide.addText("Pharmacy locations across EU regions: how far is today's network from the frontier?",
     { x: 1.0, y: 1.95, w: 11.5, h: 1.45, fontSize: 32, bold: true, color: INK, fontFace: "Georgia", valign: "top" });
-  slide.addText("A λ-sweep over a facility-location LP on the road network — what exists today, by how much it could improve at equal cost or equal accessibility, and which of 44 study areas have the most to gain",
+  slide.addText("A λ-sweep over a facility-location LP on the road network — proximity vs efficiency: what exists today, by how much it could improve at equal cost or equal accessibility, and which of 44 study areas have the most to gain",
     { x: 1.0, y: 3.5, w: 11.5, h: 0.95, fontSize: 15, color: NAVY, fontFace: "Calibri", valign: "top" });
   slide.addText([
     { text: "Lola Dekhuijzen  ·  Maarten Hilferink", options: { bold: true, color: INK, breakLine: true } },
@@ -455,11 +458,11 @@ function agendaSlide() {
 
   const items = [
     ["The current distribution", "What exists today: residents per pharmacy and per 1 km² location, per country and key NUTS1, catchments by road (p3–6).", false],
-    ["Scope & method", "By how much can accessibility improve at equal cost, or cost fall at equal accessibility? A tabula-rasa LP allocation on the road OD, swept over λ, answers that as a frontier of #locations vs travel (p7–14). Cost and accessibility trade off continuously under exogenous demand — there is no trilemma to resolve.", false],
+    ["Scope & method", "By how much can accessibility improve at equal cost, or cost fall at equal accessibility? A tabula-rasa LP allocation on the road OD, swept over λ, answers that as a frontier of #locations vs travel (p7–14): proximity vs efficiency — Lewis's trilemma (travel, operating cost, demand density) with the population distribution taken as given, as his p5 does.", false],
     ["Scenario results", "S1 (same #, less travel) and S2 (same travel, fewer locations) per area, quantified first in native units — locations and person-minutes, which need no λ — and only then in € (p16–63).", false],
     ["Travel-cost function", "Linear vs the logistic (midpoint 25 / scale 10), its compressed λ-range, and BN's proposal to rescale it (p66).", true],
     ["Cap / threshold ladder", "A proposed shortcut to the λ-sweep, explored on the Netherlands — catchments vary so widely that realistic min/max bounds cannot be set. Dropped; p15 kept as the record.", false],
-    ["Choice set, open items & roadmap", "Where the 5-nearest choice set binds and why widening it precedes RSSV (p9); exact S1/S2 pinning; what remains, in priority order, and what was dropped (p65).", false],
+    ["Choice set, open items & roadmap", "Where the 5-nearest choice set binds and why widening it precedes RSSV (p9); exact S1/S2 pinning; what remains, in priority order, and what was dropped (p65). A terminology bridge to Lewis's benchmarking deck and Rosa Figueiredo's La Poste deck closes the deck (p67).", false],
   ];
   const y0 = 1.6, dy = 0.86;
   items.forEach((it, i) => {
@@ -475,7 +478,7 @@ function agendaSlide() {
 
   slide.addText([
     { text: "Decisions sought:  ", options: { bold: true, color: NAVY } },
-    { text: "travel-cost shape (linear vs logistic, and BN's rescaling)  ·  widen the candidate radius before RSSV  ·  territorial coverage constraints for equity, or keep soft coverage.", options: { color: MUTED } },
+    { text: "travel-cost shape (linear vs logistic, and BN's rescaling)  ·  widen the candidate radius before RSSV  ·  territorial coverage constraints (≥1 pharmacy per zone — Rosa's CpMP with territorial coverage) for equity, or keep soft coverage.", options: { color: MUTED } },
   ], { x: 0.45, y: 6.96, w: 12.5, h: 0.4, fontSize: 10, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
@@ -604,24 +607,24 @@ function optProblemSlide() {
   ing(2.32, "λ = w · €100,000 — the price of a location (placeholder)", "Linear cost a + b·q reduces to λ·#open: b·q is ~constant while (nearly) all demand is served, so only the fixed cost a matters (approximately, under soft coverage). €100,000 is a placeholder, not an estimate: the frontier, S1/S2 and the rankings are invariant to it — only the € labels move with the true a.", 9.6);
   ing(3.36, "One LP per λ, exact", "JuMP + HiGHS dual simplex; the model is built once and re-solved along the w-grid from the previous optimal basis (lp_run.jl solve_at_w!) — millions of xᵢⱼ, minutes per point.");
   // review flags — modelling details the group should challenge
-  slide.addShape(pptx.ShapeType.roundRect, { x: 7.45, y: 4.22, w: 5.4, h: 0.78, rectRadius: 0.05, fill: { color: "FBF5EA" }, line: { color: "B9791C", width: 1 } });
+  slide.addShape(pptx.ShapeType.roundRect, { x: 7.45, y: 4.06, w: 5.4, h: 0.94, rectRadius: 0.05, fill: { color: "FBF5EA" }, line: { color: "B9791C", width: 1 } });
   slide.addText([
     { text: "⚠ For review:  ", options: { bold: true, color: "B9791C" } },
-    { text: "each client's OD holds every candidate out to its 5 nearest EXISTING pharmacies (max_nr_facilities_per_client) — it shrinks the LP but limits reassignment choice, and it can bind at S2-level facility counts. Clients still unreachable within t_max are priced at BIG on BOTH sides — stranded in the baseline, optionally stranded in the LP — so ★ and frontier stay directly comparable. After the scope rules on p8 that is only 0.012% of residents: 36 of 43 areas have none at all, the largest remainder is SE2 with 165 cells / 14,210 residents (0.32%), and these are genuinely remote cells rather than a coverage artefact. Feedback welcome.", options: { color: INK } },
-  ], { x: 7.58, y: 4.28, w: 5.16, h: 0.68, fontSize: 8.3, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 0.98 });
+    { text: "each client's OD holds every candidate out to its 5 nearest EXISTING pharmacies (max_nr_facilities_per_client) — it shrinks the LP but limits reassignment choice, and it can bind at S2-level facility counts. Clients still unreachable within t_max are priced at BIG on BOTH sides — stranded in the baseline, optionally stranded in the LP — so ★ and frontier stay directly comparable. After the scope rules on p8 that is 0.012% of residents: 36 of 43 areas have none, the largest remainder is SE2 (165 cells, 14,210 residents, 0.32%) — genuinely remote cells, not a coverage artefact. Feedback welcome.", options: { color: INK } },
+  ], { x: 7.58, y: 4.1, w: 5.16, h: 0.88, fontSize: 7.6, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 0.96 });
 
   // bottom: bounds story
-  slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 5.05, w: 12.33, h: 1.85, rectRadius: 0.06, fill: { color: PANEL }, line: { color: "D9E0E7", width: 1 } });
+  slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 5.05, w: 12.33, h: 1.95, rectRadius: 0.06, fill: { color: PANEL }, line: { color: "D9E0E7", width: 1 } });
   slide.addText([
     { text: "Why the relaxation, and what it buys.  ", options: { bold: true, color: INK } },
-    { text: "With yⱼ ∈ {0,1} this is the (NP-hard) uncapacitated facility-location problem, in its strong disaggregated formulation — one xᵢⱼ ≤ yⱼ per OD pair — whose LP relaxation is known to be nearly integral, which the sweeps confirm (frac_y stays small). The LP optimum is a certified ", options: { color: MUTED } },
+    { text: "With yⱼ ∈ {0,1} this is the (NP-hard) uncapacitated facility-location problem (UFLP), in its strong disaggregated formulation — one xᵢⱼ ≤ yⱼ per OD pair, i.e. the full set of the “disaggregated cuts” that Rosa's La Poste deck (p11) adds only for each customer's closest facility — whose LP relaxation is known to be nearly integral, which the sweeps confirm (frac_y stays small). The LP optimum is a certified ", options: { color: MUTED } },
     { text: "lower bound", options: { bold: true, color: BASE } },
     { text: " (the grey dashed line); rounding x* to a real set of pharmacies (multistart, p. 12) gives a feasible ", options: { color: MUTED } },
     { text: "upper bound", options: { bold: true, color: MULTI } },
     { text: " — the integer optimum is pinched between the two (+0–18% LINEAR, +0–4.7% LOGISTIC).", options: { color: MUTED, breakLine: true } },
     { text: "Relation to the p-median problem.  ", options: { bold: true, color: INK } },
-    { text: "Imposing the count (Σⱼ yⱼ = p) instead of pricing it gives the p-median problem with costs c(tᵢⱼ) (ReVelle & Swain 1970) — S1 at the baseline count is a p-median instance, in its soft-coverage form: a client may go unserved at BIG rather than be forced onto a far facility (an outside option / p-median with an upper bound on assignment cost). The λ-sweep is its Lagrangian relaxation w.r.t. that constraint (Cornuéjols, Fisher & Nemhauser 1977): it recovers only the p’s on the lower convex envelope of the p-median value function, so p-values in non-convex gaps are unreachable by any λ — there S1/S2 are interpolated between sweep points, or pinned exactly with the cardinality constraint (roadmap: better S1/S2 estimations). The swap polish of p. 12 is the classic p-median vertex-substitution search.", options: { color: MUTED } },
-  ], { x: 0.75, y: 5.2, w: 11.85, h: 1.62, fontSize: 10, fontFace: "Calibri", valign: "top" });
+    { text: "Imposing the count (Σⱼ yⱼ = p) instead of pricing it gives the p-median problem with costs c(tᵢⱼ) (pMP: Hakimi 1964; ReVelle & Swain 1970) — S1 at the baseline count is a p-median instance, in its soft-coverage form: a client may go unserved at BIG rather than be forced onto a far facility (an outside option / p-median with an upper bound on assignment cost). The λ-sweep is its Lagrangian relaxation w.r.t. that constraint (Cornuéjols, Fisher & Nemhauser 1977): it recovers only the p’s on the lower convex envelope of the p-median value function, so p-values in non-convex gaps are unreachable by any λ — there S1/S2 are interpolated between sweep points, or pinned exactly with the cardinality constraint (roadmap: better S1/S2 estimations). The swap polish of p. 12 is the classic p-median vertex-substitution search. In the family tree of Rosa's deck (her p7): capacities Rⱼ on Σᵢ popᵢ·xᵢⱼ make it the CpMP; a coverage radius in place of c(t) makes it the MCLP — the saturating logistic c(t) is the smooth counterpart of that coverage objective (p66).", options: { color: MUTED } },
+  ], { x: 0.75, y: 5.18, w: 11.85, h: 1.78, fontSize: 9.3, fontFace: "Calibri", valign: "top" });
 
   slide.addText("Implementation: lp_run.jl (build_lp_warmstart / solve_at_w!) · weights popᵢ = total residents of cell i (CLIENT_WEIGHT=total_pop) · OD from GeoDMS impedance_matrix_od64, t = seconds/60.",
     { x: 0.5, y: 7.05, w: 12.33, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
@@ -664,11 +667,11 @@ function choiceSetSlide() {
   ], "A cheap experiment: one area, radius 5 → 10, compare S2 facility count and stranding.");
 
   box(9.04, 4.1, "0B6E99", "EEF5FA", "Why RSSV requires it", [
-    "RSSV solves many sub-problems on random CANDIDATE subsets Jᵤ with the FULL client set. Every client must still reach some sampled candidate — otherwise it is stranded at BIG for that sub-problem alone, and those spurious penalties corrupt the spatial votes.",
+    "RSSV (Albuquerque, Figueiredo & Genre-Grandpierre 2026, arXiv 2607.22666 — Rosa's p12) solves many sub-problems on random CANDIDATE subsets Jᵤ with the FULL client set. Every client must still reach some sampled candidate — otherwise it is stranded at BIG for that sub-problem alone, and those spurious penalties corrupt the spatial votes.",
     "The chance that a random Jᵤ leaves a client with no reachable candidate falls as the radius widens. A thin radius makes voting noisy; a wide one makes it robust.",
     "So the two size-control knobs trade against each other: under RSSV, size control moves from pruning per client to sample → vote → filter → exact solve. Widening the radius is the precondition, not a nicety.",
     "Stratified (not uniform) sampling lets a narrower radius suffice — a lever to trade against OD size.",
-  ], "Sequence: widen the candidate radius → RSSV → exact MIP on the reduced set.");
+  ], "Sequence: widen the candidate radius → RSSV (sample → solve → vote → filter) → exact MIP on the reduced set → post-optimisation, as in her flow.");
 
   slide.addShape(pptx.ShapeType.roundRect, { x: 0.4, y: 6.05, w: 12.75, h: 0.62, rectRadius: 0.05, fill: { color: "F2F5F8" }, line: { color: "5B6B7B", width: 1 } });
   slide.addText([
@@ -758,8 +761,8 @@ function tangentSlide() {
     "Slide the line down until it last touches the feasible set. That touching point is the λ-optimum. λ₁ = €10,000 per facility touches at 3,220 open (22.6 M person-minutes); λ₂ = €50,000 touches at 831 open (74.7 M). A steeper slope buys fewer, busier pharmacies.");
   step(4.35, 1.2, "1E7A52", "F0F6F2", "3 · Many λ → the frontier",
     "Two λ give two tangencies; the 1-2-5 grid gives ~30. Their lower-left envelope is the Pareto frontier of the next slides. The frontier itself needs no λ — λ only says which point on it a decision-maker would pick.");
-  step(5.65, 0.95, "B9791C", "FBF5EA", "What a tangency cannot reach",
-    "A point in a concave dent of the frontier is never a tangency, whatever λ. Such points — and an exact count such as “today’s 1,615” — need a fixed-#open solve, which is the refinement step S1/S2 still lack (p9).");
+  step(5.65, 1.3, "B9791C", "FBF5EA", "What a tangency cannot reach",
+    "A point in a concave dent of the frontier is never a tangency, whatever λ. Such points — and an exact count such as “today’s 1,615” — need a fixed-#open solve — a p-median instance (p7). S1/S2 are now pinned by bisection over λ to within one facility / 0.2% travel (#52, p9); the exact fixed-count solve stays on the roadmap for the integrality gap (p65).");
 }
 
 function multistartSlide() {
@@ -836,6 +839,53 @@ function mapsSlide(e) {
     { x: 0.45, y: 6.75, w: 12.4, h: 0.3, fontSize: 8.5, italic: true, color: MUTED, fontFace: "Calibri" });
 }
 
+// TERMINOLOGY slide (16 Sep 2026): one vocabulary across the three seminar decks — this
+// one, Lewis's "Benchmarking access to pharmacies" (JRC draft, 15 Sep 2026) and Rosa
+// Figueiredo's "Balancing equity and efficiency — the case of La Poste in France"
+// (OECD/EC seminar, Ispra, 18 Sep 2026). Page numbers in their columns are their own.
+// Generated last, after the logistic slide, so no page reference elsewhere shifts.
+function terminologySlide() {
+  const slide = pptx.addSlide();
+  slide.background = { color: "FFFFFF" };
+  slide.addText("TERMINOLOGY", { x: 0.45, y: 0.28, w: 9, h: 0.3, fontSize: 12, bold: true, color: MULTI, charSpacing: 2 });
+  slide.addText([
+    { text: "Terminology bridge  ", options: { bold: true, color: INK } },
+    { text: "— this deck · Lewis's benchmarking deck · Rosa's La Poste deck", options: { color: NAVY } },
+  ], { x: 0.45, y: 0.54, w: 12.5, h: 0.5, fontSize: 20, fontFace: "Georgia" });
+  slide.addText("Same objects, three vocabularies. Where a name differs, this deck now carries the other deck's term next to its own; where a concept exists in one deck only, the cell says so. Page numbers are each deck's own.",
+    { x: 0.45, y: 1.0, w: 12.5, h: 0.32, fontSize: 10, color: MUTED, fontFace: "Calibri", valign: "top" });
+  const rows = [
+    ["", "this deck", "Lewis — Benchmarking access to pharmacies", "Rosa — Balancing equity and efficiency (La Poste, PACA)"],
+    ["today's network", "★ baseline (current); catchments by road (p3–6)", "current situation (p15, p21)", "Current; “Actual %” = share of today's sites an optimum keeps (p16)"],
+    ["the trade-off", "#locations vs travel cost — the Pareto frontier (p13)", "proximity vs efficiency; the trilemma collapses once the population distribution is given (p3–5, p15)", "efficiency vs equity: pMP vs MCLP; objective value against p (p16–17)"],
+    ["λ", "price per location, w · €100,000 placeholder; the slope of the tangent (p7, p10)", "lambda = preference for efficiency over proximity (p11)", "not swept — p is fixed per instance; λ is the multiplier of Σⱼ yⱼ = p (p7 here)"],
+    ["fixed-count problem", "p-median at Σⱼ yⱼ = p (p7); S1 is one instance", "S1 — fix the number of facilities (p16)", "pMP (Hakimi 1964); with capacities Rⱼ the CpMP (p5, p7)"],
+    ["coverage", "soft coverage: an unserved client is priced at BIG; the logistic c(t) saturates (p7, p66)", "logistic: beyond 60 min equally disliked (p14)", "MCLP within radius r (5 km); territorial coverage ≥1 / ≤1 per zone, multi-scale nested (p8–9)"],
+    ["gap to the frontier", "S1 Δ travel and S2 Δ # in native units; the improvement rectangle (p62–63, p74–77)", "distance between cross-lambda and the current situation (p21)", "RIC = (Sol_X − Sol_pMP) / Sol_pMP × 100 at equal p (p16); knee points (p17)"],
+    ["position on the frontier", "λ at the balanced-improvement crossing (p72–73)", "cross-lambda — a revealed network preference, by OECD archetype (p21–24)", "knee point of the objective-vs-p curve (p17, p23)"],
+    ["lower bound", "LP relaxation of the UFLP, strong disaggregated formulation (p7)", "“LP … a plausible lower band” (p26)", "pMP + disaggregated cuts for the closest facility, lifted p-cover, location upper bound (p11)"],
+    ["integer solution", "multistart: top-p, CELF greedy, weighted draws, swap polish (p12)", "“multipart heuristic … upper band” (p26)", "post-optimisation after the final solve (p12)"],
+    ["scale", "full candidate set; radius = 5 nearest existing pharmacies (p9)", "small countries and NUTS1 regions (p15)", "RSSV: random sampling → sub-problems → spatial voting → filtering → final solve (p12)"],
+    ["from today's network", "roadmap item (p65)", "subsidy to bring everybody nearby; extra travel if small facilities go (p4)", "optimal removal / optimal addition from the current network; relocations allowed (p17–18)"],
+    ["distribution", "stranded count; catchment percentiles (p3–6)", "distance to the nearest pharmacy by degree of urbanisation (p6, p8)", "Gini, % within 5 km, max / avg distance, communes served (p16, p24)"],
+    ["capacity", "catchment-cap ladder, explored and dropped (p15)", "—", "CpMP with synthetic capacities: Voronoi cells → demand bins → sampled (p21)"],
+  ];
+  const body = rows.map((r, ri) => r.map((c, ci) => ({
+    text: c, options: {
+      fontSize: ri === 0 ? 8.6 : 8.0, bold: ri === 0 || ci === 0, align: "left",
+      color: ri === 0 ? "FFFFFF" : (ci === 0 ? NAVY : INK),
+      fill: ri === 0 ? NAVY : (ri % 2 ? PANEL : "FFFFFF"), fontFace: "Calibri", valign: "middle", margin: [1, 3, 1, 4],
+    },
+  })));
+  slide.addTable(body, { x: 0.45, y: 1.38, w: 12.45, colW: [1.5, 3.55, 3.55, 3.85], rowH: 0.3, border: { type: "solid", color: "D9E0E7", pt: 0.5 }, valign: "middle" });
+  slide.addText([
+    { text: "Sources.  ", options: { bold: true, color: INK } },
+    { text: "Lewis Dijkstra, Chris Jacobs-Crisioni, Maarten Hilferink & Jip Claassens, “Benchmarking access to pharmacies” (JRC draft, 15 Sep 2026; its p15, p16 and p27 share this deck's p13, p11 and p10). Rosa Figueiredo, Felipe Albuquerque & Cyrille Genre-Grandpierre, “Balancing equity and efficiency — the case of La Poste in France”, OECD/EC knowledge-sharing seminar, Ispra, 18 Sep 2026; the method is arXiv 2607.22666.  ", options: { color: MUTED } },
+    { text: "Caution on cross-lambda: ", options: { bold: true, color: "B9791C" } },
+    { text: "for one and the same geography it is lower the more pharmacies there are today, so across areas it moves with residents per pharmacy (p3) as well as with policy — read it next to that table.", options: { color: MUTED } },
+  ], { x: 0.45, y: 6.58, w: 12.45, h: 0.8, fontSize: 8.4, italic: true, fontFace: "Calibri", valign: "top" });
+}
+
 let regions = data;
 if (only) regions = data.filter((e) => e.region === only);
 if (!only && !args.includes("--no-summary")) {
@@ -857,7 +907,7 @@ if (!only && !args.includes("--no-summary")) {
   aggregateSlide();
   lambdaTableSlide({ eyebrow: "SCENARIOS · PER COUNTRY", titleRest: "— per country, by travel-cost function", col0: "country", pick: (e) => COUNTRY_SET.has(e.region), label: (e) => e.name });
   lambdaTableSlide({ eyebrow: "SCENARIOS · NUTS-1", titleRest: "— FR / IT / SE / PL NUTS-1 regions", col0: "NUTS-1 region", labelWide: true, pick: (e) => !COUNTRY_SET.has(e.region), label: (e) => `${e.region} · ${e.name}` });
-  summarySlide(); statusSlide(); logisticSlide();
+  summarySlide(); statusSlide(); logisticSlide(); terminologySlide();
 }
 
 await pptx.writeFile({ fileName: join(__dir, outName) });

@@ -1,7 +1,7 @@
 # Charts from doc/frontier_metrics_interp1.json + doc/region_typology.csv:
 #   pointcloud_<FN>.png   baselines (#F, TC) with projection to the diagonal-cross
 #                         on the frontier, log-log, coloured by urban–rural class
-#   rank_lambda_<FN>.png  regions ranked by λ_cross (balanced-improvement price)
+#   rank_lambda_<FN>.png  regions ranked by λ_cross (balanced-improvement price; Lewis's 'cross-lambda')
 #   rank_area_<FN>.png    regions ranked by raw rectangle area (potential box)
 # Colour = DEGURBA-style class (PU / IN / PR).  RAW units throughout (user choice).
 import os, json, csv
@@ -78,7 +78,7 @@ def pointcloud(fn):
         ax.annotate(label_of(reg), (Bx, By), fontsize=5.5, color="#444",
                     xytext=(2, 2), textcoords="offset points", zorder=6)
     ax.set_xscale("log"); ax.set_yscale("log")
-    ax.set_xlabel("# facilities   (★ baseline · ◆ S1 same-count · ■ S2 same-travel · ● frontier crossing)", fontsize=8.5)
+    ax.set_xlabel("# facilities   (★ baseline · ◆ S1 same-count · ■ S2 same-travel · ● cross-lambda crossing)", fontsize=8.5)
     ax.set_ylabel(f"total travel cost c(t)   [{fn}]", fontsize=9)
     ax.set_title(f"Baselines, S1/S2 and frontier projections — {fn}", fontsize=11)
     ax.grid(True, which="both", ls=":", lw=0.4, color="#CCC")
@@ -118,7 +118,7 @@ def rank_bar(fn, key, label, logx, fname):
 made = []
 for fn in FUNCS:
     made.append(pointcloud(fn))
-    made.append(rank_bar(fn, "lambda_cross", "λ at balanced-improvement crossing (€)",
+    made.append(rank_bar(fn, "lambda_cross", "cross-lambda: λ at the balanced-improvement crossing (€)",
                          False, f"rank_lambda_{fn}.png"))
     made.append(rank_bar(fn, "rect_area", "potential rectangle area (raw: #F × travel-cost)",
                          True, f"rank_area_{fn}.png"))
