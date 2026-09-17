@@ -11,7 +11,7 @@ As a follow-up to the cross-lambda table of yesterday, here are the same figures
    - `cross_lambda_countries` — 19 countries: the 15 swept whole (Portugal = mainland, PT1; the Azores and Madeira are outside the model) plus France, Italy, Sweden and Poland as the sums of their NUTS-1 regions at common λ (exact by separability; `level` says so);
    - `cross_lambda_nuts1` — the 28 NUTS-1 regions of France, Italy, Sweden and Poland;
    - `cross_lambda_regions` — all 47 rows of the csv in one file (countries + NUTS-1); for a map without double counting take the 43 rows whose `level` is not `country (NUTS-1 aggregate)`.
-2. `cross_lambda_map_LINEAR.png` — the thematic map of the LINEAR cross-lambda over all 44 areas, green (low λ) → yellow → red (high λ), rendered with GeoDMS from `cross_lambda_regions`.
+2. `cross_lambda_map_LINEAR.png` and `cross_lambda_map_LOGISTIC.png` — the thematic maps of the cross-lambda over the 43 disjoint areas, green (low λ) → yellow → red (high λ), rendered with GeoDMS from `cross_lambda_regions`; the logistic one has the same seven classes at one hundredth of the linear breaks (its λ is on its own scale). Both are also in the deck (p74–75).
 3. `cross_lambda_table.csv` — the table, now with the four aggregated countries (47 rows; the direct country-level Poland sweep is replaced by its NUTS-1 sum, which lands within 0.2 % of it).
 
 **The attribute table** (shapefile field names are limited to 10 characters; the csv has the long names):

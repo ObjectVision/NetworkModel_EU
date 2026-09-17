@@ -34,7 +34,11 @@ powershell -ExecutionPolicy Bypass -File merge_deck.ps1
 # 5. the analysis section at the end of the deck  (PowerPoint COM; idempotent)
 PYTHONIOENCODING=utf-8 python frontier_metrics.py interp3                    # rectangle, crossing, lambda_cross
 METRIC_SUFFIX=interp3 PYTHONIOENCODING=utf-8 python frontier_charts.py       # ranked lists + point clouds
-METRIC_SUFFIX=interp3 PYTHONIOENCODING=utf-8 python cross_lambda_scatter.py          # cross-lambda vs residents per location, by archetype (p74-75)
+METRIC_SUFFIX=interp3 PYTHONIOENCODING=utf-8 python cross_lambda_scatter.py          # cross-lambda vs residents per location, by archetype
+PYTHONIOENCODING=utf-8 python cross_lambda_table.py                             # the cross-lambda csv (also the input of cfg/cross_lambda_map.dms)
+powershell -ExecutionPolicy Bypass -File run_cross_lambda_map.ps1               # UNSANDBOXED: the GeoDMS GUI draws the two maps and copies them to the clipboard
+PYTHONIOENCODING=utf-8 python cross_lambda_map_figure.py LINEAR                 # crop + legend -> charts/cross_lambda_map_LINEAR[_slide].png
+PYTHONIOENCODING=utf-8 python cross_lambda_map_figure.py LOGISTIC
 PYTHONIOENCODING=utf-8 python lambda_axis_chart.py            # the sweep along lambda: AGGREGATE + Netherlands
 powershell -ExecutionPolicy Bypass -File rebuild_analysis_slides.ps1   # from the repo root: doc\...
 ```

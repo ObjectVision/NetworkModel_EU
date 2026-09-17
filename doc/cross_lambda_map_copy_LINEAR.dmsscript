@@ -1,5 +1,6 @@
-// Cross-lambda map (cfg/cross_lambda_map.dms): open the one-layer thematic map /map/xlam_class,
-// let it draw, put the viewport on the clipboard, close. The runner saves the clipboard as PNG.
+// Cross-lambda map, LINEAR (cfg/cross_lambda_map.dms): open the one-layer thematic map
+// /map/xlam_class, let it draw, put the viewport on the clipboard, close. The runner
+// (run_cross_lambda_map.ps1) saves the clipboard as PNG.
 ActivateItem "/map/xlam_class"
 DefaultView
 WAIT 10000

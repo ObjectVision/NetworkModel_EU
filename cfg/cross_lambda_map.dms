@@ -6,7 +6,8 @@
 // regions), the NUTS-1 regions, and all 47 rows of the csv in one file. The
 // country polygon is the NUTS-0 polygon, except Portugal, whose study area is the mainland
 // (PT1 Continente; the Azores and Madeira are excluded from the model, #49). The map colours
-// XLAM_LIN, the cross-lambda under the LINEAR cost function, green (low) -> yellow -> red (high).
+// XLAM_LIN (/map/xlam_class) and XLAM_LOG (/map/xlam_class_log), the cross-lambda under the LINEAR
+// and the LOGISTIC cost function, green (low) -> yellow -> red (high).
 //
 // Field names are shapefile-short (10 chars); the legend is in doc/email_cross_lambda_chris.md.
 //
@@ -102,6 +103,15 @@ container cross_lambda_map
 		attribute<string>  Label       : DialogType = "LabelText", ['< 9 000', '9 000 - 11 000', '11 000 - 13 000', '13 000 - 16 000', '16 000 - 20 000', '20 000 - 30 000', '>= 30 000'];
 	}
 
+	// the LOGISTIC cross-lambda lives on its own scale (about 50 - 650 EUR): the same seven
+	// classes at one hundredth of the LINEAR breaks
+	unit<uint8> XLamKlog : NrOfRows = 7
+	{
+		attribute<float64> ClassBreaks : DialogType = "Classification", [0, 90, 110, 130, 160, 200, 300];
+		attribute<uint32>  BrushColor  : DialogType = "BrushColor", [rgb(26,152,80), rgb(102,189,99), rgb(166,217,106), rgb(254,224,139), rgb(253,174,97), rgb(244,109,67), rgb(215,48,39)];
+		attribute<string>  Label       : DialogType = "LabelText", ['< 90', '90 - 110', '110 - 130', '130 - 160', '160 - 200', '200 - 300', '>= 300'];
+	}
+
 	// the map: background and study areas as ONE polygon layer, so that one DefaultView draws
 	// both -- class 0 = grey background, classes 1..7 = the cross-lambda classes of XLamK
 	unit<uint8> MapK : NrOfRows = 8
@@ -110,6 +120,12 @@ container cross_lambda_map
 		attribute<uint32> PenColor   : DialogType = "PenColor",   [rgb(200,200,200), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80)];
 		attribute<string> Label      : DialogType = "LabelText",  ['not in the study', '< 9 000', '9 000 - 11 000', '11 000 - 13 000', '13 000 - 16 000', '16 000 - 20 000', '20 000 - 30 000', '>= 30 000'];
 	}
+	unit<uint8> MapKlog : NrOfRows = 8
+	{
+		attribute<uint32> BrushColor : DialogType = "BrushColor", [rgb(235,235,235), rgb(26,152,80), rgb(102,189,99), rgb(166,217,106), rgb(254,224,139), rgb(253,174,97), rgb(244,109,67), rgb(215,48,39)];
+		attribute<uint32> PenColor   : DialogType = "PenColor",   [rgb(200,200,200), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80)];
+		attribute<string> Label      : DialogType = "LabelText",  ['not in the study', '< 90', '90 - 110', '110 - 130', '130 - 160', '160 - 200', '200 - 300', '>= 300'];
+	}
 	// the map draws the NUTS-1 regions where a country was swept as regions, so the country
 	// rows that are their sums stay out of it
 	unit<uint32> map_regions := select_with_attr_by_cond(regions, regions/LEVEL != 'country (NUTS-1 aggregate)');
@@ -117,6 +133,7 @@ container cross_lambda_map
 	{
 		attribute<LambertEA> geometry (poly) := union_data(., nuts_bg/geometry, map_regions/geometry);
 		attribute<MapK>      xlam_class      := union_data(., const(0[MapK], nuts_bg), value(uint8(map_regions/xlam_class) + 1b, MapK)), Label = "cross-lambda LINEAR (EUR per location, placeholder 100 000)";
+		attribute<MapKlog>   xlam_class_log  := union_data(., const(0[MapKlog], nuts_bg), value(uint8(map_regions/xlam_class_log) + 1b, MapKlog)), Label = "cross-lambda LOGISTIC (EUR per location, placeholder 100 000)";
 	}
 
 	// one row per csv area, with its polygon and typed columns under shapefile-short names
@@ -158,6 +175,7 @@ container cross_lambda_map
 		attribute<float64>   S2LOC_LOG  := value(csv/s2_locations_change_pct_logistic, float64);
 
 		attribute<XLamK>     xlam_class := classify(XLAM_LIN, XLamK/ClassBreaks), Label = "cross-lambda LINEAR (EUR per location, placeholder 100 000)";
+		attribute<XLamKlog>  xlam_class_log := classify(XLAM_LOG, XLamKlog/ClassBreaks), Label = "cross-lambda LOGISTIC (EUR per location, placeholder 100 000)";
 
 		parameter<bool>      all_matched := all(IsDefined(nuts_rel) && IsDefined(polys_rel)), IntegrityCheck = "all_matched == true";
 	}
