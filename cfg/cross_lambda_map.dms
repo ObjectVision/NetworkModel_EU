@@ -1,0 +1,242 @@
+// Cross-lambda per study area as shapefiles and as a thematic map (17 Sep 2026, for Chris Jacobs).
+//
+// Joins doc/cross_lambda_table.csv (cross_lambda_table.py: one row per area, 16 countries +
+// 28 NUTS-1 regions) to the NUTS 2021 polygons (EPSG:3035) and writes three shapefiles under
+// doc/shp/: the countries, the NUTS-1 regions, and all 44 areas of the csv in one file. The
+// country polygon is the NUTS-0 polygon, except Portugal, whose study area is the mainland
+// (PT1 Continente; the Azores and Madeira are excluded from the model, #49). The map colours
+// XLAM_LIN, the cross-lambda under the LINEAR cost function, green (low) -> yellow -> red (high).
+//
+// Field names are shapefile-short (10 chars); the legend is in doc/email_cross_lambda_chris.md.
+//
+//   GeoDmsRun.exe cfg/cross_lambda_map.dms /shp/countries /shp/nuts1 /shp/regions   (writes the files)
+//   GeoDmsGuiQt.exe /T<script> cfg/cross_lambda_map.dms   with ActivateItem /map/xlam_class + DefaultView
+container cross_lambda_map
+{
+	unit<dpoint> LambertEA : SpatialReference = "EPSG:3035";
+
+	unit<uint32> nuts
+	:	StorageName     = "F:/SourceData/NetworkModel_EU/Regions/NUTS_RG_01M_2021_3035.shp"
+	,	StorageType     = "gdal.vect"
+	,	StorageReadOnly = "true"
+	{
+		attribute<LambertEA> geometry (poly);
+		attribute<string>    NUTS_ID;
+		attribute<int32>     LEVL_CODE;
+		attribute<string>    CNTR_CODE;
+		attribute<string>    NAME_LATN;
+	}
+	// the map's background: the NUTS-1 regions of the file that are NOT part of a study area
+	// (a study area is drawn from its own row, so nothing is drawn twice) and not one of the
+	// far-away territories that would only widen the extent (Canarias, Azores, Madeira,
+	// French overseas, Svalbard, Turkey, Iceland)
+	unit<uint32> nuts_bg := select_with_attr_by_cond(nuts, nuts/LEVL_CODE == 1i
+		&& !IsDefined(rlookup(nuts/NUTS_ID, regions/nuts_id))
+		&& !IsDefined(rlookup(nuts/CNTR_CODE, country_codes/code))
+		&& nuts/CNTR_CODE != 'TR' && nuts/CNTR_CODE != 'IS'
+		&& nuts/NUTS_ID != 'ES7' && nuts/NUTS_ID != 'PT2' && nuts/NUTS_ID != 'PT3' && nuts/NUTS_ID != 'FRY' && nuts/NUTS_ID != 'NO0B');
+
+	// the table as written by cross_lambda_table.py; the csv driver reads every column as text
+	unit<uint32> csv
+	:	StorageName     = "E:/prj/JRC/NetworkModel_EU/doc/cross_lambda_table.csv"
+	,	StorageType     = "gdal.vect"
+	,	StorageReadOnly = "true"
+	{
+		attribute<string> area;
+		attribute<string> name;
+		attribute<string> level;
+		attribute<string> country;
+		attribute<string> oecd_archetype;
+		attribute<string> archetype_name;
+		attribute<string> residents;
+		attribute<string> pharmacy_locations_today;
+		attribute<string> residents_per_location;
+		attribute<string> mean_travel_min_today;
+		attribute<string> cross_lambda_eur_linear;
+		attribute<string> w_cross_linear;
+		attribute<string> crossing_locations_linear;
+		attribute<string> crossing_travel_change_pct_linear;
+		attribute<string> crossing_locations_change_pct_linear;
+		attribute<string> s1_travel_change_pct_linear;
+		attribute<string> s2_locations_change_pct_linear;
+		attribute<string> cross_lambda_eur_logistic;
+		attribute<string> w_cross_logistic;
+		attribute<string> crossing_locations_logistic;
+		attribute<string> crossing_cost_change_pct_logistic;
+		attribute<string> crossing_locations_change_pct_logistic;
+		attribute<string> s1_cost_change_pct_logistic;
+		attribute<string> s2_locations_change_pct_logistic;
+	}
+
+	// country name in the csv -> NUTS code of its study-area polygon
+	unit<uint32> country_codes : NrOfRows = 16
+	{
+		attribute<string> name : ['Netherlands','Luxembourg','Estonia','Latvia','Slovenia','Lithuania','Ireland','Norway','Denmark','Austria','Portugal','Czechia','Belgium','Poland','Hungary','Finland'];
+		attribute<string> code : ['NL','LU','EE','LV','SI','LT','IE','NO','DK','AT','PT1','CZ','BE','PL','HU','FI'];
+	}
+
+	// classes of the LINEAR cross-lambda for the map: green (low) -> yellow -> red (high)
+	unit<uint8> XLamK : NrOfRows = 7
+	{
+		attribute<float64> ClassBreaks : DialogType = "Classification", [0, 9000, 11000, 13000, 16000, 20000, 30000];
+		attribute<uint32>  BrushColor  : DialogType = "BrushColor", [rgb(26,152,80), rgb(102,189,99), rgb(166,217,106), rgb(254,224,139), rgb(253,174,97), rgb(244,109,67), rgb(215,48,39)];
+		attribute<uint32>  PenColor    : DialogType = "PenColor", [rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80)];
+		attribute<string>  Label       : DialogType = "LabelText", ['< 9 000', '9 000 - 11 000', '11 000 - 13 000', '13 000 - 16 000', '16 000 - 20 000', '20 000 - 30 000', '>= 30 000'];
+	}
+
+	// the map: background and study areas as ONE polygon layer, so that one DefaultView draws
+	// both -- class 0 = grey background, classes 1..7 = the cross-lambda classes of XLamK
+	unit<uint8> MapK : NrOfRows = 8
+	{
+		attribute<uint32> BrushColor : DialogType = "BrushColor", [rgb(235,235,235), rgb(26,152,80), rgb(102,189,99), rgb(166,217,106), rgb(254,224,139), rgb(253,174,97), rgb(244,109,67), rgb(215,48,39)];
+		attribute<uint32> PenColor   : DialogType = "PenColor",   [rgb(200,200,200), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80)];
+		attribute<string> Label      : DialogType = "LabelText",  ['not in the study', '< 9 000', '9 000 - 11 000', '11 000 - 13 000', '13 000 - 16 000', '16 000 - 20 000', '20 000 - 30 000', '>= 30 000'];
+	}
+	unit<uint32> map := union_unit(nuts_bg, regions)
+	{
+		attribute<LambertEA> geometry (poly) := union_data(., nuts_bg/geometry, regions/geometry);
+		attribute<MapK>      xlam_class      := union_data(., const(0[MapK], nuts_bg), value(uint8(regions/xlam_class) + 1b, MapK)), Label = "cross-lambda LINEAR (EUR per location, placeholder 100 000)";
+	}
+
+	// one row per csv area, with its polygon and typed columns under shapefile-short names
+	unit<uint32> regions := csv
+	{
+		attribute<string>    AREA       := csv/area;
+		attribute<string>    NAME       := csv/name;
+		attribute<string>    LEVEL      := csv/level;
+		attribute<string>    COUNTRY    := csv/country;
+		attribute<string>    nuts_id    := LEVEL == 'country' ? country_codes/code[rlookup(AREA, country_codes/name)] : AREA;
+		attribute<nuts>      nuts_rel   := rlookup(nuts_id, nuts/NUTS_ID);
+		attribute<LambertEA> geometry   (poly) := nuts/geometry[nuts_rel];
+		attribute<string>    NUTS_NAME  := nuts/NAME_LATN[nuts_rel];
+
+		attribute<int32>     ARCHETYPE  := value(csv/oecd_archetype, int32);
+		attribute<string>    ARCH_NAME  := replace(csv/archetype_name, '–', '-');   // the dbf is not UTF-8: no en-dash
+		attribute<int32>     RESIDENTS  := value(csv/residents, int32);
+		attribute<int32>     LOC_TODAY  := value(csv/pharmacy_locations_today, int32);
+		attribute<int32>     RES_PERLOC := value(csv/residents_per_location, int32);
+		attribute<float64>   MEAN_T_MIN := value(csv/mean_travel_min_today, float64);
+
+		attribute<float64>   XLAM_LIN   := value(csv/cross_lambda_eur_linear, float64);
+		attribute<float64>   W_LIN      := value(csv/w_cross_linear, float64);
+		attribute<float64>   XLOC_LIN   := value(csv/crossing_locations_linear, float64);
+		attribute<float64>   XTRAV_LIN  := value(csv/crossing_travel_change_pct_linear, float64);
+		attribute<float64>   XLOCP_LIN  := value(csv/crossing_locations_change_pct_linear, float64);
+		attribute<float64>   S1TRAV_LIN := value(csv/s1_travel_change_pct_linear, float64);
+		attribute<float64>   S2LOC_LIN  := value(csv/s2_locations_change_pct_linear, float64);
+
+		attribute<float64>   XLAM_LOG   := value(csv/cross_lambda_eur_logistic, float64);
+		attribute<float64>   W_LOG      := value(csv/w_cross_logistic, float64);
+		attribute<float64>   XLOC_LOG   := value(csv/crossing_locations_logistic, float64);
+		attribute<float64>   XCOST_LOG  := value(csv/crossing_cost_change_pct_logistic, float64);
+		attribute<float64>   XLOCP_LOG  := value(csv/crossing_locations_change_pct_logistic, float64);
+		attribute<float64>   S1COST_LOG := value(csv/s1_cost_change_pct_logistic, float64);
+		attribute<float64>   S2LOC_LOG  := value(csv/s2_locations_change_pct_logistic, float64);
+
+		attribute<XLamK>     xlam_class := classify(XLAM_LIN, XLamK/ClassBreaks), Label = "cross-lambda LINEAR (EUR per location, placeholder 100 000)";
+
+		parameter<bool>      all_matched := all(IsDefined(nuts_rel)), IntegrityCheck = "all_matched == true";
+	}
+
+	// the three shapefiles: the csv rows of one level each, and all of them; the columns
+	// under their shapefile-short names (10 characters), the legend in the mail
+	container shp
+	{
+		unit<uint32> sel_countries := select_with_org_rel(/regions/LEVEL == 'country');
+		unit<uint32> countries := sel_countries
+		,	StorageName = "E:/prj/JRC/NetworkModel_EU/doc/shp/cross_lambda_countries.shp"
+		,	StorageType = "gdalwrite.vect"
+		{
+			attribute<LambertEA> geometry (poly)  := /regions/geometry[sel_countries/org_rel];
+			attribute<string> AREA             := /regions/AREA[sel_countries/org_rel];
+			attribute<string> NAME             := /regions/NAME[sel_countries/org_rel];
+			attribute<string> LEVEL            := /regions/LEVEL[sel_countries/org_rel];
+			attribute<string> COUNTRY          := /regions/COUNTRY[sel_countries/org_rel];
+			attribute<string> NUTS_ID          := /regions/nuts_id[sel_countries/org_rel];
+			attribute<int32> ARCHETYPE        := /regions/ARCHETYPE[sel_countries/org_rel];
+			attribute<string> ARCH_NAME        := /regions/ARCH_NAME[sel_countries/org_rel];
+			attribute<int32> RESIDENTS        := /regions/RESIDENTS[sel_countries/org_rel];
+			attribute<int32> LOC_TODAY        := /regions/LOC_TODAY[sel_countries/org_rel];
+			attribute<int32> RES_PERLOC       := /regions/RES_PERLOC[sel_countries/org_rel];
+			attribute<float64> MEAN_T_MIN       := /regions/MEAN_T_MIN[sel_countries/org_rel];
+			attribute<float64> XLAM_LIN         := /regions/XLAM_LIN[sel_countries/org_rel];
+			attribute<float64> W_LIN            := /regions/W_LIN[sel_countries/org_rel];
+			attribute<float64> XLOC_LIN         := /regions/XLOC_LIN[sel_countries/org_rel];
+			attribute<float64> XTRAV_LIN        := /regions/XTRAV_LIN[sel_countries/org_rel];
+			attribute<float64> XLOCP_LIN        := /regions/XLOCP_LIN[sel_countries/org_rel];
+			attribute<float64> S1TRAV_LIN       := /regions/S1TRAV_LIN[sel_countries/org_rel];
+			attribute<float64> S2LOC_LIN        := /regions/S2LOC_LIN[sel_countries/org_rel];
+			attribute<float64> XLAM_LOG         := /regions/XLAM_LOG[sel_countries/org_rel];
+			attribute<float64> W_LOG            := /regions/W_LOG[sel_countries/org_rel];
+			attribute<float64> XLOC_LOG         := /regions/XLOC_LOG[sel_countries/org_rel];
+			attribute<float64> XCOST_LOG        := /regions/XCOST_LOG[sel_countries/org_rel];
+			attribute<float64> XLOCP_LOG        := /regions/XLOCP_LOG[sel_countries/org_rel];
+			attribute<float64> S1COST_LOG       := /regions/S1COST_LOG[sel_countries/org_rel];
+			attribute<float64> S2LOC_LOG        := /regions/S2LOC_LOG[sel_countries/org_rel];
+		}
+		unit<uint32> sel_nuts1 := select_with_org_rel(/regions/LEVEL == 'NUTS-1');
+		unit<uint32> nuts1 := sel_nuts1
+		,	StorageName = "E:/prj/JRC/NetworkModel_EU/doc/shp/cross_lambda_nuts1.shp"
+		,	StorageType = "gdalwrite.vect"
+		{
+			attribute<LambertEA> geometry (poly)  := /regions/geometry[sel_nuts1/org_rel];
+			attribute<string> AREA             := /regions/AREA[sel_nuts1/org_rel];
+			attribute<string> NAME             := /regions/NAME[sel_nuts1/org_rel];
+			attribute<string> LEVEL            := /regions/LEVEL[sel_nuts1/org_rel];
+			attribute<string> COUNTRY          := /regions/COUNTRY[sel_nuts1/org_rel];
+			attribute<string> NUTS_ID          := /regions/nuts_id[sel_nuts1/org_rel];
+			attribute<int32> ARCHETYPE        := /regions/ARCHETYPE[sel_nuts1/org_rel];
+			attribute<string> ARCH_NAME        := /regions/ARCH_NAME[sel_nuts1/org_rel];
+			attribute<int32> RESIDENTS        := /regions/RESIDENTS[sel_nuts1/org_rel];
+			attribute<int32> LOC_TODAY        := /regions/LOC_TODAY[sel_nuts1/org_rel];
+			attribute<int32> RES_PERLOC       := /regions/RES_PERLOC[sel_nuts1/org_rel];
+			attribute<float64> MEAN_T_MIN       := /regions/MEAN_T_MIN[sel_nuts1/org_rel];
+			attribute<float64> XLAM_LIN         := /regions/XLAM_LIN[sel_nuts1/org_rel];
+			attribute<float64> W_LIN            := /regions/W_LIN[sel_nuts1/org_rel];
+			attribute<float64> XLOC_LIN         := /regions/XLOC_LIN[sel_nuts1/org_rel];
+			attribute<float64> XTRAV_LIN        := /regions/XTRAV_LIN[sel_nuts1/org_rel];
+			attribute<float64> XLOCP_LIN        := /regions/XLOCP_LIN[sel_nuts1/org_rel];
+			attribute<float64> S1TRAV_LIN       := /regions/S1TRAV_LIN[sel_nuts1/org_rel];
+			attribute<float64> S2LOC_LIN        := /regions/S2LOC_LIN[sel_nuts1/org_rel];
+			attribute<float64> XLAM_LOG         := /regions/XLAM_LOG[sel_nuts1/org_rel];
+			attribute<float64> W_LOG            := /regions/W_LOG[sel_nuts1/org_rel];
+			attribute<float64> XLOC_LOG         := /regions/XLOC_LOG[sel_nuts1/org_rel];
+			attribute<float64> XCOST_LOG        := /regions/XCOST_LOG[sel_nuts1/org_rel];
+			attribute<float64> XLOCP_LOG        := /regions/XLOCP_LOG[sel_nuts1/org_rel];
+			attribute<float64> S1COST_LOG       := /regions/S1COST_LOG[sel_nuts1/org_rel];
+			attribute<float64> S2LOC_LOG        := /regions/S2LOC_LOG[sel_nuts1/org_rel];
+		}
+		unit<uint32> sel_regions := select_with_org_rel(const(true, /regions));
+		unit<uint32> regions := sel_regions
+		,	StorageName = "E:/prj/JRC/NetworkModel_EU/doc/shp/cross_lambda_regions.shp"
+		,	StorageType = "gdalwrite.vect"
+		{
+			attribute<LambertEA> geometry (poly)  := /regions/geometry[sel_regions/org_rel];
+			attribute<string> AREA             := /regions/AREA[sel_regions/org_rel];
+			attribute<string> NAME             := /regions/NAME[sel_regions/org_rel];
+			attribute<string> LEVEL            := /regions/LEVEL[sel_regions/org_rel];
+			attribute<string> COUNTRY          := /regions/COUNTRY[sel_regions/org_rel];
+			attribute<string> NUTS_ID          := /regions/nuts_id[sel_regions/org_rel];
+			attribute<int32> ARCHETYPE        := /regions/ARCHETYPE[sel_regions/org_rel];
+			attribute<string> ARCH_NAME        := /regions/ARCH_NAME[sel_regions/org_rel];
+			attribute<int32> RESIDENTS        := /regions/RESIDENTS[sel_regions/org_rel];
+			attribute<int32> LOC_TODAY        := /regions/LOC_TODAY[sel_regions/org_rel];
+			attribute<int32> RES_PERLOC       := /regions/RES_PERLOC[sel_regions/org_rel];
+			attribute<float64> MEAN_T_MIN       := /regions/MEAN_T_MIN[sel_regions/org_rel];
+			attribute<float64> XLAM_LIN         := /regions/XLAM_LIN[sel_regions/org_rel];
+			attribute<float64> W_LIN            := /regions/W_LIN[sel_regions/org_rel];
+			attribute<float64> XLOC_LIN         := /regions/XLOC_LIN[sel_regions/org_rel];
+			attribute<float64> XTRAV_LIN        := /regions/XTRAV_LIN[sel_regions/org_rel];
+			attribute<float64> XLOCP_LIN        := /regions/XLOCP_LIN[sel_regions/org_rel];
+			attribute<float64> S1TRAV_LIN       := /regions/S1TRAV_LIN[sel_regions/org_rel];
+			attribute<float64> S2LOC_LIN        := /regions/S2LOC_LIN[sel_regions/org_rel];
+			attribute<float64> XLAM_LOG         := /regions/XLAM_LOG[sel_regions/org_rel];
+			attribute<float64> W_LOG            := /regions/W_LOG[sel_regions/org_rel];
+			attribute<float64> XLOC_LOG         := /regions/XLOC_LOG[sel_regions/org_rel];
+			attribute<float64> XCOST_LOG        := /regions/XCOST_LOG[sel_regions/org_rel];
+			attribute<float64> XLOCP_LOG        := /regions/XLOCP_LOG[sel_regions/org_rel];
+			attribute<float64> S1COST_LOG       := /regions/S1COST_LOG[sel_regions/org_rel];
+			attribute<float64> S2LOC_LOG        := /regions/S2LOC_LOG[sel_regions/org_rel];
+		}
+	}
+}

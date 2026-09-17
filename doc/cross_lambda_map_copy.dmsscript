@@ -1,0 +1,12 @@
+// Cross-lambda map (cfg/cross_lambda_map.dms): open the one-layer thematic map /map/xlam_class,
+// let it draw, put the viewport on the clipboard, close. The runner saves the clipboard as PNG.
+ActivateItem "/map/xlam_class"
+DefaultView
+WAIT 10000
+TileSubWindows
+WAIT 6000
+// WM_COMMAND (273) wParam 18 = TB_Copy: copy the MapView viewport to the clipboard
+SEND 3 2 273 18
+WAIT 3000
+// WM_CLOSE to the main window
+SEND 1 3 16 0 0
