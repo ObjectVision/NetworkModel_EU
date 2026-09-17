@@ -8,17 +8,17 @@ As a follow-up to the cross-lambda table of yesterday, here are the same figures
 **Attached**
 
 1. `cross_lambda_shapefiles_20260917.zip` — three shapefiles (EPSG:3035, NUTS 2021 boundaries at 1 : 1 M), same attribute table in each:
-   - `cross_lambda_countries` — the 16 country study areas (Portugal = mainland, PT1; the Azores and Madeira are outside the model);
+   - `cross_lambda_countries` — 19 countries: the 15 swept whole (Portugal = mainland, PT1; the Azores and Madeira are outside the model) plus France, Italy, Sweden and Poland as the sums of their NUTS-1 regions at common λ (exact by separability; `level` says so);
    - `cross_lambda_nuts1` — the 28 NUTS-1 regions of France, Italy, Sweden and Poland;
-   - `cross_lambda_regions` — all 44 rows of the csv in one file (countries + NUTS-1), handy for a single map.
+   - `cross_lambda_regions` — all 47 rows of the csv in one file (countries + NUTS-1); for a map without double counting take the 43 rows whose `level` is not `country (NUTS-1 aggregate)`.
 2. `cross_lambda_map_LINEAR.png` — the thematic map of the LINEAR cross-lambda over all 44 areas, green (low λ) → yellow → red (high λ), rendered with GeoDMS from `cross_lambda_regions`.
-3. `cross_lambda_table.csv` — the table again, for reference.
+3. `cross_lambda_table.csv` — the table, now with the four aggregated countries (47 rows; the direct country-level Poland sweep is replaced by its NUTS-1 sum, which lands within 0.2 % of it).
 
 **The attribute table** (shapefile field names are limited to 10 characters; the csv has the long names):
 
 | field | csv column | meaning |
 |---|---|---|
-| area, name, level, country | area, name, level, country | study area code, its name, `country` / `NUTS-1`, and the country |
+| area, name, level, country | area, name, level, country | study area code, its name, `country` / `country (NUTS-1 aggregate)` / `NUTS-1`, and the country |
 | NUTS_ID | — | NUTS 2021 code of the polygon |
 | ARCHETYPE, ARCH_NAME | oecd_archetype, archetype_name | OECD policy archetype: 1 rule-of-law-anchored, 2 consensual-pluralist, 3 public-interest majoritarian |
 | residents, LOC_TODAY, RES_PERLOC, MEAN_T_MIN | residents, pharmacy_locations_today, residents_per_location, mean_travel_min_today | today's network in the model's scope: residents, 1-km² cells with ≥ 1 pharmacy, residents per such location, population-weighted road travel time (min) to the nearest pharmacy |

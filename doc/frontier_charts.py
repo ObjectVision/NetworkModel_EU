@@ -27,7 +27,7 @@ with open(os.path.join(ROOT, "doc", "policy_typology.csv"), encoding="utf-8") as
     for row in csv.DictReader(fh):
         typ[row["region"]] = row
 # Aggregate uses PL NUTS-1, not country Poland — drop it from these region views.
-SKIP = {"Poland"}
+SKIP = {"Poland", "Poland_sweep", "France", "Italy", "Sweden"}   # not disjoint areas: the direct Poland sweep and the four NUTS-1 aggregates
 
 
 def form_of(reg):

@@ -1,14 +1,15 @@
 # Parse logs/sweep_<region>_<FUNC>.log into doc/deck_data.json for the slide generator.
 # Captures, per region x {LINEAR,LOGISTIC}: baseline (cells,cost,mean_t),
 # the Combined-sweep Pareto rows, and the S1/S2 scenario summary.
-import os, re, glob, json, io, sys
+import os, re, glob, json, io, sys, math
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FUNCS = ["LINEAR", "LOGISTIC"]
 # display order matches the existing deck
 ORDER = ["Netherlands",
-         "Luxembourg", "Estonia", "Latvia", "Slovenia", "Lithuania", "Ireland", "Norway", "Denmark", "Austria", "Portugal", "Czechia", "Belgium", "Poland", "Hungary", "Finland",
+         "Luxembourg", "Estonia", "Latvia", "Slovenia", "Lithuania", "Ireland", "Norway", "Denmark", "Austria", "Portugal", "Czechia", "Belgium", "Poland_sweep", "Hungary", "Finland",
+         "France", "Italy", "Sweden", "Poland",
          "FR1", "FRB", "FRC", "FRD", "FRE", "FRF", "FRG", "FRH",
          "FRI", "FRJ", "FRK", "FRL", "FRM", "ITC", "ITF", "ITG", "ITH", "ITI",
          "SE1", "SE2", "SE3",
@@ -48,7 +49,11 @@ NICE = {
     "SE1": ("SWEDEN · SE1", "Östra Sverige"),
     "SE2": ("SWEDEN · SE2", "Södra Sverige"),
     "SE3": ("SWEDEN · SE3", "Norra Sverige"),
-    "Poland": ("POLAND", "Poland"),
+    "Poland_sweep": ("POLAND · DIRECT COUNTRY SWEEP", "Poland (country-level sweep)"),
+    "Poland": ("POLAND · 7 NUTS-1 AGGREGATED", "Poland"),
+    "France": ("FRANCE · 13 NUTS-1 AGGREGATED", "France"),
+    "Italy": ("ITALY · 5 NUTS-1 AGGREGATED", "Italy"),
+    "Sweden": ("SWEDEN · 3 NUTS-1 AGGREGATED", "Sweden"),
     "Hungary": ("HUNGARY", "Hungary"),
     "Finland": ("FINLAND", "Finland"),
     "PL2": ("POLAND · PL2", "Południowy"),
@@ -61,6 +66,104 @@ NICE = {
 }
 
 FLT = r"([-+]?[\d.]+(?:[eE][-+]?\d+)?)"
+
+# Countries swept as NUTS-1 regions get a country entry that is the SUM of their regions
+# at common λ (exact by separability, the rule of the deck's aggregate slide): on the
+# w's every region solved, each region log-interpolated between its own grid points. The
+# entry carries "aggregated_from" and appears in the per-country tables and the
+# cross-lambda table; the region slides, the rankings and the 43-area aggregate keep the
+# NUTS-1 regions. Poland's direct country sweep stays as "Poland_sweep" (its slide, and the
+# #52 exception); "Poland" is its aggregate, like the three countries never swept whole.
+AGGREGATES = {
+    "France": ["FR1", "FRB", "FRC", "FRD", "FRE", "FRF", "FRG", "FRH", "FRI", "FRJ", "FRK", "FRL", "FRM"],
+    "Italy": ["ITC", "ITF", "ITG", "ITH", "ITI"],
+    "Sweden": ["SE1", "SE2", "SE3"],
+    "Poland": ["PL2", "PL4", "PL5", "PL6", "PL7", "PL8", "PL9"],
+}
+
+
+def _interp_at(rows, w):
+    """Log-w interpolate a region's row values at w (exact at its own grid points)."""
+    lo = hi = None
+    for r in rows:
+        if r["w"] <= w and (lo is None or r["w"] > lo["w"]):
+            lo = r
+        if r["w"] >= w and (hi is None or r["w"] < hi["w"]):
+            hi = r
+    if lo is None or hi is None:
+        return None
+    if lo["w"] == hi["w"]:
+        return lo
+    f = (math.log(w) - math.log(lo["w"])) / (math.log(hi["w"]) - math.log(lo["w"]))
+    return {k: lo[k] + f * (hi[k] - lo[k]) for k in ("sum_y", "relax", "multi", "n_open", "frac", "mean_t")}
+
+
+def _cross(rows, key, target, descending):
+    """The point on the row polyline where `key` equals `target`: linear in key for the
+    values, log-linear in w -- the rule of the deck's S1/S2 tables. None when unbracketed."""
+    rs = sorted(rows, key=lambda r: r["w"])
+    for a, b in zip(rs, rs[1:]):
+        xa, xb = a[key], b[key]
+        if xa == xb or not (min(xa, xb) <= target <= max(xa, xb)):
+            continue
+        f = (target - xa) / (xb - xa)
+        pt = {k: a[k] + f * (b[k] - a[k]) for k in ("sum_y", "relax", "multi", "n_open", "frac", "mean_t")}
+        pt["w"] = math.exp(math.log(a["w"]) + f * (math.log(b["w"]) - math.log(a["w"])))
+        pt["n_open"] = round(pt["n_open"]); pt["frac"] = round(pt["frac"])
+        return pt
+    return None
+
+
+def aggregate_group(parts, fn):
+    """The {baseline, rows, scen} of the sum of `parts` (region entries) for function fn."""
+    regs = [e for e in parts if fn in e["func"] and e["func"][fn].get("rows")]
+    if len(regs) != len(parts):
+        return None
+    pop = {e["region"]: e["func"]["LINEAR"]["baseline"]["cost"] / e["func"]["LINEAR"]["baseline"]["mean_t"] for e in regs}
+    tot = sum(pop.values())
+    per = {e["region"]: sorted([r for r in e["func"][fn]["rows"] if r["w"] > 0], key=lambda r: r["w"]) for e in regs}
+    w_lo = max(rows[0]["w"] for rows in per.values())
+    w_hi = min(rows[-1]["w"] for rows in per.values())
+    union = sorted(set(round(r["w"], 12) for rows in per.values() for r in rows if w_lo <= r["w"] <= w_hi))
+    rows = []
+    for w in union:
+        agg = dict(w=w, sum_y=0.0, relax=0.0, multi=0.0, n_open=0.0, frac=0.0, mean_t=0.0)
+        vs = {reg: _interp_at(rr, w) for reg, rr in per.items()}
+        if any(v is None for v in vs.values()):
+            continue
+        for reg, v in vs.items():
+            for k in ("sum_y", "relax", "multi", "n_open", "frac"):
+                agg[k] += v[k]
+            agg["mean_t"] += v["mean_t"] * pop[reg] / tot
+        agg["n_open"] = round(agg["n_open"]); agg["frac"] = round(agg["frac"])
+        rows.append(agg)
+    base = dict(cells=sum(e["func"][fn]["baseline"]["cells"] for e in regs),
+                cost=sum(e["func"][fn]["baseline"]["cost"] for e in regs),
+                mean_t=sum(e["func"][fn]["baseline"]["mean_t"] * pop[e["region"]] for e in regs) / tot)
+    scen = {}
+    for lbl, key, target in (("S1", "sum_y", base["cells"]), ("S2", "multi", base["cost"])):
+        pt = _cross(rows, key, target, key == "sum_y")
+        if pt:
+            pt["interpolated"] = True
+            pt["st"] = [0, 0, sum((e["func"][fn].get("scen", {}).get(lbl, {}).get("st") or [0, 0, 0])[2] for e in regs)]
+            scen[lbl] = pt
+    return {"baseline": base, "rows": rows, "scen": scen}
+
+
+def add_aggregates(out):
+    by = {e["region"]: e for e in out}
+    for name, parts in AGGREGATES.items():
+        missing = [r for r in parts if r not in by]
+        if missing:
+            print(f"  {name}: not aggregated, missing {missing}")
+            continue
+        entry = {"region": name, "title": NICE[name][0], "name": NICE[name][1], "aggregated_from": parts, "func": {}}
+        for fn in FUNCS:
+            fd = aggregate_group([by[r] for r in parts], fn)
+            if fd:
+                entry["func"][fn] = fd
+        if entry["func"]:
+            out.append(entry)
 
 
 def num(s):
@@ -177,11 +280,14 @@ def main():
     for reg in ORDER:
         if only_set is not None and reg not in only_set:
             continue
+        if reg in AGGREGATES:
+            continue                       # built from its parts below
         entry = {"region": reg, "title": NICE.get(reg, (reg, reg))[0],
                  "name": NICE.get(reg, (reg, reg))[1], "func": {}}
         ok = False
+        logreg = "Poland" if reg == "Poland_sweep" else reg     # the direct sweep's logs
         for fn in FUNCS:
-            p = os.path.join(ROOT, "logs", f"sweep_{reg}_{fn}.log")
+            p = os.path.join(ROOT, "logs", f"sweep_{logreg}_{fn}.log")
             if not os.path.exists(p):
                 continue
             base, rows, scen = parse(p)
@@ -190,7 +296,7 @@ def main():
             # frontier. When it is newer than the sweep it supplies the S1/S2 summary, and
             # its rows (the bracket walk + bisection points) join the frontier at w's the
             # sweep did not solve.
-            rp = os.path.join(ROOT, "logs", f"refine_{reg}_{fn}.log")
+            rp = os.path.join(ROOT, "logs", f"refine_{logreg}_{fn}.log")
             if os.path.exists(rp) and os.path.getmtime(rp) > os.path.getmtime(p):
                 rbase, rrows, rscen = parse(rp)
                 if rscen.get("S1") and rscen.get("S2"):
@@ -202,17 +308,19 @@ def main():
             # A tail-only run (SWEEP_TAIL_ONLY=1, logs/tail_<reg>_<FN>.log) continues the
             # sweep's grid beyond its tail stop with a longer time limit; its rows extend the
             # frontier at the w's the sweep did not reach. S1/S2 stay the sweep's (or refine's).
-            tp = os.path.join(ROOT, "logs", f"tail_{reg}_{fn}.log")
+            tp = os.path.join(ROOT, "logs", f"tail_{logreg}_{fn}.log")
             if os.path.exists(tp) and os.path.getmtime(tp) > os.path.getmtime(p):
                 _, trows, _ = parse(tp)
                 have = {round(r["w"], 9) for r in rows}
                 rows = sorted(rows + [r for r in trows if round(r["w"], 9) not in have],
                               key=lambda r: r["w"])
-            apply_mean_t(reg, fn, rows, scen)
+            apply_mean_t(logreg, fn, rows, scen)
             entry["func"][fn] = {"baseline": base, "rows": rows, "scen": scen}
             ok = True
         if ok:
             out.append(entry)
+    if only_set is None:
+        add_aggregates(out)
     dest = os.path.join(ROOT, "doc", "deck_data.json")
     json.dump(out, open(dest, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(f"wrote {dest}: {len(out)} regions" +
@@ -222,7 +330,8 @@ def main():
         fs = ",".join(e["func"].keys())
         rc = {f: len(e["func"][f]["rows"]) for f in e["func"]}
         sc = {f: list(e["func"][f]["scen"].keys()) for f in e["func"]}
-        print(f"  {e['region']:>12} [{fs}] rows={rc} scen={sc}")
+        agg = f" = sum of {len(e['aggregated_from'])} NUTS-1" if e.get("aggregated_from") else ""
+        print(f"  {e['region']:>12} [{fs}] rows={rc} scen={sc}{agg}")
 
 
 if __name__ == "__main__":

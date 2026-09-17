@@ -24,7 +24,7 @@ CH = os.path.join(DOC, "charts")
 os.makedirs(CH, exist_ok=True)
 FUNCS = ["LINEAR", "LOGISTIC"]
 METRIC = os.environ.get("METRIC_SUFFIX", "interp3")
-SKIP = {"Poland"}
+SKIP = {"Poland", "Poland_sweep", "France", "Italy", "Sweden"}   # not disjoint areas: the direct Poland sweep and the four NUTS-1 aggregates
 
 # archetype colours as on the OECD-archetype map of Lewis's deck (p23)
 ARCH_COLOR = {"1": "#6DB33F", "2": "#3B2A4E", "3": "#3FA9E0", "4": "#F0812E"}

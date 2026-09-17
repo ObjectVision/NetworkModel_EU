@@ -139,6 +139,8 @@ of them, so the defect was general, not five areas. The p9 box now records the f
 
 **p17 (15 Sep 2026).** The Netherlands maps slide was the one hand-made slide: a GeoDMS screenshot of 21 May 2026 carried over by `merge_deck.ps1`, on the May network. It is now generated from the baseline and pinned S1/S2 travel-time arrows (`doc/nl_maps.jl` → `doc/nl_maps.py` → `build_deck.mjs`), in the classes of `Classifications.dms`.
 
+**Per-country tables (17 Sep 2026).** France, Italy, Sweden and Poland now have country rows in the per-country S1/S2 table (p62), the README table and `doc/cross_lambda_table.csv`: the sums of their NUTS-1 regions at common λ, exact by separability (`build_deck_data.py` AGGREGATES; interpolated S1/S2). The direct country-level Poland sweep keeps its region slide as "Poland_sweep" but is out of the tables; its aggregate lands within 0.2 % of it. No slide was added, so page numbers stand.
+
 ---
 
 ## Suggested order of work

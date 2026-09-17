@@ -234,7 +234,10 @@ def aggregate_fd(data, fn):
     aggregation without re-rendering the region set. Exact by separability: at a common
     λ the sum of the regional optima IS the combined optimum. Country-level Poland is
     dropped in favour of its NUTS-1 parts so the areas stay disjoint."""
-    part = [e for e in data if not (e["region"] == "Poland" and any(x["region"].startswith("PL") for x in data))]
+    # the disjoint areas: not the direct Poland sweep when its NUTS-1 parts are present, and
+    # not the country entries that build_deck_data.py sums from their NUTS-1 regions
+    part = [e for e in data if not e.get("aggregated_from")
+            and not (e["region"] in ("Poland", "Poland_sweep") and any(x["region"].startswith("PL") for x in data))]
     regs = [e for e in part if fn in e["func"] and e["func"][fn].get("rows")]
     missing = [e["region"] for e in part if e not in regs]
     if missing:

@@ -557,7 +557,8 @@ function lambdaTableSlide(opts) {
     { text: "S1 = today's number of locations, travel minimised; S2 = today's travel, fewer locations. ", options: { bold: true, color: NAVY } },
     { text: "Δ columns are read off the multistart frontier by interpolation between adjacent sweep points — person-minutes (linear), dimensionless logistic cost with the mean minutes beside it, and locations — and need no λ. ", options: { color: MUTED } },
     { text: "λ = w · €100,000 is the price per location at which the sweep reaches that point; the €100,000 is a placeholder, not an estimate — the frontier, the Δs and the ranking of areas do not depend on it, only these € figures do. ", options: { color: MUTED } },
-    { text: "“—” = the target lies outside the swept λ range.", options: { color: MUTED } },
+    { text: "“—” = the target lies outside the swept λ range. ", options: { color: MUTED } },
+    { text: "France, Italy, Sweden and Poland are the sums of their NUTS-1 regions at common λ (exact by separability, as the aggregate slide); Poland's direct country sweep has its own slide and is not in this table.", options: { color: MUTED } },
   ], { x: 0.7, y: 6.72, w: 11.9, h: 0.66, fontSize: 8.6, italic: true, fontFace: "Calibri", valign: "top" });
 }
 
@@ -902,13 +903,15 @@ if (!only && !args.includes("--no-summary")) {
   descriptivesSlide("pharmacy_descriptives_nuts1.csv", "loc",   "BASELINE · RESIDENTS PER 1 KM² LOCATION", "— key NUTS1 regions (FR / IT / SE)");
   capSlide("cap_results_Netherlands.csv");
 }
-regions.forEach((e) => { regionSlide(e); mapsSlide(e); });
+// an entry summed from NUTS-1 regions (build_deck_data.py AGGREGATES) has no slide of its own:
+// its regions have theirs; it appears in the per-country table and the cross-lambda table
+regions.filter((e) => !e.aggregated_from).forEach((e) => { regionSlide(e); mapsSlide(e); });
 if (!only && !args.includes("--no-summary")) {
   aggregateSlide();
   lambdaTableSlide({ eyebrow: "SCENARIOS · PER COUNTRY", titleRest: "— per country, by travel-cost function", col0: "country", pick: (e) => COUNTRY_SET.has(e.region), label: (e) => e.name });
-  lambdaTableSlide({ eyebrow: "SCENARIOS · NUTS-1", titleRest: "— FR / IT / SE / PL NUTS-1 regions", col0: "NUTS-1 region", labelWide: true, pick: (e) => !COUNTRY_SET.has(e.region), label: (e) => `${e.region} · ${e.name}` });
+  lambdaTableSlide({ eyebrow: "SCENARIOS · NUTS-1", titleRest: "— FR / IT / SE / PL NUTS-1 regions", col0: "NUTS-1 region", labelWide: true, pick: (e) => /^(FR|IT|SE|PL)[0-9A-Z]$/.test(e.region), label: (e) => `${e.region} · ${e.name}` });
   summarySlide(); statusSlide(); logisticSlide(); terminologySlide();
 }
 
 await pptx.writeFile({ fileName: join(__dir, outName) });
-console.log(`wrote ${join(__dir, outName)} : ${regions.length} region slide(s)${(!only && !args.includes("--no-summary")) ? " + summary" : ""}`);
+console.log(`wrote ${join(__dir, outName)} : ${regions.filter((e) => !e.aggregated_from).length} region slide(s)${(!only && !args.includes("--no-summary")) ? " + summary" : ""}`);

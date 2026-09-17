@@ -1,5 +1,7 @@
-# One table of the cross-lambda for every study area -- 16 countries and the 28 NUTS-1 regions
-# of France, Italy, Sweden and Poland -- both travel-cost functions side by side, for mailing.
+# One table of the cross-lambda for every study area -- 19 countries (France, Italy, Sweden and
+# Poland as the sums of their NUTS-1 regions, build_deck_data.py AGGREGATES) and the 28 NUTS-1
+# regions -- both travel-cost functions side by side, for mailing. The direct country-level
+# Poland sweep is left out (its aggregate replaces it).
 #   PYTHONIOENCODING=utf-8 python cross_lambda_table.py   -> doc/cross_lambda_table.csv
 #
 # Cross-lambda (frontier_metrics.py, Lewis's "cross-lambda", his p21): B = today's network
@@ -20,7 +22,8 @@ from build_deck_data import NICE, ORDER
 
 COUNTRY_OF = {"FR": "France", "IT": "Italy", "SE": "Sweden", "PL": "Poland"}
 COUNTRIES = {"Netherlands", "Luxembourg", "Estonia", "Latvia", "Slovenia", "Lithuania", "Ireland", "Norway",
-             "Denmark", "Austria", "Portugal", "Czechia", "Belgium", "Poland", "Hungary", "Finland"}
+             "Denmark", "Austria", "Portugal", "Czechia", "Belgium", "Poland", "Hungary", "Finland",
+             "France", "Italy", "Sweden"}
 
 
 def country_of(reg):
@@ -44,8 +47,9 @@ def num(x, nd=0):
 rows = []
 for reg in ORDER:
     L, G = cross.get((reg, "LINEAR")), cross.get((reg, "LOGISTIC"))
-    if not L or not G:
+    if not L or not G or reg == "Poland_sweep":
         continue
+    agg = deck[reg].get("aggregated_from")
     b = deck[reg]["func"]["LINEAR"]["baseline"]
     pop = b["cost"] / b["mean_t"] if b.get("mean_t") else None
     ctry = country_of(reg)
@@ -54,7 +58,7 @@ for reg in ORDER:
     rows.append({
         "area": reg,
         "name": NICE.get(reg, (reg, reg))[1],
-        "level": "country" if reg in COUNTRIES else "NUTS-1",
+        "level": ("country (NUTS-1 aggregate)" if agg else "country") if reg in COUNTRIES else "NUTS-1",
         "country": ctry,
         "oecd_archetype": t.get("archetype", ""),
         "archetype_name": t.get("archetype_name", ""),
@@ -85,5 +89,5 @@ with open(out, "w", encoding="utf-8-sig", newline="") as f:
     w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
     w.writeheader()
     w.writerows(rows)
-print(f"wrote {out}: {len(rows)} areas ({sum(r['level'] == 'country' for r in rows)} countries, "
-      f"{sum(r['level'] == 'NUTS-1' for r in rows)} NUTS-1 regions)")
+print(f"wrote {out}: {len(rows)} rows ({sum(r['level'].startswith('country') for r in rows)} countries, of which "
+      f"{sum('aggregate' in r['level'] for r in rows)} summed from their NUTS-1 regions; {sum(r['level'] == 'NUTS-1' for r in rows)} NUTS-1 regions)")

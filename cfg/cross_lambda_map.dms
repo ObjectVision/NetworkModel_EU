@@ -2,7 +2,8 @@
 //
 // Joins doc/cross_lambda_table.csv (cross_lambda_table.py: one row per area, 16 countries +
 // 28 NUTS-1 regions) to the NUTS 2021 polygons (EPSG:3035) and writes three shapefiles under
-// doc/shp/: the countries, the NUTS-1 regions, and all 44 areas of the csv in one file. The
+// doc/shp/: the 19 countries (France, Italy, Sweden and Poland summed from their NUTS-1
+// regions), the NUTS-1 regions, and all 47 rows of the csv in one file. The
 // country polygon is the NUTS-0 polygon, except Portugal, whose study area is the mainland
 // (PT1 Continente; the Azores and Madeira are excluded from the model, #49). The map colours
 // XLAM_LIN, the cross-lambda under the LINEAR cost function, green (low) -> yellow -> red (high).
@@ -69,10 +70,27 @@ container cross_lambda_map
 	}
 
 	// country name in the csv -> NUTS code of its study-area polygon
-	unit<uint32> country_codes : NrOfRows = 16
+	unit<uint32> country_codes : NrOfRows = 19
 	{
-		attribute<string> name : ['Netherlands','Luxembourg','Estonia','Latvia','Slovenia','Lithuania','Ireland','Norway','Denmark','Austria','Portugal','Czechia','Belgium','Poland','Hungary','Finland'];
-		attribute<string> code : ['NL','LU','EE','LV','SI','LT','IE','NO','DK','AT','PT1','CZ','BE','PL','HU','FI'];
+		attribute<string> name : ['Netherlands','Luxembourg','Estonia','Latvia','Slovenia','Lithuania','Ireland','Norway','Denmark','Austria','Portugal','Czechia','Belgium','Poland','Hungary','Finland','France','Italy','Sweden'];
+		attribute<string> code : ['NL','LU','EE','LV','SI','LT','IE','NO','DK','AT','PT1','CZ','BE','PL','HU','FI','FR_STUDY','IT','SE'];
+	}
+	// France's study area is its 13 NUTS-1 regions (mainland + Corse): the NUTS-0 polygon would
+	// add the overseas regions (FRY), so the country polygon is the union of those regions
+	unit<uint32> fr_parts := select_with_attr_by_cond(nuts, nuts/LEVL_CODE == 1i && nuts/CNTR_CODE == 'FR' && nuts/NUTS_ID != 'FRY')
+	{
+		attribute<one> one_rel := const(0[one], .);
+	}
+	unit<uint32> one : NrOfRows = 1
+	{
+		attribute<LambertEA> fr_geometry (poly) := geos_union_polygon(fr_parts/geometry, fr_parts/one_rel);
+	}
+	// the polygons a row can point to: the NUTS file plus France's study area under 'FR_STUDY'
+	// (a union_unit rather than a ternary on geometry: a ternary loses the polygon composition)
+	unit<uint32> polys := union_unit(nuts, one)
+	{
+		attribute<LambertEA> geometry (poly) := union_data(., nuts/geometry, one/fr_geometry);
+		attribute<string>    code            := union_data(., nuts/NUTS_ID, const('FR_STUDY', one));
 	}
 
 	// classes of the LINEAR cross-lambda for the map: green (low) -> yellow -> red (high)
@@ -92,10 +110,13 @@ container cross_lambda_map
 		attribute<uint32> PenColor   : DialogType = "PenColor",   [rgb(200,200,200), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80), rgb(80,80,80)];
 		attribute<string> Label      : DialogType = "LabelText",  ['not in the study', '< 9 000', '9 000 - 11 000', '11 000 - 13 000', '13 000 - 16 000', '16 000 - 20 000', '20 000 - 30 000', '>= 30 000'];
 	}
-	unit<uint32> map := union_unit(nuts_bg, regions)
+	// the map draws the NUTS-1 regions where a country was swept as regions, so the country
+	// rows that are their sums stay out of it
+	unit<uint32> map_regions := select_with_attr_by_cond(regions, regions/LEVEL != 'country (NUTS-1 aggregate)');
+	unit<uint32> map := union_unit(nuts_bg, map_regions)
 	{
-		attribute<LambertEA> geometry (poly) := union_data(., nuts_bg/geometry, regions/geometry);
-		attribute<MapK>      xlam_class      := union_data(., const(0[MapK], nuts_bg), value(uint8(regions/xlam_class) + 1b, MapK)), Label = "cross-lambda LINEAR (EUR per location, placeholder 100 000)";
+		attribute<LambertEA> geometry (poly) := union_data(., nuts_bg/geometry, map_regions/geometry);
+		attribute<MapK>      xlam_class      := union_data(., const(0[MapK], nuts_bg), value(uint8(map_regions/xlam_class) + 1b, MapK)), Label = "cross-lambda LINEAR (EUR per location, placeholder 100 000)";
 	}
 
 	// one row per csv area, with its polygon and typed columns under shapefile-short names
@@ -105,9 +126,12 @@ container cross_lambda_map
 		attribute<string>    NAME       := csv/name;
 		attribute<string>    LEVEL      := csv/level;
 		attribute<string>    COUNTRY    := csv/country;
-		attribute<string>    nuts_id    := LEVEL == 'country' ? country_codes/code[rlookup(AREA, country_codes/name)] : AREA;
+		attribute<bool>      is_country := substr(LEVEL, 0, 7) == 'country';
+		attribute<string>    poly_code  := is_country ? country_codes/code[rlookup(AREA, country_codes/name)] : AREA;
+		attribute<string>    nuts_id    := poly_code == 'FR_STUDY' ? 'FR' : poly_code;
+		attribute<polys>     polys_rel  := rlookup(poly_code, polys/code);
 		attribute<nuts>      nuts_rel   := rlookup(nuts_id, nuts/NUTS_ID);
-		attribute<LambertEA> geometry   (poly) := nuts/geometry[nuts_rel];
+		attribute<LambertEA> geometry   (poly) := polys/geometry[polys_rel];
 		attribute<string>    NUTS_NAME  := nuts/NAME_LATN[nuts_rel];
 
 		attribute<int32>     ARCHETYPE  := value(csv/oecd_archetype, int32);
@@ -135,14 +159,14 @@ container cross_lambda_map
 
 		attribute<XLamK>     xlam_class := classify(XLAM_LIN, XLamK/ClassBreaks), Label = "cross-lambda LINEAR (EUR per location, placeholder 100 000)";
 
-		parameter<bool>      all_matched := all(IsDefined(nuts_rel)), IntegrityCheck = "all_matched == true";
+		parameter<bool>      all_matched := all(IsDefined(nuts_rel) && IsDefined(polys_rel)), IntegrityCheck = "all_matched == true";
 	}
 
 	// the three shapefiles: the csv rows of one level each, and all of them; the columns
 	// under their shapefile-short names (10 characters), the legend in the mail
 	container shp
 	{
-		unit<uint32> sel_countries := select_with_org_rel(/regions/LEVEL == 'country');
+		unit<uint32> sel_countries := select_with_org_rel(/regions/is_country);
 		unit<uint32> countries := sel_countries
 		,	StorageName = "E:/prj/JRC/NetworkModel_EU/doc/shp/cross_lambda_countries.shp"
 		,	StorageType = "gdalwrite.vect"

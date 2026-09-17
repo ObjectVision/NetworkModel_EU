@@ -283,7 +283,10 @@ into λ ∈ [€10, €2 000], the degeneracy noted on deck p66. Per area: `doc/
 | Norway | 755 | −10.6 M min · −26.0 % | −326 · −43.2 % | 22 633 | 49 999 |
 | Austria | 1 129 | −8.9 M min · −20.7 % | −373 · −33.1 % | 18 294 | 31 095 |
 | Portugal (mainland) | 1 882 | −7.6 M min · −22.1 % | −571 · −30.3 % | 10 355 | 17 150 |
-| Poland | 7 027 | −23.7 M min · −17.8 % | −1 883 · −26.8 % | 10 254 | 15 809 |
+| Poland (7 NUTS-1 summed) | 7 026 | −24.1 M min · −18.0 % | −1 888 · −26.9 % | 10 280 | 15 956 |
+| France (13 NUTS-1 summed) | 13 408 | −33.5 M min · −15.6 % | −2 839 · −21.2 % | 9 991 | 13 844 |
+| Italy (5 NUTS-1 summed) | 14 195 | −31.4 M min · −24.4 % | −3 491 · −24.6 % | 7 280 | 11 188 |
+| Sweden (3 NUTS-1 summed) | 1 085 | −16.4 M min · −22.8 % | −418 · −38.5 % | 28 776 | 54 229 |
 | Hungary | 1 864 | −6.8 M min · −19.5 % | −481 · −25.8 % | 11 682 | 17 208 |
 | Finland | 719 | −4.7 M min · −13.5 % | −178 · −24.7 % | 21 768 | 33 003 |
 | ITF · Sud | 3 187 | −7.5 M min · −27.8 % | −818 · −25.7 % | 7 159 | 11 618 |
@@ -291,8 +294,12 @@ into λ ∈ [€10, €2 000], the degeneracy noted on deck p66. Per area: `doc/
 | SE1 · Östra Sverige | 387 | −6.3 M min · −27.2 % | −166 · −43.0 % | 27 899 | 53 985 |
 | FRI · Nouvelle-Aquitaine | 1 583 | −3.8 M min · −14.2 % | −364 · −23.0 % | 8 824 | 12 369 |
 
-All 16 countries and 28 NUTS-1 regions: deck p62–63, `doc/frontier_metrics_interp3.csv`.
-λ in € through the placeholder only.
+All 19 countries and 28 NUTS-1 regions: deck p62–63, `doc/frontier_metrics_interp3.csv`;
+`doc/cross_lambda_table.csv` has the cross-λ of every area. France, Italy, Sweden and Poland
+are the sums of their NUTS-1 regions at common λ (exact by separability, the aggregate
+slide's rule; `build_deck_data.py` AGGREGATES) — the direct country-level Poland sweep, whose
+S1 stays 1.6 % off, is kept as its own region slide but is out of the tables; its aggregate
+lands within 0.2 % of it. λ in € through the placeholder only.
 
 ### Which areas have the most to gain
 

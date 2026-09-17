@@ -32,8 +32,8 @@ def build_aggregate(data):
     """The aggregate frontier, identical rule to build_charts.render_aggregate:
     Poland-country excluded when its NUTS-1 areas are present (disjointness);
     per COMMON w the regional optima are summed (exact by separability)."""
-    part = [e for e in data if not (e["region"] == "Poland"
-                                    and any(x["region"].startswith("PL") for x in data))]
+    part = [e for e in data if not e.get("aggregated_from")
+            and not (e["region"] in ("Poland", "Poland_sweep") and any(x["region"].startswith("PL") for x in data))]
     agg = {}
     for fn in FUNCS:
         regs = [e for e in part if fn in e["func"] and e["func"][fn].get("rows")]
