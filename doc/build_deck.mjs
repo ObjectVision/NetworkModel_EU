@@ -15,6 +15,11 @@ const args = process.argv.slice(2);
 const only = args.includes("--only") ? args[args.indexOf("--only") + 1] : null;
 const outName = args.includes("--out") ? args[args.indexOf("--out") + 1] : "region_summary.pptx";
 const data = JSON.parse(readFileSync(join(__dir, "deck_data.json"), "utf-8"));
+// frontier_metrics.py interp3: per region and function the cross-lambda (the λ at the
+// balanced-improvement crossing), for the two λ tables
+const metricsPath = join(__dir, "frontier_metrics_interp3.json");
+const METRICS = existsSync(metricsPath) ? JSON.parse(readFileSync(metricsPath, "utf-8")) : {};
+const crossLambda = (reg, fn) => { const m = METRICS[reg] && METRICS[reg][fn]; return m && m.lambda_cross != null ? m.lambda_cross : null; };
 
 // ---- palette ----------------------------------------------------------------
 const INK = "12233A", NAVY = "1C3D5A", MULTI = "0B6E99", RELAX = "9AA7B4";
@@ -536,18 +541,18 @@ function lambdaTableSlide(opts) {
   const fs = n > 24 ? 7.6 : n > 14 ? 8.6 : 10;                 // the NUTS-1 table holds 28 rows
   const rh = Math.max(0.17, Math.min(0.34, 5.0 / (n + 1)));
   const c0 = opts.labelWide ? 2.9 : 2.2;
-  const dW = 1.32, lamW = (11.9 - c0 - 0.8 - 4 * dW) / 4;
-  const colW = [c0, 0.8, dW, dW, dW, dW, lamW, lamW, lamW, lamW];
+  const dW = 1.2, lamW = (11.9 - c0 - 0.8 - 4 * dW) / 6;
+  const colW = [c0, 0.8, dW, dW, dW, dW, lamW, lamW, lamW, lamW, lamW, lamW];
 
-  const head = [opts.col0, "today #", "S1 · Δ travel (lin)", "S2 · Δ # (lin)", "S1 · Δ cost · Δ mean t (log)", "S2 · Δ # (log)", "λ S1 lin", "λ S2 lin", "λ S1 log", "λ S2 log"];
+  const head = [opts.col0, "today #", "S1 · Δ travel (lin)", "S2 · Δ # (lin)", "S1 · Δ cost · Δ mean t (log)", "S2 · Δ # (log)", "λ S1 lin", "cross-λ lin", "λ S2 lin", "λ S1 log", "cross-λ log", "λ S2 log"];
   const body = [head.map((h, ci) => ({ text: h, options: { bold: true, color: "FFFFFF", fill: ci >= 6 ? "5B6B7B" : NAVY, fontSize: Math.min(fs, 9.5), align: ci === 0 ? "left" : "center", fontFace: "Calibri", margin: [2, 2, 2, 4] } }))];
   rowsC.forEach((e, i) => {
     const L = e.func.LINEAR, G = e.func.LOGISTIC;
     const cells = L.baseline.cells;
     const c = [opts.label(e), cells != null ? cells.toLocaleString("en-US") : "—",
       s1Lin(L), s2(L), s1Log(G), s2(G),
-      fL(interp(L.rows, "sum_y", cells, "w")), fL(interp(L.rows, "multi", L.baseline.cost, "w")),
-      fL(G ? interp(G.rows, "sum_y", G.baseline.cells, "w") : null), fL(G ? interp(G.rows, "multi", G.baseline.cost, "w") : null)];
+      fL(interp(L.rows, "sum_y", cells, "w")), fL(crossLambda(e.region, "LINEAR")), fL(interp(L.rows, "multi", L.baseline.cost, "w")),
+      fL(G ? interp(G.rows, "sum_y", G.baseline.cells, "w") : null), fL(crossLambda(e.region, "LOGISTIC")), fL(G ? interp(G.rows, "multi", G.baseline.cost, "w") : null)];
     const fill = i % 2 ? PANEL : "FFFFFF";
     body.push(c.map((v, ci) => ({ text: v, options: { fontSize: ci >= 6 ? fs - 0.6 : fs, align: ci === 0 ? "left" : "center", color: ci >= 6 ? MUTED : INK, fill, fontFace: "Calibri", valign: "middle", margin: n > 24 ? [1, 2, 1, 3] : [2, 2, 2, 4] } })));
   });
@@ -557,6 +562,7 @@ function lambdaTableSlide(opts) {
     { text: "S1 = today's number of locations, travel minimised; S2 = today's travel, fewer locations. ", options: { bold: true, color: NAVY } },
     { text: "Δ columns are read off the multistart frontier by interpolation between adjacent sweep points — person-minutes (linear), dimensionless logistic cost with the mean minutes beside it, and locations — and need no λ. ", options: { color: MUTED } },
     { text: "λ = w · €100,000 is the price per location at which the sweep reaches that point; the €100,000 is a placeholder, not an estimate — the frontier, the Δs and the ranking of areas do not depend on it, only these € figures do. ", options: { color: MUTED } },
+    { text: "cross-λ = the λ at the balanced-improvement crossing of the frontier — where the diagonal from today's point to the S1/S2 corner meets it (ranked on p72–73, mapped on p74–75); it lies between λ S1 and λ S2. ", options: { color: MUTED } },
     { text: "“—” = the target lies outside the swept λ range. ", options: { color: MUTED } },
     { text: "France, Italy, Sweden and Poland are the sums of their NUTS-1 regions at common λ (exact by separability, as the aggregate slide); Poland's direct country sweep has its own slide and is not in this table.", options: { color: MUTED } },
   ], { x: 0.7, y: 6.72, w: 11.9, h: 0.66, fontSize: 8.6, italic: true, fontFace: "Calibri", valign: "top" });
