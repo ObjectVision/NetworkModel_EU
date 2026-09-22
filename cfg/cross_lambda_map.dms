@@ -18,7 +18,7 @@ container cross_lambda_map
 	unit<dpoint> LambertEA : SpatialReference = "EPSG:3035";
 
 	unit<uint32> nuts
-	:	StorageName     = "F:/SourceData/NetworkModel_EU/Regions/NUTS_RG_01M_2021_3035.shp"
+	:	StorageName     = "%NetworkModelDataDir%/Regions/NUTS_RG_01M_2021_3035.shp"
 	,	StorageType     = "gdal.vect"
 	,	StorageReadOnly = "true"
 	{
@@ -40,7 +40,7 @@ container cross_lambda_map
 
 	// the table as written by cross_lambda_table.py; the csv driver reads every column as text
 	unit<uint32> csv
-	:	StorageName     = "E:/prj/JRC/NetworkModel_EU/doc/cross_lambda_table.csv"
+	:	StorageName     = "%ProjDir%/doc/cross_lambda_table.csv"
 	,	StorageType     = "gdal.vect"
 	,	StorageReadOnly = "true"
 	{
@@ -186,7 +186,7 @@ container cross_lambda_map
 	{
 		unit<uint32> sel_countries := select_with_org_rel(/regions/is_country);
 		unit<uint32> countries := sel_countries
-		,	StorageName = "E:/prj/JRC/NetworkModel_EU/doc/shp/cross_lambda_countries.shp"
+		,	StorageName = "%ProjDir%/doc/shp/cross_lambda_countries.shp"
 		,	StorageType = "gdalwrite.vect"
 		{
 			attribute<LambertEA> geometry (poly)  := /regions/geometry[sel_countries/org_rel];
@@ -218,7 +218,7 @@ container cross_lambda_map
 		}
 		unit<uint32> sel_nuts1 := select_with_org_rel(/regions/LEVEL == 'NUTS-1');
 		unit<uint32> nuts1 := sel_nuts1
-		,	StorageName = "E:/prj/JRC/NetworkModel_EU/doc/shp/cross_lambda_nuts1.shp"
+		,	StorageName = "%ProjDir%/doc/shp/cross_lambda_nuts1.shp"
 		,	StorageType = "gdalwrite.vect"
 		{
 			attribute<LambertEA> geometry (poly)  := /regions/geometry[sel_nuts1/org_rel];
@@ -250,7 +250,7 @@ container cross_lambda_map
 		}
 		unit<uint32> sel_regions := select_with_org_rel(const(true, /regions));
 		unit<uint32> regions := sel_regions
-		,	StorageName = "E:/prj/JRC/NetworkModel_EU/doc/shp/cross_lambda_regions.shp"
+		,	StorageName = "%ProjDir%/doc/shp/cross_lambda_regions.shp"
 		,	StorageType = "gdalwrite.vect"
 		{
 			attribute<LambertEA> geometry (poly)  := /regions/geometry[sel_regions/org_rel];
@@ -279,6 +279,16 @@ container cross_lambda_map
 			attribute<float64> XLOCP_LOG        := /regions/XLOCP_LOG[sel_regions/org_rel];
 			attribute<float64> S1COST_LOG       := /regions/S1COST_LOG[sel_regions/org_rel];
 			attribute<float64> S2LOC_LOG        := /regions/S2LOC_LOG[sel_regions/org_rel];
+		}
+	}
+
+	// This config is a root of its own: it does not include cfg/main.dms, so it repeats that
+	// file's placeholder. %ProjDir% and %SourceDataDir% are GeoDMS's own and need no definition.
+	container ConfigSettings
+	{
+		container Overridable
+		{
+			parameter<string> NetworkModelDataDir := '%SourceDataDir%/NetworkModel_EU';
 		}
 	}
 }
