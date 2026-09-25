@@ -1,8 +1,21 @@
-container SourceData: Using = "Units;Classifications;geometries"
+container SourceData: Using = "Units;Classifications;geography"
 {
 	#include<RegionalUnits.dms>
 	#include<Infrastructure.dms>
-	
+	container Physical
+	{
+		unit<ipoint> elevation_gtopo30
+		: StorageName = "%NetworkModelDataDir%/Physical/gtopo30_NOAA_NGDC.tif"
+		, StorageType = "gdal.grid"
+		, StorageReadOnly = "True"
+		, DialogData = "wgs84_base"
+		, DialogType = "map"
+		, Descr = "JRC GeoStat 2021 1000m grid (v2)"
+		{
+			attribute<int16> GridData;
+		}
+		
+	}
 	container Locations
 	{
 		unit<ipoint> Population_2011_Ardeco

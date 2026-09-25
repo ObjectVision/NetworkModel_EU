@@ -1,4 +1,4 @@
-Container Settlement_Hierarchies: using = "Geometries;SourceData;" {
+Container Settlement_Hierarchies: using = "Geography;SourceData;" {
 	
 	unit<uint32> Centres_Thresholds: nrofrows = 25 
 	{
@@ -46,12 +46,12 @@ Container Settlement_Hierarchies: using = "Geometries;SourceData;" {
 		attribute<string>         ZoneId:= const('Baltics',.,string);
 	}
 	
-	unit<ipoint> pop21_grid := Geometries/Base_grid_1km 
+	unit<ipoint> pop21_grid := Geography/Base_grid_1km 
 	{
 		attribute<Settlements_v4> SettId     := poly2grid(Settlements_v4/Geometry, .);
 		attribute<Settlements_v5> SettId_v5  := poly2grid(Settlements_v5/Geometry, .);
-		attribute<BaseProjection> Location   := id(.)[BaseProjection] + (GetProjectionFactor(.) / point(2d, 2d, dpoint))[BaseProjection];
-		attribute<BaseProjection> Pop_weight := point(Locations/Population_2021_v2_0/ReadData, Locations/Population_2021_v2_0/ReadData, wpoint)[BaseProjection];
+		attribute<BaseProjection> Location   := id(.)[BaseProjection] + (GetProjectionFactor(.) / point_xy(2d, 2d, dpoint))[BaseProjection];
+		attribute<BaseProjection> Pop_weight := point_xy(Locations/Population_2021_v2_0/ReadData, Locations/Population_2021_v2_0/ReadData, wpoint)[BaseProjection];
 	}
 	
 	unit<uint32> Settlements_v4:=  Locations/Settlements_v4	 
@@ -139,7 +139,7 @@ Container Settlement_Hierarchies: using = "Geometries;SourceData;" {
 			attribute<bool>    isDomestic := Connected_Settlements/Country_rel[OrgZone_rel] = Connected_Settlements/Country_rel[DstZone_rel];
 		}
 			
-		parameter<string> filepath:= '%LocalDataProjDir%/Settlement_Hierarchy/'+Org/refname;
+		parameter<string> filepath:= '%LocalDataProjDir%/Settlement_Hierarchy/'+ModelParameters/StudyArea+'/'+Org/refname;
 		
 		container thresholds:=
 			for_each_nedv(
@@ -197,20 +197,20 @@ Container Settlement_Hierarchies: using = "Geometries;SourceData;" {
 				, filepath+'.dbf'
 			);
 		
-		parameter<bool> Store_Hierarchies  := TRUE, ExplicitSuppliers = "Hierarchies_write; market_size_crossborder; market_size_domestic; market_concentration_crossborder; market_concentration_domestic;";
+		parameter<bool> Store_Hierarchies  := TRUE, ExplicitSuppliers = "Hierarchies_write;biggest_centre_domestic;biggest_centre_crossborder;";// ;market_size_crossborder; market_size_domestic; market_concentration_crossborder; market_concentration_domestic;";
 		
 		unit<uint32> Hierarchies_write := Connected_Settlements
-		, storagename = "= filepath+'.dbf'" 
+		, storagename = "= filepath+'.shp'" , storagetype = "gdalwrite.vect"
 		{
 			//attribute<BaseProjection> poly (poly) := Org/Geometry[org_rel], storagename = "= filepath+'_poly.shp'";
-			attribute<BaseProjection> point       := Org/centroid[org_rel], storagename = "= filepath+'.shp'";
+			attribute<BaseProjection> Geometry       := Org/centroid[org_rel]; 
 			attribute<string>         Label       := Org/Label[org_rel];
 			attribute<uint32>         CountryId   := Country_rel;
 			attribute<string>         Country     := makedefined(Countries/CNTR_ID[Country_rel], '');
 			attribute<float32>        Pop         := population;
 			
-			attribute<uint32>         Maxl_d      := = 'max_elem('+AsItemList('(biggest_centre_domestic/'+Centres_Thresholds/name+'_d * uint32('+string(Centres_Thresholds/num)+'))')+')';
-			attribute<uint32>         Maxl_a      := = 'max_elem('+AsItemList('(biggest_centre_crossborder/'+Centres_Thresholds/name+'_a * uint32('+string(Centres_Thresholds/num)+'))')+')';
+			//attribute<uint32>         Maxl_d      := = 'max_elem('+AsItemList('(biggest_centre_domestic/'+Centres_Thresholds/name+'_d * uint32('+string(Centres_Thresholds/num)+'))')+')';
+			//attribute<uint32>         Maxl_a      := = 'max_elem('+AsItemList('(biggest_centre_crossborder/'+Centres_Thresholds/name+'_a * uint32('+string(Centres_Thresholds/num)+'))')+')';
 		}
 			
 		unit<uint32> Hierarchies_ReadOnly 
@@ -218,8 +218,9 @@ Container Settlement_Hierarchies: using = "Geometries;SourceData;" {
 		, StorageReadOnly = "true"
 		, storagetype = "gdal.vect"
 		, StorageReadOnly = "true"
+		, DialogData = "BaseProjection"
 		{
-			attribute<BaseProjection>        point : storagename = "= propvalue(Hierarchies_write/point, 'StorageName')", StorageReadOnly = "true";
+			attribute<BaseProjection>        point 					   := Geometry;
 			//attribute<Connected_Settlements> Connected_Settlements_rel := rlookup(Label, Connected_Settlements/Label);
 			attribute<Connected_Settlements> Connected_Settlements_rel := connect(Connected_Settlements/centroid, point);
 			attribute<uint32>				 Type					   := Connected_Settlements/Type[Connected_Settlements_rel];

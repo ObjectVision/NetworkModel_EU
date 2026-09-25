@@ -1,10 +1,10 @@
-container NetworkSetup : using = "units;geometries;SourceData;Classifications"
+container NetworkSetup : using = "units;geography;SourceData;Classifications"
 {
-	unit<uint32> Dest_populated_grid := ='select_with_attr_by_cond(Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points, Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
+	unit<uint32> Dest_populated_grid := ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
 
 	container Base_Analysis := =
 		'Call_CreateNetwork_T('
-			'Geometries/Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
+			'Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
 			',Dest_populated_grid' //Dest
 			',''PopRaster'''
 		')';
@@ -24,7 +24,7 @@ container NetworkSetup : using = "units;geometries;SourceData;Classifications"
 		')';
 	container POIs_and_grids := =
 		'Call_CreateNetwork_T('
-			'Geometries/Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
+			'Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
 			', SourceData/Locations/POIs/unique_poi_locations' //Dest
 			',''POIs_and_grids'''
 		')';

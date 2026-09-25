@@ -1,18 +1,18 @@
-container Analyses: Using = "Units;Classifications;geometries;sourcedata" 
+container Analyses: Using = "Units;Classifications;geography;sourcedata" 
 {  
-	unit<uint32> Dest_populated_grid := ='select_with_attr_by_cond(Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points, Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
+	unit<uint32> Dest_populated_grid := ='select_with_attr_by_cond(Base_grid_'+ModelParameters/DestGridsize+'/points, Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
 	//unit<uint32> Dest_populated_grid := ='collect_by_cond(Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points, Geometries/Base_grid_'+ModelParameters/DestGridsize+'/points/population > 0)';
 
 	container Base_Analysis_Traveltime := =
 		'Avg_Traveltime_To_PopulatedCells_T('
-			'Geometries/Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
+			'Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
 			',Dest_populated_grid' //Dest
 			',NetworkSetup/Base_Analysis/NetwerkSpec'
 		')';
 		
 	container Base_Analysis_Distance := =
 		'Avg_Distance_To_PopulatedCells_T('
-			'Geometries/Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
+			'Base_grid_'+ModelParameters/OrgGridsize+'/points'   //Org
 			',Dest_populated_grid' //Dest
 			',NetworkSetup/Base_Analysis/NetwerkSpec'
 		')';

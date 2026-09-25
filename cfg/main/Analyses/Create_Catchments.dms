@@ -119,7 +119,7 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 			unit<uint32> sep_Country_Units := select_with_org_rel(in_sep_units/polygon_rel = inCountry) 
 			{
 				attribute<BaseProjection>     geometry (poly)    := (in_sep_units/Geometry[org_rel]);
-				attribute<string>             ZoneId             := (inCountries/ZoneId[in_sep_units/polygon_rel])[org_rel];
+				attribute<string>             ZoneId             := (inCountries/ZoneId[in_sep_units/polygon_rel])[org_rel] + '_'+string(id(.));
 				attribute<bool>               any_connection     := pcount(Country_Connected_Grids/scu_rel) > 0;
 				attribute<bool>               any_grid           := pcount(Country_Unconnected_Grids/scu_rel) > 0 || any_connection;
 			}
@@ -182,7 +182,9 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 						, Country_Connected_Grids/NodeId
 						, GridPoints_in_settlements/NodeId, 5d, 1d) 
 				{
-					attribute<float32>             pull      := Country_Settlements/Pop[GridPoints_in_settlements/SettId[DstZone_rel]] * (max_elem(Impedance[float32], 0.01f)^Grav_func);
+					//attribute<float32>             pull      := Country_Settlements/Pop[GridPoints_in_settlements/SettId[DstZone_rel]] * (max_elem(Impedance[float32], 0.01f)^Grav_func);
+					attribute<float32>             pull      := Country_Settlements/Pop[GridPoints_in_settlements/SettId[DstZone_rel]] * (max_elem(additional_impedance[float32], 1f)^Grav_func);
+					attribute<min_f> 			   additional_impedance:= (Impedance - min(Impedance, OrgZone_rel)[OrgZone_rel])[min_f];
 					attribute<Country_Settlements> destpoint := GridPoints_in_settlements/SettId[DstZone_rel];
 				}
 				
@@ -360,28 +362,28 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 						//}
 					}
 					
-					attribute<proto_catchments> pc_rel_settlements (Country_Settlements):= point_in_polygon(Country_Settlements/Geometry, proto_catchments/poly);
+					attribute<proto_catchments> pc_rel_settlements (Country_Settlements):= point_in_polygon(Country_Settlements/Geometry, proto_catchments/Geometry);
 					
-					unit<uint32> proto_catchments:= select_with_org_rel(!all_catchments/fua), DialogData = "ipoly", DialogType = "map" 
+					unit<uint32> proto_catchments:= select_with_org_rel(!all_catchments/fua)
 					{
 						attribute<Country_Settlements> Values       := all_catchments/Values[org_rel];
 						//attribute<ipoint>              ipoly (poly) := all_catchments/ipoly[org_rel];
-						attribute<BaseProjection>      poly (poly)  := all_catchments/poly[org_rel];
-						attribute<float32>             sqkm         := area(poly, float64)[float32] / (1000f * 1000f);
+						attribute<BaseProjection>      Geometry (poly)  := all_catchments/poly[org_rel];
+						attribute<float32>             sqkm         := area(Geometry, float64)[float32] / (1000f * 1000f);
 						attribute<bool>                fua          := all_catchments/fua[org_rel];
 						attribute<.>                   org_dep      := id(.);
 						attribute<uint32> 		  	   neighbours   := pcount(spc_conn_matrix/first_rel) + pcount(spc_conn_matrix/second_rel);
 						attribute<uint32>		  	   settlements  := pcount(pc_rel_settlements);
 						attribute<bool> 		  	   exclave	    := neighbours = 0 && settlements = 0;
 						
-						unit<uint32> spc_conn_matrix:= polygon_connectivity(poly[BaseProjection_ip]) 
+						unit<uint32> spc_conn_matrix:= polygon_connectivity(Geometry[BaseProjection_ip]) 
 						{
 							attribute<proto_catchments> first_rel:= F1;
 							attribute<proto_catchments> second_rel:= F2;
 						}
 					}
 					
-					unit<uint32> fua_catchments:= select_with_org_rel(all_catchments/fua), DialogData = "ipoly", DialogType = "map" 
+					unit<uint32> fua_catchments:= select_with_org_rel(all_catchments/fua), DialogData = "poly", DialogType = "map" 
 					{
 						attribute<uint32>              Values       := all_catchments/Values[org_rel];
 						//attribute<ipoint>              ipoly (poly) := all_catchments/ipoly[org_rel];
@@ -402,7 +404,7 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 					attribute<split_proto_catchments> spc_id (Add_Unconnected_Grids/all_grids):= point_in_polygon(Add_Unconnected_Grids/all_grids/geometry, split_proto_catchments/Geometry);
 					
 					// double step because bg_ split operator presently fills holes with separate polygons
-					unit<uint32> initial_split_proto_catchments := bg_split_polygon(currValue/proto_catchments/poly) 
+					unit<uint32> initial_split_proto_catchments := bg_split_polygon(currValue/proto_catchments/Geometry) 
 					{
 						attribute<bool>			   not_a_hole			  := area(Geometry, float64) > 0d;
 					}
@@ -423,7 +425,7 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 						attribute<bool>            only_fua_neighbours    := all(spc_conn_matrix/cfua, spc_conn_matrix/first_rel) && all(spc_conn_matrix/cfua, spc_conn_matrix/second_rel);
 						attribute<bool>            no_neighbours          := neighbours < 1;
 						attribute<bool>            only_prior_neighbours  := all(spc_conn_matrix/prior_rel, spc_conn_matrix/first_rel) && all(spc_conn_matrix/prior_rel, spc_conn_matrix/second_rel);
-						attribute<bool>            small_absolute_size    := Abs_Size_filter && sqkm <= 100f;
+						attribute<bool>            small_absolute_size    := Abs_Size_filter && sqkm <= 25f;
 						attribute<bool>            small_relative_size    := relsize < 0.1f;
 						attribute<bool>            doesnot_contain_centre := pcount(point_in_polygon(Country_Settlements/Geometry, Geometry)) < 1;
 						
@@ -481,14 +483,14 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 						}
 					}
 					
-					attribute<proto_catchments> pc_rel_settlements (Country_Settlements):= point_in_polygon(Country_Settlements/Geometry, proto_catchments/poly);
+					attribute<proto_catchments> pc_rel_settlements (Country_Settlements):= point_in_polygon(Country_Settlements/Geometry, proto_catchments/Geometry);
 					
 					unit<uint32> proto_catchments := unique(split_proto_catchments/jointo), DialogData= "poly", DialogType = "map" 
 					{
 						// attribute<BaseProjection> poly (poly) := bg_union_polygon(split_proto_catchments/Geometry, split_proto_catchments/pc_id);
-						attribute<BaseProjection> poly (poly) := geos_union_polygon(split_proto_catchments/Geometry, split_proto_catchments/pc_id);
+						attribute<BaseProjection> Geometry (poly) := geos_union_polygon(split_proto_catchments/Geometry, split_proto_catchments/pc_id);
 						//attribute<BaseProjection> poly  (poly) := points2sequence_pso(border_points/points_mul, border_points/sequence_rel, border_points/ordinal);
-						attribute<float32>        sqkm         := area(poly, float64)[float32] / (1000f * 1000f);
+						attribute<float32>        sqkm         := area(Geometry, float64)[float32] / (1000f * 1000f);
 						attribute<bool>	          fua          := any(split_proto_catchments/fua, split_proto_catchments/pc_id);
 						attribute<bool>           exclv        := all(split_proto_catchments/exclave, split_proto_catchments/pc_id);
 						attribute<uint32>         org_dep      := modus_weighted(split_proto_catchments/org_dep, split_proto_catchments/Pop, split_proto_catchments/pc_id);
@@ -496,7 +498,7 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 						attribute<uint32>		  settlements  := pcount(pc_rel_settlements);
 						attribute<bool> 		  exclave	   := neighbours = 0 && settlements = 0;
 						
-						unit<uint32> spc_conn_matrix:= polygon_connectivity(poly[BaseProjection_ip]) 
+						unit<uint32> spc_conn_matrix:= polygon_connectivity(Geometry[BaseProjection_ip]) 
 						{
 
 							attribute<proto_catchments> first_rel:= F1;
@@ -510,14 +512,14 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 			
 			unit<uint32> cleaned_catchments := union_unit(results_choice/proto_catchments, cleanup_catchments/init/fua_catchments ) 
 			{
-				attribute<BaseProjection>       poly (poly)        := union_data(., results_choice/proto_catchments/poly, cleanup_catchments/init/fua_catchments/poly);
+				attribute<BaseProjection>       poly (poly)        := union_data(., results_choice/proto_catchments/geometry, cleanup_catchments/init/fua_catchments/poly);
 				attribute<bool>                 fua                := union_data(., results_choice/proto_catchments/fua, cleanup_catchments/init/fua_catchments/fua);
 				//attribute<bool>               exclv              := union_data(., results_choice/proto_catchments/exclv, const(false, cleanup_catchments/init/fua_catchments, bool));
 				attribute<Country_Settlements>  biggest_settlement := max_index(Country_Settlements/Pop, Catchment_Id);
 			}
 			
 			parameter<string> settlements_refname:= inSettlements/refname;
-			parameter<string> filepath:= '%LocalDataProjDir%/Settlement_Catchments/'+settlements_refname+'/'+(FUA_exclusion ? 'without_fua_territory/' : 'with_fua_territory/')
+			parameter<string> filepath:= '%LocalDataProjDir%/Settlement_Catchments/'+ModelParameters/StudyArea+'/'+settlements_refname+'/'+(FUA_exclusion ? 'without_fua_territory/' : 'with_fua_territory/')
 				+asItemName(threshold_sel_string)+'_pop'+string(minPop / 1000f)+'/'+inCountries/ZoneId[inCountry];
 			
 			parameter<bool> store_catchment:= true, ExplicitSuppliers = "all_catchments;";
@@ -528,7 +530,7 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 			, StorageName = "= filepath+'.shp'" 
 			, StorageType = "gdalwrite.vect"
 			{
-				attribute<BaseProjection>  poly (poly) := cleaned_catchments/poly;
+				attribute<BaseProjection>  Geometry (poly) := cleaned_catchments/poly;
 				attribute<float32>         Pop         := sum(Add_Unconnected_Grids/all_grids/Pop, cs_id);
 				attribute<uint8>           fua         := uint8(cleaned_catchments/fua);
 				//attribute<uint8>         exclv:= "uint8(cleaned_catchments/exclv);
@@ -540,7 +542,7 @@ Container Create_Catchments: using = "Settlement_Hierarchies;SourceData;" {
 				//attribute<float32>       mw_t:= (sum(OriginPoints/Pop * tt, dependent) / sum(OriginPoints/Pop, dependent))[Values];
 			}
 			unit<uint32> all_catchments_readonly 
-			: StorageName = "= propvalue(all_catchments/poly, 'StorageName')"
+			: StorageName = "= propvalue(all_catchments, 'StorageName')"
 			, StorageType = "gdal.vect"
 			, StorageReadOnly = "True" 
 			{

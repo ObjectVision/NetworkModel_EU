@@ -1,4 +1,4 @@
-container RegionalUnits : using = "geometries"
+container RegionalUnits : using = "geography"
 { 
 	unit<uint32> NUTS 
 	: StorageName = "%NetworkModelDataDir%/Regions/Nuts0.shp"
@@ -8,7 +8,31 @@ container RegionalUnits : using = "geometries"
 		attribute<LambertEA> geometry (poly);
 		attribute<bool>      IsEU            := IsDefined(geometry);
 	}
-
+	unit<uint32> NUTS1 := unique(NUTS3/N1_code)
+	{
+		unit<uint32> Subset := select(NUTS3/IsInStudyArea)
+		{
+			attribute<LambertEA>    geometry    (poly) := collect_by_cond(Subset, NUTS3/IsInStudyArea, Nuts3/geometry); 
+			parameter<LambertEA>    geometry_BB (poly) := points2sequence(BoundingBox/point_set/point); //, BoundingBox/point_set/Sequence_rel, BoundingBox/point_set/ordinal);
+			
+			container BoundingBox
+			{
+				parameter<LambertEA> bottom_left  := min(lower_bound(geometry));
+				parameter<LambertEA> top_right    := max(upper_bound(geometry));
+				parameter<LambertEA> top_left     := point_xy(Get_X(bottom_left),Get_Y(top_right), LambertEA);
+				parameter<LambertEA> bottom_right := point_xy(Get_X(top_right),Get_Y(bottom_left), LambertEA);
+				
+				unit<UInt32> point_set    : NrOfRows = 5
+				{
+					attribute<LambertEA> point        := union_data(., top_left, top_right, bottom_right, bottom_left, top_left);
+					attribute<..>        Sequence_rel := const(0, .);
+					attribute<.>         ordinal      := id(.);
+				}
+			}
+		}
+		attribute<LambertEA> WRITE_geometry(poly) := geos_union_polygon(NUTS3/geometry, NUTS3/NUTS1_rel), StorageName = "%NetworkModelDataDir%/Regions/Nuts1_derived.shp", StorageType = "shp";
+		attribute<LambertEA> geometry(poly): StorageName = "%NetworkModelDataDir%/Regions/Nuts1_derived.shp", StorageType = "shp";
+	}
 	unit<uint32> NUTS3 
 	: StorageName = "%NetworkModelDataDir%/Regions/Nuts3.shp"
 	, StorageType = "gdal.vect"
@@ -89,7 +113,26 @@ container RegionalUnits : using = "geometries"
 		attribute<bool>      IsCC            := CC_STAT == 'T'; 
 		attribute<bool>		 PopGridsAvailable:= IsEU || (IsEFTA && CNTR_ID <> 'IS');
 		attribute<bool>      IsTerritory       := strcount(SVRG_UN, 'Territory') > 0; 
-		unit<uint32> Subset := select_with_attr_by_cond(.,(ModelParameters/Use_Country_OD_selection ? name_engl == /ModelParameters/OD_SelectionCountry : IsEu || IsEFTA));
+		unit<uint32> Subset := select_with_attr_by_cond(.,(ModelParameters/Use_Country_selection ? name_engl == /ModelParameters/StudyArea : IsEu || IsEFTA))
+		{
+			attribute<LambertEA>    geometry_BB (poly, BoundingBox) := points2sequence(BoundingBox/point_set/point, BoundingBox/point_set/Sequence_rel, BoundingBox/point_set/ordinal);
+			attribute<uint32> 		population:= sum(geography/Base_grid_1km/Population, /geography/Base_grid_1km/Country_rel);
+			
+			unit<UInt32> BoundingBox : NrOfRows = 1
+			{
+				parameter<LambertEA> bottom_left  := min(lower_bound(geometry));
+				parameter<LambertEA> top_right    := max(upper_bound(geometry));
+				parameter<LambertEA> top_left     := point_xy(Get_X(bottom_left),Get_Y(top_right), LambertEA);
+				parameter<LambertEA> bottom_right := point_xy(Get_X(top_right),Get_Y(bottom_left), LambertEA);
+				
+				unit<UInt32> point_set    : NrOfRows = 5
+				{
+					attribute<LambertEA> point        := union_data(., top_left, top_right, bottom_right, bottom_left, top_left);
+					attribute<..>        Sequence_rel := const(0, .);
+					attribute<.>         ordinal      := id(.);
+				}
+			}
+		}
 	}
 	unit<uint32> LAU_2021_Housing
 	: StorageName = "%NetworkModelDataDir%/Regions/LAU2021_housing_census.shp"
