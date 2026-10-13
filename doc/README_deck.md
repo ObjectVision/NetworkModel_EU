@@ -36,6 +36,9 @@ julia --startup-file=no nl_maps.jl Netherlands LINEAR
 PYTHONIOENCODING=utf-8 python nl_maps.py Netherlands LINEAR
 
 # 3. assemble region + summary slides  ->  doc/region_summary.pptx      (Node + pptxgenjs)
+#    The cross-λ columns of the S1/S2 tables (p62-63) come from frontier_metrics_interp3.json,
+#    which step 5 writes: after new sweep data run it first, or those columns lag one build.
+PYTHONIOENCODING=utf-8 python frontier_metrics.py interp3
 npm install        # first time only (installs pptxgenjs locally)
 node build_deck.mjs                 # flags: --only <REGION>, --no-summary, --out <file>
 
