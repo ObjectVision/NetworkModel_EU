@@ -152,9 +152,23 @@ An LP-guided matheuristic, seconds per point (the LP dominates):
    stranded client at the 120-min OD cutoff, as the baseline's does (until 15 September
    2026 the rows counted the stranded at 0 min; `doc/recompute_mean_t.jl` recomputes the
    rows of older logs from their per-λ arrows, and `build_deck_data.py` applies the result).
+5. **Optional: unrestricted swap polish** (`FULL_SWAP=1`, #55). Step 3 only swaps within the
+   fractional pool and keeps the must-opens. Where the LP spreads *y* thinly (the tail beyond
+   S2), that cannot move a facility to the clients the rounding stranded, and each costs `BIG`.
+   The polish runs best-improving 1-swaps over *all* candidates, with any open facility allowed
+   to close, at the same count. It runs only where the multistart is at least
+   `FULL_SWAP_MIN_GAP` % above the bound below and λ ≥ `FULL_SWAP_MIN_LAMBDA` €, and is capped
+   by `FULL_SWAP_ROUNDS` swaps and `FULL_SWAP_TIME_LIMIT` s. The log records each attempt
+   (`full-swap polish at w=…`), and `travel_multi` holds the polished value where it improved.
+   On FR1 LINEAR beyond S2 it took the gap from 132 % / 148 % to 2.3 % / 11.8 %.
+   `polish_tail.jl` applies the same polish afterwards to the sets an earlier sweep stored,
+   without re-solving the LP, and only where a set still matches its log row (step 1b in
+   `doc/README_deck.md`).
 
-Because the result is a feasible point of the same problem, `LP relaxation ≤ integer optimum
-≤ multistart` — a certified gap on *total* cost, reported next to every figure.
+Because the result is a feasible point of the same problem with p = `n_open` locations, the
+Lagrangian bound at that count, `relax + λ·(Σy* − p) ≤ integer optimum ≤ multistart`, gives a
+certified gap on travel at that count (#55; `travel_relax` alone bounds only the fractional
+count Σy*). It is reported next to every figure.
 
 ### Scenarios
 
@@ -346,7 +360,7 @@ set TRAVEL_FUNC=LOGISTIC && julia lambda_sweep_simplex.jl   > logs\sweep_Netherl
 or, for a new area end to end, `run_new_country_sweeps.ps1`. Sweep knobs are environment
 variables (`COUNTRIES`, `TRAVEL_FUNC`, `SWEEP_WMAX`, `SWEEP_MULTS`, `SOLVER`,
 `LP_TIME_LIMIT`, `LOCATION_SELECTION_FACTOR`, `PROTECT_BASELINE`, `ROUNDING`, `MS_*`,
-`BIG_TRAVELTIME_MIN`, `LOGISTIC_MIDPOINT/SCALE`, `NUTS_EXCLUSION`, `NUTS_EXCLUDE_SHARE`);
+`FULL_SWAP*`, `BIG_TRAVELTIME_MIN`, `LOGISTIC_MIDPOINT/SCALE`, `NUTS_EXCLUSION`, `NUTS_EXCLUDE_SHARE`);
 `settings.jl` lists them with their defaults.
 The deck is regenerated with the four steps in `doc/README_deck.md`.
 

@@ -101,7 +101,7 @@ def panel(ax, fd, fn, title, count_lim):
     ulabel = "M person-minutes" if fn == "LINEAR" else "M person·c(t)"
 
     # LEFT: the two travel-cost bounds
-    ax.plot(lam, [r["relax"] / scale for r in rows], color=RELAX, lw=1.6, ls=(0, (5, 2)),
+    ax.plot(lam, [r.get("lb", r["relax"]) / scale for r in rows], color=RELAX, lw=1.6, ls=(0, (5, 2)),
             marker=".", ms=3.5, zorder=3)
     ax.plot(lam, [r["multi"] / scale for r in rows], color=MULTI, lw=1.8, marker=".", ms=3.5, zorder=4)
     ax.axhline(base["cost"] / scale, color=MULTI, lw=0.9, ls=":", alpha=0.8, zorder=2)

@@ -13,8 +13,19 @@ region slides and the summary are regenerated.
 julia --startup-file=no recompute_mean_t.jl
 
 # 1. parse logs/{sweep,refine,tail}_<region>_<FUNC>.log  ->  doc/deck_data.json
+#    (also writes doc/polish_rows.tsv, the rows with their multistart travel, for step 1b)
 PYTHONIOENCODING=utf-8 python build_deck_data.py
 PYTHONIOENCODING=utf-8 python check_s1s2.py       # S1 within max(1, 1%) of today's count, S2 within 1% of today's travel
+
+# 1b. optional (#55): polish the stored multistart sets of rows whose gap vs the bound at
+#     their count is >= FULL_SWAP_MIN_GAP %, by unrestricted swaps, without re-solving the LP;
+#     only sets that still match their log row are used ("stale" ones are listed and left).
+#     -> doc/full_swap_polish_<FUNC>.csv (+ arrows under lambda_sweep/<FUNC>/polished/);
+#     then re-run step 1, which applies them (multi/mean_t of polished rows; multi_ms keeps
+#     the multistart value) and warns if a polished row would move S2.
+cd .. && FULL_SWAP_MIN_GAP=1 TRAVEL_FUNC=LINEAR   julia --startup-file=no polish_tail.jl
+         FULL_SWAP_MIN_GAP=1 TRAVEL_FUNC=LOGISTIC julia --startup-file=no polish_tail.jl
+cd doc && PYTHONIOENCODING=utf-8 python build_deck_data.py
 
 # 2. render the per-region charts  ->  doc/charts/<region>_<FUNC>.png   (matplotlib)
 PYTHONIOENCODING=utf-8 python build_charts.py

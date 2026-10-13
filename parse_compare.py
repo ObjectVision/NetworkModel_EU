@@ -19,9 +19,12 @@ def parse(path):
             f = ln.split()
             if len(f) < 12: continue
             try:
-                rows.append(dict(w=float(f[0]), sum_x=float(f[2]), relax=float(f[3]),
-                                 topp=float(f[4]), greedy=float(f[5]), multi=float(f[6]),
-                                 n_open=int(f[7]), frac=int(f[10])))
+                r = dict(w=float(f[0]), lam=float(f[1]), sum_x=float(f[2]), relax=float(f[3]),
+                         topp=float(f[4]), greedy=float(f[5]), multi=float(f[6]),
+                         n_open=int(f[7]), frac=int(f[10]))
+                # bound at the integer count n_open (#55): relax + λ·(sum_y − n_open)
+                r["lb"] = r["relax"] + r["lam"] * (r["sum_x"] - r["n_open"])
+                rows.append(r)
             except ValueError: continue
     # S1/S2 w + stranded
     scen, cur = {}, None
@@ -38,8 +41,8 @@ def parse(path):
 
 def pct(a, b): return 100*(a-b)/b if b else 0.0
 
-print(f"\n{'='*120}\n{FUNC} — multistart vs top-p vs greedy vs LP-relaxed  (travel; stranded clients priced at BIG)\n{'='*120}")
-hdr = f"{'region':>12} {'pt':>3} {'w':>5} {'n_open':>6} {'frac':>5} | {'relax':>10} {'topp':>10} {'greedy':>10} {'multi':>10} | {'m/topp':>7} {'m/grdy':>7} {'m/relax':>8} | {'strand t/g/m':>14}"
+print(f"\n{'='*120}\n{FUNC} — multistart vs top-p vs greedy vs LB at n_open = relax + λ·(sum_y − n_open)  (travel; stranded clients priced at BIG)\n{'='*120}")
+hdr = f"{'region':>12} {'pt':>3} {'w':>5} {'n_open':>6} {'frac':>5} | {'LB@n':>10} {'topp':>10} {'greedy':>10} {'multi':>10} | {'m/topp':>7} {'m/grdy':>7} {'m/LB':>8} | {'strand t/g/m':>14}"
 print(hdr)
 for p in logs:
     reg = re.search(r"sweep_(.+)_"+FUNC, p).group(1)
@@ -51,6 +54,6 @@ for p in logs:
         if not r: continue
         st = scen[pt].get("st", (0,0,0))
         print(f"{reg:>12} {pt:>3} {w:>5g} {r['n_open']:>6} {r['frac']:>5} | "
-              f"{r['relax']:>10.3g} {r['topp']:>10.3g} {r['greedy']:>10.3g} {r['multi']:>10.3g} | "
-              f"{pct(r['multi'],r['topp']):>+6.1f}% {pct(r['multi'],r['greedy']):>+6.1f}% {pct(r['multi'],r['relax']):>+7.1f}% | "
+              f"{r['lb']:>10.3g} {r['topp']:>10.3g} {r['greedy']:>10.3g} {r['multi']:>10.3g} | "
+              f"{pct(r['multi'],r['topp']):>+6.1f}% {pct(r['multi'],r['greedy']):>+6.1f}% {pct(r['multi'],r['lb']):>+7.1f}% | "
               f"{st[0]:>4}/{st[1]:>4}/{st[2]:>4}")

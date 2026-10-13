@@ -62,6 +62,23 @@ const MS_RESTARTS = parse(Int, get(ENV, "MS_RESTARTS", "10"))  # incl. topp+gree
 const MS_ROUNDS   = parse(Int, get(ENV, "MS_ROUNDS",   "12"))  # max swaps per restart
 const MS_SEED     = parse(Int, get(ENV, "MS_SEED",     "20240601"))
 
+# Unrestricted swap polish of the multistart set (#55). The multistart swaps only within
+# the LP's fractional support and keeps the y≈1 facilities fixed; where the LP spreads y
+# thinly (the tail beyond S2) that neighbourhood cannot move a facility to the clients
+# the rounding stranded, and each costs BIG. FULL_SWAP=1 adds best-improving 1-swaps over
+# ALL candidates (any open facility may close) to the multistart result, at the same
+# count. It runs only at points that meet BOTH thresholds:
+#   FULL_SWAP_MIN_GAP    — multistart travel at least this many % above the Lagrangian
+#                          bound at its count, relax + λ·(sum_y − n_open)  (default 0)
+#   FULL_SWAP_MIN_LAMBDA — λ at least this many € (the log's λ column, w·FACILITY_MIN_COSTS;
+#                          function-specific, as the w ranges of LINEAR and LOGISTIC differ)
+# Caps per point: FULL_SWAP_ROUNDS swaps, FULL_SWAP_TIME_LIMIT seconds.
+const FULL_SWAP            = get(ENV, "FULL_SWAP", "0") == "1"
+const FULL_SWAP_MIN_GAP    = parse(Float64, get(ENV, "FULL_SWAP_MIN_GAP",    "0"))
+const FULL_SWAP_MIN_LAMBDA = parse(Float64, get(ENV, "FULL_SWAP_MIN_LAMBDA", "0"))
+const FULL_SWAP_ROUNDS     = parse(Int,     get(ENV, "FULL_SWAP_ROUNDS",     "2000"))
+const FULL_SWAP_TIME       = parse(Float64, get(ENV, "FULL_SWAP_TIME_LIMIT", "1800"))
+
 # Canonical name of the active travel-cost function (for output paths / labels).
 const FUNC_INT_TO_NAME = Dict(v => k for (k, v) in FUNC_NAMES)
 travel_func_name = FUNC_INT_TO_NAME[travel_func]

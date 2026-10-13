@@ -47,7 +47,7 @@ def build_aggregate(data):
                            for r in rows if w_lo <= r["w"] <= w_hi))
         rows = []
         for w in union:
-            a = dict(w=w, sum_y=0.0, relax=0.0, multi=0.0, n_open=0.0, frac=0.0, mean_t=0.0)
+            a = dict(w=w, sum_y=0.0, relax=0.0, lb=0.0, multi=0.0, n_open=0.0, frac=0.0, mean_t=0.0)
             ok = True
             for rr in per.values():
                 v = _interp_at(rr, w)
@@ -56,6 +56,7 @@ def build_aggregate(data):
                     break
                 for k in ("sum_y", "relax", "multi", "n_open", "frac"):
                     a[k] += v[k]
+                a["lb"] += v.get("lb", v["relax"])
             if ok:
                 a["n_open"] = round(a["n_open"])
                 a["frac"] = round(a["frac"])
@@ -123,7 +124,16 @@ def main():
                     "travelcost_multistart", "travelcost_lp_relaxation",
                     "facilitycost_eur", "totalcost_eur",
                     "mean_traveltime_min", "frac_open",
-                    "baseline_facilities", "baseline_travelcost", "on_pareto_frontier"])
+                    "baseline_facilities", "baseline_travelcost", "on_pareto_frontier",
+                    # #55: travelcost_lp_relaxation bounds the optimum at the fractional
+                    # count sum_y_lp; the bound at the integer count n_open is the
+                    # Lagrangian one, relax + lambda*(sum_y - n_open), and the gap of the
+                    # multistart set is taken against it. Appended so the earlier column
+                    # order is unchanged.
+                    "travelcost_lower_bound_at_n_open", "gap_pct_vs_lower_bound",
+                    # True where polish_tail.jl improved the stored multistart set by
+                    # unrestricted swaps (#55); travelcost_multistart is then the polished value
+                    "multistart_polished"])
         for reg, fd in entries:
             for fn in FUNCS:
                 f = fd.get(fn)
@@ -139,6 +149,8 @@ def main():
                     fac = lam * n_open if n_open is not None else None
                     is_env = (n_open is not None and multi is not None
                               and (round(n_open), round(multi, 6)) in on_env)
+                    lb = r.get("lb", r.get("relax"))
+                    gap = 100 * (multi - lb) / lb if (multi is not None and lb) else None
                     w.writerow([reg, fn, "%.6g" % r["w"], "%.2f" % lam,
                                 n_open,
                                 "%.3f" % r["sum_y"] if r.get("sum_y") is not None else "",
@@ -153,7 +165,10 @@ def main():
                                 r.get("frac", ""),
                                 base.get("cells", ""),
                                 "%.0f" % base["cost"] if base.get("cost") else "",
-                                is_env])
+                                is_env,
+                                "%.0f" % lb if lb is not None else "",
+                                "%.4f" % gap if gap is not None else "",
+                                bool(r.get("polished", False))])
                     n_sw += 1
 
     print("wrote %s   (%d rows: areas x cost function, incl. AGGREGATE)" % (cx_path, n_cx))

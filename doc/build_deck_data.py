@@ -1,7 +1,7 @@
 # Parse logs/sweep_<region>_<FUNC>.log into doc/deck_data.json for the slide generator.
 # Captures, per region x {LINEAR,LOGISTIC}: baseline (cells,cost,mean_t),
 # the Combined-sweep Pareto rows, and the S1/S2 scenario summary.
-import os, re, glob, json, io, sys, math
+import os, re, glob, json, io, sys, math, csv
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -95,7 +95,7 @@ def _interp_at(rows, w):
     if lo["w"] == hi["w"]:
         return lo
     f = (math.log(w) - math.log(lo["w"])) / (math.log(hi["w"]) - math.log(lo["w"]))
-    return {k: lo[k] + f * (hi[k] - lo[k]) for k in ("sum_y", "relax", "multi", "n_open", "frac", "mean_t")}
+    return {k: lo[k] + f * (hi[k] - lo[k]) for k in ("sum_y", "relax", "lb", "multi", "n_open", "frac", "mean_t")}
 
 
 def _cross(rows, key, target, descending):
@@ -107,7 +107,7 @@ def _cross(rows, key, target, descending):
         if xa == xb or not (min(xa, xb) <= target <= max(xa, xb)):
             continue
         f = (target - xa) / (xb - xa)
-        pt = {k: a[k] + f * (b[k] - a[k]) for k in ("sum_y", "relax", "multi", "n_open", "frac", "mean_t")}
+        pt = {k: a[k] + f * (b[k] - a[k]) for k in ("sum_y", "relax", "lb", "multi", "n_open", "frac", "mean_t")}
         pt["w"] = math.exp(math.log(a["w"]) + f * (math.log(b["w"]) - math.log(a["w"])))
         pt["n_open"] = round(pt["n_open"]); pt["frac"] = round(pt["frac"])
         return pt
@@ -127,12 +127,12 @@ def aggregate_group(parts, fn):
     union = sorted(set(round(r["w"], 12) for rows in per.values() for r in rows if w_lo <= r["w"] <= w_hi))
     rows = []
     for w in union:
-        agg = dict(w=w, sum_y=0.0, relax=0.0, multi=0.0, n_open=0.0, frac=0.0, mean_t=0.0)
+        agg = dict(w=w, sum_y=0.0, relax=0.0, lb=0.0, multi=0.0, n_open=0.0, frac=0.0, mean_t=0.0)
         vs = {reg: _interp_at(rr, w) for reg, rr in per.items()}
         if any(v is None for v in vs.values()):
             continue
         for reg, v in vs.items():
-            for k in ("sum_y", "relax", "multi", "n_open", "frac"):
+            for k in ("sum_y", "relax", "lb", "multi", "n_open", "frac"):
                 agg[k] += v[k]
             agg["mean_t"] += v["mean_t"] * pop[reg] / tot
         agg["n_open"] = round(agg["n_open"]); agg["frac"] = round(agg["frac"])
@@ -170,6 +170,13 @@ def num(s):
     return float(s)
 
 
+def lagrangian_lb(r, p):
+    """Lower bound on the travel optimum with exactly p open locations, from the LP
+    solved at r's price: weak duality gives opt_p >= LP(lambda) - lambda*p
+    = relax + lambda*(sum_y - p). Valid for every integer p (#55)."""
+    return r["relax"] + r["lam"] * (r["sum_y"] - p)
+
+
 # doc/recompute_mean_t.jl: the mean_t of every rounded row and of S1/S2, recomputed from
 # the per-w traveltime arrows with the stranded clients at the 120-min cutoff (rows logged
 # before 15 Sep 2026 counted them at 0 min; the baseline never did). Keyed by
@@ -180,6 +187,70 @@ if os.path.exists(mp):
     for ln in open(mp, encoding="utf-8").read().splitlines()[1:]:
         area, fn, label, w, _, m, _, _ = ln.split(",")
         MEAN_T[(area, fn, label if label != "row" else round(float(w), 9))] = float(m)
+
+
+# polish_tail.jl (#55): rows beyond S2 whose stored multistart set was polished by
+# unrestricted swaps (FULL_SWAP) without a new LP solve. Keyed like MEAN_T by (area as in
+# the logs, func, w rounded to 9 digits); only rows with status "polished" (strictly
+# better, verified against the log before polishing) are applied.
+POLISH = {}
+for pp in sorted(glob.glob(os.path.join(ROOT, "doc", "full_swap_polish_*.csv"))):
+    with open(pp, encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            if row["status"] == "polished":
+                POLISH[(row["area"], row["func"], round(float(row["w"]), 9))] = (
+                    float(row["multi_polished"]), float(row["mean_t_polished"]))
+
+
+def apply_polish(reg, fn, rows, scen):
+    """Replace multi/mean_t of polished rows, keeping the multistart value as multi_ms
+    (which polish_rows.tsv passes back to polish_tail.jl, so re-running it is idempotent)."""
+    for r in rows:
+        k = (reg, fn, round(r["w"], 9))
+        if k in POLISH:
+            r["multi_ms"] = r.get("multi_ms", r["multi"])
+            r["multi"], r["mean_t"] = POLISH[k]
+            r["polished"] = True
+    for lbl, d in scen.items():
+        k = (reg, fn, round(d.get("w", -1.0), 9))
+        if k in POLISH:
+            d["multi_ms"] = d.get("multi_ms", d.get("multi"))
+            d["multi"], d["mean_t"] = POLISH[k]
+            d["polished"] = True
+
+
+def write_polish_rows(out):
+    """doc/polish_rows.tsv: every region row the deck uses, with its multistart travel,
+    for polish_tail.jl (Julia has no JSON reader here). w/lam are written exactly (repr)."""
+    dest = os.path.join(ROOT, "doc", "polish_rows.tsv")
+    n = 0
+    with open(dest, "w", encoding="utf-8", newline="") as fh:
+        fh.write("region\tarea\tfunc\tw\tlam\tsum_y\trelax\tlb\tmulti_ms\tn_open\n")
+        for e in out:
+            if e.get("aggregated_from"):
+                continue
+            area = "Poland" if e["region"] == "Poland_sweep" else e["region"]
+            for fn, fd in e["func"].items():
+                for r in fd["rows"]:
+                    if "lam" not in r:
+                        continue
+                    fh.write("\t".join([e["region"], area, fn, repr(r["w"]), repr(r["lam"]),
+                                         repr(r["sum_y"]), repr(r["relax"]), repr(r["lb"]),
+                                         repr(r.get("multi_ms", r["multi"])), str(r["n_open"])]) + "\n")
+                    n += 1
+    return dest, n
+
+
+def warn_s2_shift(reg, fn, base, rows, scen):
+    """A polished row beyond S2 whose travel now falls to the baseline cost would move S2
+    to fewer locations; S2 itself comes from the sweep, so flag it rather than move it."""
+    s2 = scen.get("S2") or {}
+    if not s2.get("n_open") or not base.get("cost"):
+        return
+    for r in rows:
+        if r.get("polished") and r["n_open"] < s2["n_open"] and r["multi"] <= base["cost"]:
+            print(f"  WARNING {reg} {fn}: polished row w={r['w']} (n_open {r['n_open']}) reaches the "
+                  f"baseline travel below S2's n_open {s2['n_open']}: S2 may move (#55)")
 
 
 def apply_mean_t(reg, fn, rows, scen):
@@ -224,11 +295,16 @@ def parse(path):
             if len(f) < 12:
                 continue
             try:
-                rows.append(dict(w=num(f[0]), sum_y=num(f[2]), relax=num(f[3]),
-                                 topp=num(f[4]), greedy=num(f[5]), multi=num(f[6]),
-                                 n_open=int(f[7]), mean_t=num(f[9]), frac=int(f[10])))
+                r = dict(w=num(f[0]), lam=num(f[1]), sum_y=num(f[2]), relax=num(f[3]),
+                         topp=num(f[4]), greedy=num(f[5]), multi=num(f[6]),
+                         n_open=int(f[7]), mean_t=num(f[9]), frac=int(f[10]))
             except ValueError:
                 continue
+            # relax bounds the optimum at the fractional count sum_y; the bound at the
+            # integer count n_open the rounding opened is the Lagrangian one (#55):
+            # opt_p >= relax + lambda*(sum_y - p), lambda = the log's objective price.
+            r["lb"] = lagrangian_lb(r, r["n_open"])
+            rows.append(r)
 
     # S1/S2 scenario summary
     scen, cur = {}, None
@@ -268,6 +344,7 @@ def parse(path):
         for key in ("relax", "topp", "greedy"):
             d.setdefault(key, r[key])
         d.setdefault("multi", r["multi"])
+        d.setdefault("lb", lagrangian_lb(r, d.get("n_open", r["n_open"])))
     return base, rows, scen
 
 
@@ -315,17 +392,23 @@ def main():
                 rows = sorted(rows + [r for r in trows if round(r["w"], 9) not in have],
                               key=lambda r: r["w"])
             apply_mean_t(logreg, fn, rows, scen)
+            apply_polish(logreg, fn, rows, scen)
+            warn_s2_shift(reg, fn, base, rows, scen)
             entry["func"][fn] = {"baseline": base, "rows": rows, "scen": scen}
             ok = True
         if ok:
             out.append(entry)
     if only_set is None:
+        prow, nrow = write_polish_rows(out)
         add_aggregates(out)
     dest = os.path.join(ROOT, "doc", "deck_data.json")
     json.dump(out, open(dest, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(f"wrote {dest}: {len(out)} regions" +
           (f"; mean_t from mean_t_stranded.csv ({len(MEAN_T)} entries)" if MEAN_T else
-           "; mean_t as logged (no doc/mean_t_stranded.csv)"))
+           "; mean_t as logged (no doc/mean_t_stranded.csv)") +
+          (f"; {len(POLISH)} rows polished (full_swap_polish_*.csv)" if POLISH else ""))
+    if only_set is None:
+        print(f"wrote {prow}: {nrow} region rows for polish_tail.jl")
     for e in out:
         fs = ",".join(e["func"].keys())
         rc = {f: len(e["func"][f]["rows"]) for f in e["func"]}

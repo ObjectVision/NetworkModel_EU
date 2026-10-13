@@ -321,6 +321,9 @@ function analyze_country(country)
     pln()
     pln("Common λ sweep ($travel_func_name): fixed grid 1-2-5/decade, $w_min … $w_max, warm-start dual simplex, no early stop." *
         (tail_only ? "  SWEEP_TAIL_ONLY=1: grid rows only, no bisection, no scenario summary." : ""))
+    FULL_SWAP && pln("  FULL_SWAP=1 (#55): unrestricted swap polish of the multistart where its gap vs the bound ≥ " *
+                     "$(FULL_SWAP_MIN_GAP) % and λ ≥ $(FULL_SWAP_MIN_LAMBDA) € (caps $(FULL_SWAP_ROUNDS) swaps, " *
+                     "$(FULL_SWAP_TIME) s); travel_multi is the polished value where it improved.")
     print_sweep_header(target_raw)
 
     # --- S1/S2 refinement by bisection, interleaved with the coarse sweep (#52) --------
@@ -590,6 +593,7 @@ function analyze_country(country)
     pln("  sum_y         : $(round(s1.sum_y, digits=2))      (target $target_cells)")
     pln("  n_open        : $(s1.n_open)         frac_y: $(s1.n_frac)")
     pln("  travel_relax  : $(round(s1.travel_relax, digits=0))     (LP1 with all fractional x)")
+    pln("  travel_lb     : $(round(s1.travel_lb, digits=0))     (Lagrangian bound for the integer count: relax + λ·(sum_y − n_open))")
     pln("  travel_topp   : $(round(s1.travel_c_topp, digits=0))   greedy: $(round(s1.travel_c_greedy, digits=0))   multi: $(round(s1.travel_c_multi, digits=0))")
     pln("  stranded      : topp $(s1.uncov_topp)   greedy $(s1.uncov_greedy)   multi $(s1.uncov_multi)")
     pln("  travel_c ($(s1.rounding)): $(round(s1.cost_c, digits=0))     (selected; baseline $(round(base.cost_c, digits=0)))")
@@ -603,6 +607,7 @@ function analyze_country(country)
     pln("  sum_y         : $(round(s2.sum_y, digits=2))      (baseline cells $target_cells)")
     pln("  n_open        : $(s2.n_open)         frac_y: $(s2.n_frac)")
     pln("  travel_relax  : $(round(s2.travel_relax, digits=0))     (LP1 with all fractional x)")
+    pln("  travel_lb     : $(round(s2.travel_lb, digits=0))     (Lagrangian bound for the integer count: relax + λ·(sum_y − n_open))")
     pln("  travel_topp   : $(round(s2.travel_c_topp, digits=0))   greedy: $(round(s2.travel_c_greedy, digits=0))   multi: $(round(s2.travel_c_multi, digits=0))")
     pln("  stranded      : topp $(s2.uncov_topp)   greedy $(s2.uncov_greedy)   multi $(s2.uncov_multi)")
     pln("  travel_c ($(s2.rounding)): $(round(s2.cost_c, digits=0))     (selected; baseline $(round(base.cost_c, digits=0)))")

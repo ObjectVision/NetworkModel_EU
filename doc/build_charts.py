@@ -221,8 +221,11 @@ def _interp_at(rows, w):
         return lo
     f = (math.log(w) - math.log(lo["w"])) / (math.log(hi["w"]) - math.log(lo["w"]))
     mix = lambda k: lo[k] + f * (hi[k] - lo[k])
-    return dict(w=w, sum_y=mix("sum_y"), relax=mix("relax"), multi=mix("multi"),
-                n_open=mix("n_open"), frac=mix("frac"))
+    # lb: the Lagrangian bound at the row's integer count (#55); rows from a
+    # deck_data.json written before it existed fall back to relax.
+    lb = lambda r: r.get("lb", r["relax"])
+    return dict(w=w, sum_y=mix("sum_y"), relax=mix("relax"), lb=lb(lo) + f * (lb(hi) - lb(lo)),
+                multi=mix("multi"), n_open=mix("n_open"), frac=mix("frac"))
 
 
 def aggregate_fd(data, fn):
@@ -253,7 +256,7 @@ def aggregate_fd(data, fn):
     union = sorted(set(round(r["w"], 12) for rows in per.values() for r in rows if w_lo <= r["w"] <= w_hi))
     rows = []
     for w in union:
-        agg = dict(w=w, sum_y=0.0, relax=0.0, multi=0.0, n_open=0.0, frac=0.0, mean_t=0.0)
+        agg = dict(w=w, sum_y=0.0, relax=0.0, lb=0.0, multi=0.0, n_open=0.0, frac=0.0, mean_t=0.0)
         ok = True
         for reg, rr in per.items():
             v = _interp_at(rr, w)
@@ -261,6 +264,7 @@ def aggregate_fd(data, fn):
                 ok = False
                 break
             agg["sum_y"] += v["sum_y"]; agg["relax"] += v["relax"]; agg["multi"] += v["multi"]
+            agg["lb"] += v.get("lb", v["relax"])
             agg["n_open"] += v["n_open"]; agg["frac"] += v["frac"]
         if ok:
             agg["n_open"] = round(agg["n_open"]); agg["frac"] = round(agg["frac"])

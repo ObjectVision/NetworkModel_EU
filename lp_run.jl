@@ -245,6 +245,25 @@ function multistart_round(y_relaxed, data::CountryData, p_open, topp_set, greedy
     return best_set
 end
 
+# Unrestricted 1-swap polish (#55, FULL_SWAP): best-improving open↔closed swaps over ALL
+# candidates, and any open facility may close (also the y≈1 must-opens), until no swap
+# improves or a cap is hit. Same count as the input. Returns (set, swaps made).
+# On FR1 LINEAR beyond S2 this took the multistart from 132 % / 148 % above the bound to
+# 2.3 % / 11.8 % (logs/issue55_tailgap_FR1_LINEAR.log).
+function full_swap(open_set, data::CountryData;
+                   max_rounds=FULL_SWAP_ROUNDS, time_limit=FULL_SWAP_TIME)
+    BIG    = big_cost()
+    chosen = Set(open_set)
+    allf   = Set(data.facilities)
+    t0     = time()
+    for it in 1:max_rounds
+        d1, d2, phi1 = client_nearest(chosen, data, BIG)
+        swap_round!(chosen, allf, data, d1, d2, phi1) || return chosen, it - 1
+        time() - t0 > time_limit && return chosen, it
+    end
+    return chosen, max_rounds
+end
+
 function run_scenario(data::CountryData, min_clients, w, apply_threshold, nearest)
     (; N, facilities, wpop, t_ij_col, facilities_col, locations, facility_rows) = data
 
@@ -511,11 +530,17 @@ function solve_at_w!(state::WarmStartState, w::Real; rounding::Bool=true)
         stranded_relax += BIG_relax * wpop[rows[1]] * (1.0 - served_i)
     end
     travel_relax   = served_relax + stranded_relax
+    # travel_relax bounds the optimum at the FRACTIONAL count sum_y, not at the integer
+    # count the rounding opens. For any integer p, weak duality on the priced count gives
+    #   opt_p ≥ LP(λ) − λ·p = travel_relax + λ·(sum_y − p),
+    # so travel_lb below (at p = n_open) is the bound a rounded set must be compared with
+    # (#55): it is lower than travel_relax when n_open > sum_y, higher when n_open < sum_y.
+    lagrangian_lb(p) = travel_relax + λ * (sum_y - p)
 
     if !rounding
         return (
             w=w, λ=λ, n_open=clamp(round(Int, sum_y), 1, length(facilities)), cost_c=Inf, mean_t=NaN,
-            n_frac=n_fractional_y, sum_y=sum_y, travel_relax=travel_relax,
+            n_frac=n_fractional_y, sum_y=sum_y, travel_relax=travel_relax, travel_lb=NaN,
             travel_c_topp=NaN, travel_c_greedy=NaN, travel_c_multi=NaN,
             uncov_topp=-1, uncov_greedy=-1, uncov_multi=-1,
             rounding="none", open_set=Set{Int}(), assigned_k=Tuple{Int, Int}[],
@@ -540,6 +565,28 @@ function solve_at_w!(state::WarmStartState, w::Real; rounding::Bool=true)
     travel_c_greedy, uncov_greedy = travel_of(greedy_set, data, BIG)
     travel_c_multi,  uncov_multi  = travel_of(multi_set,  data, BIG)
 
+    # Unrestricted swap polish (#55): only with FULL_SWAP=1, and only where the multistart
+    # is at least FULL_SWAP_MIN_GAP % above the bound at its count and λ ≥ FULL_SWAP_MIN_LAMBDA.
+    # The polished set replaces the multistart one (so travel_multi in the log is the
+    # polished value) only when it is strictly better; one log line records each attempt.
+    if FULL_SWAP
+        lb_multi = lagrangian_lb(length(multi_set))
+        gap_pct  = lb_multi > 0 ? 100 * (travel_c_multi - lb_multi) / lb_multi : Inf
+        if gap_pct >= FULL_SWAP_MIN_GAP && λ >= FULL_SWAP_MIN_LAMBDA
+            t_pol = @elapsed (polished, n_sw) = full_swap(multi_set, data)
+            travel_pol, uncov_pol = travel_of(polished, data, BIG)
+            gap_pol = lb_multi > 0 ? 100 * (travel_pol - lb_multi) / lb_multi : Inf
+            println("  full-swap polish at w=$(round(w, sigdigits=5)): $n_sw swaps in $(round(t_pol, digits=1)) s, ",
+                    "travel $(round(travel_c_multi, digits=0)) -> $(round(travel_pol, digits=0)), ",
+                    "gap vs bound $(round(gap_pct, digits=3)) % -> $(round(gap_pol, digits=3)) %, ",
+                    "stranded cells $uncov_multi -> $uncov_pol")
+            flush(stdout)
+            if travel_pol < travel_c_multi
+                multi_set, travel_c_multi, uncov_multi = polished, travel_pol, uncov_pol
+            end
+        end
+    end
+
     open_set, travel_c, uncov =
         ROUNDING == "greedy"     ? (greedy_set, travel_c_greedy, uncov_greedy) :
         ROUNDING == "multistart" ? (multi_set,  travel_c_multi,  uncov_multi)  :
@@ -561,6 +608,7 @@ function solve_at_w!(state::WarmStartState, w::Real; rounding::Bool=true)
     return (
         w=w, λ=λ, n_open=length(open_set), cost_c=travel_c, mean_t=mean_t,
         n_frac=n_fractional_y, sum_y=sum_y, travel_relax=travel_relax,
+        travel_lb=lagrangian_lb(length(open_set)),
         travel_c_topp=travel_c_topp, travel_c_greedy=travel_c_greedy, travel_c_multi=travel_c_multi,
         uncov_topp=uncov_topp, uncov_greedy=uncov_greedy, uncov_multi=uncov_multi,
         rounding=ROUNDING, open_set=open_set, assigned_k=assigned_k,

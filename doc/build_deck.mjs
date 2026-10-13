@@ -38,6 +38,9 @@ const fmtCost = (v) => {
   return v.toFixed(0);
 };
 const pct = (a, b) => (b ? (100 * (a - b) / b) : 0);
+// #55: the gap of a rounded set is taken against the Lagrangian bound at its integer count,
+// lb = relax + λ·(Σy − n_open) (build_deck_data.py); older deck_data.json rows fall back to relax.
+const lbOf = (d) => (d.lb ?? d.relax);
 const spct = (v) => (v >= 0 ? "+" : "") + v.toFixed(0) + "%";
 
 function regionSlide(e) {
@@ -72,7 +75,7 @@ function regionSlide(e) {
       const d = fd.scen[pt];
       if (!d) continue;
       body.push([pt === "S1" ? fn : "", pt, (+d.w).toPrecision(3), String(d.n_open), String(d.frac),
-        spct(pct(d.multi, d.relax)), String((d.st || [0, 0, 0])[2])]);
+        spct(pct(d.multi, lbOf(d))), String((d.st || [0, 0, 0])[2])]);
     }
   };
   mk("LINEAR", e.func.LINEAR);
@@ -133,7 +136,7 @@ function aggregateSlide() {
     pts.push(["most facilities swept", A.many]);
     pts.forEach(([lab, d], i) => {
       body.push([i === 0 ? fn : "", lab, (+d.w).toPrecision(3), Math.round(d.n_open).toLocaleString("en-US"),
-        spct(pct(d.n_open, A.baseline.cells)), spct(pct(d.multi, d.relax)), spct(pct(d.multi, A.baseline.cost))]);
+        spct(pct(d.n_open, A.baseline.cells)), spct(pct(d.multi, lbOf(d))), spct(pct(d.multi, A.baseline.cost))]);
     });
   }
   const tRows = body.map((row, ri) => row.map((c, ci) => ({
@@ -174,7 +177,7 @@ function summarySlide() {
 
   // condensed comparison: cell = multi-vs-relax %  (multistart stranded), two blocks of 11
   const head = ["reg", "LIN S1", "LIN S2", "LOG S1", "LOG S2"];
-  const cell = (scen) => scen ? `${spct(pct(scen.multi, scen.relax))} (${(scen.st || [0, 0, 0])[2]})` : "—";
+  const cell = (scen) => scen ? `${spct(pct(scen.multi, lbOf(scen)))} (${(scen.st || [0, 0, 0])[2]})` : "—";
   const mkBlock = (slice) => {
     const body = [head.map((h) => ({ text: h, options: { bold: true, color: "FFFFFF", fill: NAVY, fontSize: 9, align: h === "reg" ? "left" : "center", fontFace: "Calibri", margin: [1, 2, 1, 3] } }))];
     slice.forEach((e, i) => {
@@ -800,14 +803,14 @@ function multistartSlide() {
   slide.addShape(pptx.ShapeType.roundRect, { x: 8.0, y: 1.42, w: 4.83, h: 3.9, rectRadius: 0.06, fill: { color: "F0F6F2" }, line: { color: "1E7A52", width: 1 } });
   slide.addText("Why this is an upper bound ✓", { x: 8.2, y: 1.54, w: 4.45, h: 0.3, fontSize: 13, bold: true, color: "1E7A52", fontFace: "Calibri" });
   slide.addText([
-    { text: "The rounded set is a feasible point of the same (soft-coverage) problem: exactly p pharmacies actually open (x integer), and every client is either assigned to its nearest open pharmacy or explicitly left unserved at BIG. Feasible ⟹ its objective can only be ≥ the integer optimum, which is ≥ the LP optimum:", options: { color: INK, breakLine: true } },
+    { text: "The rounded set is a feasible point of the same (soft-coverage) problem with p = n_open pharmacies actually open: every client is assigned to its nearest open pharmacy or explicitly left unserved at BIG. Feasible ⟹ its travel is ≥ the optimum with p pharmacies, which by weak duality on the priced count is ≥ the LP value moved to that integer count:", options: { color: INK, breakLine: true } },
     { text: "", options: { breakLine: true, fontSize: 4 } },
-    { text: "LP relax  ≤  integer optimum  ≤  multistart", options: { bold: true, color: "1E7A52", align: "center", breakLine: true } },
+    { text: "relax + λ·(Σy* − p)  ≤  optimum with p  ≤  multistart", options: { bold: true, color: "1E7A52", align: "center", breakLine: true } },
     { text: "", options: { breakLine: true, fontSize: 4 } },
     { text: "Rigorous throughout — no caveat needed. Under soft coverage leaving a client unserved is part of the feasible space, and it is priced at the same BIG in the LP bound, in the rounding and in the baseline. The unserved count is reported next to every figure.", options: { color: MUTED, breakLine: true } },
     { text: "", options: { breakLine: true, fontSize: 4 } },
-    { text: "The multi-vs-relax column in the end tables is therefore a certified optimality gap on TOTAL cost: the integer optimum lies inside it. ", options: { color: INK, italic: true } },
-    { text: "It does NOT bound travel and facility cost separately — the discrete solution may sit with higher travel and lower facility cost than the relaxation, or the reverse. For the logistic variant the bound is on the transformed cost c(t), not on minutes; mean_t is reported alongside and carries no bound. In practice the two bounds are now nearly a line for most areas.", options: { color: MUTED, italic: true, breakLine: true } },
+    { text: "The multi-vs-relax column in the end tables is therefore a certified optimality gap on travel at that pharmacy count: the integer optimum lies inside it. ", options: { color: INK, italic: true } },
+    { text: "The shift λ·(Σy* − p) is at most λ/2; it matters only where rounding opens more pharmacies than Σy*, which made a few gaps slightly negative before (#55). For the logistic variant the bound is on the transformed cost c(t), not on minutes; mean_t is reported alongside and carries no bound.", options: { color: MUTED, italic: true, breakLine: true } },
   ], { x: 8.2, y: 1.88, w: 4.45, h: 3.38, fontSize: 9.6, fontFace: "Calibri", valign: "top", lineSpacingMultiple: 1.0 });
 
   slide.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: 5.5, w: 12.33, h: 1.25, rectRadius: 0.06, fill: { color: PANEL }, line: { color: "D9E0E7", width: 1 } });
