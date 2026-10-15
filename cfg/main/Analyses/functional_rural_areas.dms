@@ -123,7 +123,7 @@ container Functional_Rural_Areas: using = "Units;Geography;SourceData/RegionalUn
 			attribute<float32>	   		Area:= float32(area(Geometry, float64));
 			attribute<ipoint> 	   		iGeom (polygon):= Geometry[ipoint];
 			attribute<uint32>	   		hasFua:= uint32(FUA);
-			attribute<uint32>			hasExclv:=const(0,.,uint32);//uint32(exclv);
+			//attribute<uint32>			hasExclv:=const(0,.,uint32);//uint32(exclv);
 			attribute<uint32>	   		in_fm:= pcount(FullMatrix/from_area);
 			
 			unit<uint32> NotFUAs:= select_with_org_rel(IsDefined(NodeRef)) {
@@ -168,7 +168,7 @@ container Functional_Rural_Areas: using = "Units;Geography;SourceData/RegionalUn
 					attribute<uint16>	 Iter:= const(0,.,uint16);
 					attribute<bool>		 iter_unfinished:= const(True,.,bool);
 					attribute<uint32>	 FUA:= hasFUA;
-					attribute<uint32>	 Exclv:= hasExclv;
+					//attribute<uint32>	 Exclv:= hasExclv;
 					attribute<uint32>	fconns:= uint32(sum(NewMatrix/conn, NewMatrix/from));
 					attribute<uint32>	tconns:= uint32(sum(NewMatrix/conn, NewMatrix/to));
 					attribute<float32>	min_t:=	MakeDefined(min_elem(min(NewMatrix/min, NewMatrix/from), min(NewMatrix/min, NewMatrix/to)), -1f);
@@ -208,7 +208,7 @@ container Functional_Rural_Areas: using = "Units;Geography;SourceData/RegionalUn
 					attribute<uint16>	 Iter:= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/Iter[org_rel];
 					attribute<uint32>	 Def:= uint32(Iter = max(Iter));
 					attribute<uint32>	 FUA:= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/FUA[org_rel];
-					attribute<uint32>	 Exclv:= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/Exclv[org_rel];
+//					attribute<uint32>	 Exclv:= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/Exclv[org_rel];
 					attribute<uint32>	 fconns:= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/fconns[org_rel];
 					attribute<uint32>	 tconns:= Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/tconns[org_rel];
 					//attribute<float32>	 min_t:=  Accumulate_Areas/lastIter/nextValue/Collect/IterAreas/min_t[org_rel];
@@ -223,7 +223,7 @@ container Functional_Rural_Areas: using = "Units;Geography;SourceData/RegionalUn
 					attribute<uint16>	 Iter;
 					attribute<uint32>	 Def;
 					attribute<uint32>	 FUA;
-					attribute<uint32>	 Exclv;
+					//attribute<uint32>	 Exclv;
 				}
 				unit<uint32> AreaCll_ReadOnly_Def:= select_with_org_rel(AreaCll_ReadOnly/Def = 1) {
 					attribute<LambertEA> Geometry (polygon):= AreaCll_ReadOnly/Geometry[org_rel];
@@ -233,7 +233,7 @@ container Functional_Rural_Areas: using = "Units;Geography;SourceData/RegionalUn
 					attribute<uint16>	 Iter:= AreaCll_ReadOnly/Iter[org_rel];
 					attribute<uint32>	 Def:= AreaCll_ReadOnly/Def[org_rel];
 					attribute<uint32>	 FUA:= AreaCll_ReadOnly/FUA[org_rel];
-					attribute<uint32>	 Exclv:= AreaCll_ReadOnly/Exclv[org_rel];
+					//attribute<uint32>	 Exclv:= AreaCll_ReadOnly/Exclv[org_rel];
 					attribute<ipoint>	 iGeom (polygon):= Geometry[ipoint];
 				}
 				parameter<uint32> 	nr_zones:= #AreaCll_ReadOnly_Def;
