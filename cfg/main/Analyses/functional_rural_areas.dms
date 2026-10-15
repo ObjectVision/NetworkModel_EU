@@ -123,7 +123,7 @@ container Functional_Rural_Areas: using = "Units;Geography;SourceData/RegionalUn
 			attribute<float32>	   		Area:= float32(area(Geometry, float64));
 			attribute<ipoint> 	   		iGeom (polygon):= Geometry[ipoint];
 			attribute<uint32>	   		hasFua:= uint32(FUA);
-			//attribute<uint32>			hasExclv:=const(0,.,uint32);//uint32(exclv);
+			attribute<uint32>			hasExclv:=const(0,.,uint32);//uint32(exclv);
 			attribute<uint32>	   		in_fm:= pcount(FullMatrix/from_area);
 			
 			unit<uint32> NotFUAs:= select_with_org_rel(IsDefined(NodeRef)) {
@@ -168,7 +168,7 @@ container Functional_Rural_Areas: using = "Units;Geography;SourceData/RegionalUn
 					attribute<uint16>	 Iter:= const(0,.,uint16);
 					attribute<bool>		 iter_unfinished:= const(True,.,bool);
 					attribute<uint32>	 FUA:= hasFUA;
-					//attribute<uint32>	 Exclv:= hasExclv;
+					attribute<uint32>	 Exclv:= hasExclv;
 					attribute<uint32>	fconns:= uint32(sum(NewMatrix/conn, NewMatrix/from));
 					attribute<uint32>	tconns:= uint32(sum(NewMatrix/conn, NewMatrix/to));
 					attribute<float32>	min_t:=	MakeDefined(min_elem(min(NewMatrix/min, NewMatrix/from), min(NewMatrix/min, NewMatrix/to)), -1f);
