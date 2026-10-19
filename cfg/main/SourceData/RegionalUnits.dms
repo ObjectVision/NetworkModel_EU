@@ -76,7 +76,7 @@ container RegionalUnits : using = "geography"
 			}
 		}
 	}
-	unit<uint32> FUA_2021:= FUA_2021_20251126;
+	unit<uint32> FUA_2021:= FUA_2021_20260114_B3;
 	unit<uint32> FUA_provisional_add:= select_with_attr_by_cond(FUA_provisional, FUA_provisional/add);
 	unit<uint32> FUA_provisional
 	: StorageName = "%NetworkModelDataDir%/Regions/FUA_2021_provisional.shp"
@@ -96,6 +96,13 @@ container RegionalUnits : using = "geography"
 	}
 	unit<uint32> FUA_2021_20251126
 	: StorageName = "%NetworkModelDataDir%/Regions/FUAs_2021_20251126.shp"
+	, StorageType = "gdal.vect"
+	, StorageReadOnly = "true"
+	{
+		attribute<LambertEA> geometry (poly);
+	}
+	unit<uint32> FUA_2021_20260114_B3
+	: StorageName = "%NetworkModelDataDir%/Regions/FUAs_B3_20260114.shp"
 	, StorageType = "gdal.vect"
 	, StorageReadOnly = "true"
 	{

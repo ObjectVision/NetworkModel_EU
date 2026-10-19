@@ -2,15 +2,13 @@ set pf="Program Files"
 set config=D:\ProjDir\NetworkModel_EU_FRA_development\cfg
 set geodmsversion=GeoDMS20.3.0.c
 
-rem set scenariolist=calib_elastic_local_speed calib_notelastic_local_speed calib_elastic_speed_inc_local_speed calib_notelastic_speed_inc_local_speed calib_elastic_rnd_speed_inc_local_speed calib_elastic_rnd_shortest_speed_inc_local_speed calib_elastic_ms0_speed_inc_local_speed calib_elastic_ms1_speed_inc_local_speed calib_elastic_ms2_speed_inc_local_speed
-rem set scenariolist=calib_elastic_rnd_speed_inc_local_speed calib_elastic_rnd_shortest_speed_inc_local_speed calib_elastic_ms0_speed_inc_local_speed calib_elastic_ms1_speed_inc_local_speed calib_elastic_ms2_speed_inc_local_speed
-rem set scenariolist=calib_notelastic_local_speed_19alt calib_elastic_local_speed_20wait_19alt calib_elastic_local_speed_00wait_19altrem 
-rem set scenariolist=calib_notelastic_local_speed_19alt calib_elastic_local_speed_20wait_19alt calib_elastic_local_speed_00wait_19alt calib_elastic_speed_inc_local_speed_19alt calib_elastic_rnd_local_speed_19alt calib_elastic_rnd_shortest_local_speed_19alt calib_elastic_ms0_local_speed_19alt calib_elastic_ms1_local_speed_19alt calib_elastic_ms2_local_speed_19alt
 set countrylist=AT BE BG CH DK ES EE EL CY CZ DE FR FI HR HU IE IT LI LT LU LV MT NL NO RO PL PT SE SI SK
 
 for %%c in (%countrylist%) do (
 	
 	echo %%c
+
+	rem C:\%pf%\ObjectVision\%geodmsversion%\GeoDmsRun.exe %config%\main.dms /Analyses/Create_Catchments/get_catchments_m10_d/Country_Catchments/%%c/store_catchment
 
 	C:\%pf%\ObjectVision\%geodmsversion%\GeoDmsRun.exe %config%\main.dms /Analyses/Functional_Rural_Areas/gen_eu_dom_10m/iterate_by_Memberstates/%%c/ResultsByVariant/button/runAll
 
